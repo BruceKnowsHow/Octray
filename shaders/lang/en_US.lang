@@ -1,0 +1,12 @@
+screen.Setup=Setup
+
+option.DEBUG=Debug
+option.DEBUG_VIEW=Debug View
+option.CRASH_DANGLING_SHOW=Crash Dangling Show()
+option.CRASH_DANGLING_SHOW.comment=Cause the shader to crash if there are any show() leftover in the code when Debug is turned off
+value.DEBUG_VIEW.-10=gbuffers_shadow
+value.DEBUG_VIEW.-1=gbuffers_opaque
+value.DEBUG_VIEW.0=deferred0
+value.DEBUG_VIEW.20=gbuffers_transparent
+value.DEBUG_VIEW.30=composite0
+value.DEBUG_VIEW.50=final
