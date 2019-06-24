@@ -24,6 +24,13 @@ vec3 fMin(vec3 a) {
 	// return vec3(lessThan(a.xyz, a.yzx) && lessThan(a.xyz, a.zxy));
 }
 
+float fMin(vec3 a, out vec3 val) {
+	float ret = min(a.x, min(a.y, a.z));
+	vec2 c = 1.0 - clamp((a.xy - ret) * 1e35, 0.0, 1.0);
+	val = vec3(c.xy, 1.0 - c.x - c.y);
+	return ret;
+}
+
 vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, const bool fromSurface) {
 	if (fromSurface)
 		rayOrig += rayDir * abs(rayOrig) * 0.0005;
@@ -111,17 +118,17 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane, float LOD, const bool
 	
 	vec3 bound = exp2(LOD) * floor(pos0 * exp2(-LOD) + dirPositive); // FloorN(exp2(LOD)), or ceilN if positive stepdir
 	
-	vec3 fPos0 = floor(pos0);
+	vec3 A = dirPositive - (floor(pos0) - pos0 + 1.0) * stepDir;
+	vec3 posRayDir = abs(rayDir);
 	
 	int t = 0;
 	
 	while (t++ < 128) {
+//	while (true) {
 		vec3 tMax = abs(bound - pos0) * tDelta;
-		plane = fMin(tMax);
-		float L = uintBitsToFloat(floatBitsToUint(dot(tMax, plane)) + (1 << 10));
-		vec3 B = pos0 + rayDir * L;
-		vec3 currStep = abs(fPos0 - floor(B));
+		float L = uintBitsToFloat(floatBitsToUint(fMin(tMax, plane)) + (1 << 2));
 		float oldPos = dot(pos, plane);
+		vec3 currStep = floor(posRayDir * L + A);
 		pos = pos0 + stepDir * currStep;
 		
 	//	Debug += 1.0 / 64.0;
@@ -137,7 +144,7 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane, float LOD, const bool
 		LOD -= (hit);
 		if (LOD < 0) return pos;
 		
-		vec3 a = exp2(LOD) * (floor(B*exp2(-LOD)) + dirPositive);
+		vec3 a = exp2(LOD) * (floor(pos*exp2(-LOD)) + dirPositive);
 		vec3 b = bound + stepDir * ((1.0 - hit) * exp2(LOD));
 		bound = mix(a, b, plane);
 	}
