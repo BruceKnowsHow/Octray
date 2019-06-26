@@ -7,7 +7,12 @@ float Lookup(vec3 position) {
 }
 
 float Lookup(vec3 position, int LOD) {
+//	return textureLod(shadowtex0, vec2(WorldToVoxelCoord(position, LOD) + 0.5)/shadowMapResolution, 0).x;
 	return texelFetch(shadowtex0, WorldToVoxelCoord(position, LOD), 0).x;
+}
+
+float Lookup(vec3 position, int LOD, const bool b) {
+	return textureLod(shadowtex0, WorldToVoxelCoord0(position, LOD, b), 0).x;
 }
 
 vec3 fMin(vec3 a) {
@@ -51,7 +56,7 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, const bool fromSur
 	float t = 0.0;
 	
 	// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep1&type=pdf
-	while (all(lessThan(abs(pos.xyz - vec3(0, 128, 0)), vec3(shadowRadius, 128.0, shadowRadius)))) {
+	while (all(lessThan(abs(pos.xyz - vec3(shadowRadius, 128, shadowRadius)), vec3(shadowRadius, 128.0, shadowRadius)))) {
 		float lookup = Lookup(pos);
 		
 		if (lookup < 1.0) return pos;
@@ -101,6 +106,7 @@ vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, int LOD, const 
 }
 
 const float epsilon = 1.0 / (512.0);
+const float epsilon2 = 1.0 / 1024.0/16 / 4;
 
 vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane, float LOD, const bool fromSurface) {
 	if (fromSurface)
@@ -114,37 +120,44 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane, float LOD, const bool
 	
 	vec3 stepDir = sign(rayDir);
 	vec3 dirPositive = (stepDir * 0.5 + 0.5);
-	vec3 tDelta  = 1.0 / abs(rayDir);
+	ivec3 dirNeg = ivec3(mix(vec3(-4.0), vec3(4.0), dirPositive));
+	vec3 tDelta  = 1.0 / rayDir;
 	
 	vec3 bound = exp2(LOD) * floor(pos0 * exp2(-LOD) + dirPositive); // FloorN(exp2(LOD)), or ceilN if positive stepdir
 	
-	vec3 A = dirPositive - (floor(pos0) - pos0 + 1.0) * stepDir;
-	vec3 posRayDir = abs(rayDir);
+	vec3 scalePos0 = -pos0 * tDelta;
+	vec3 P0 = pos0 + dirNeg*epsilon2;
 	
 	int t = 0;
 	
+	vec3 lodStep = vec3(int(pos0*exp2(-LOD-1)) != int(pos0*exp2(-LOD)));
+	
 	while (t++ < 128) {
 //	while (true) {
-		vec3 tMax = abs(bound - pos0) * tDelta;
-		float L = uintBitsToFloat(floatBitsToUint(fMin(tMax, plane)) + (1 << 2));
+		vec3 tMax = bound*tDelta + scalePos0;
+	//	vec3 tMax = (bound - pos0)*tDelta;
+		float L = fMin(tMax, plane);
 		float oldPos = dot(pos, plane);
-		vec3 currStep = floor(posRayDir * L + A);
-		pos = pos0 + stepDir * currStep;
+		pos = P0 + rayDir * L;
 		
-	//	Debug += 1.0 / 64.0;
+//		Debug += 1.0 / 64.0;
 		
-		if (any(greaterThan(abs(pos - vec2(128, 0).yxy), vec2(128, shadowRadius).yxy))) { break; }
+		if (any(greaterThan(abs(pos - vec2(128, shadowRadius).yxy), vec2(128, shadowRadius).yxy))) { break; }
 		
 		LOD += (abs(int(dot(pos,plane)*exp2(-LOD-1)) - int(oldPos*exp2(-LOD-1))));
+	//	if (dot(lodStep, plane) > 1.0) { ++LOD; lodStep = mix(lodStep, vec3(0.0), plane); }
 		LOD = min(LOD, 7);
 		
 		float lookup = Lookup(pos, int(LOD));
 		float hit = clamp(1e35 - lookup*1e35, 0.0, 1.0);
 		
 		LOD -= (hit);
+		lodStep += plane;
+		lodStep = mix(lodStep, lodStep * (1.0 - hit), plane);
 		if (LOD < 0) return pos;
 		
-		vec3 a = exp2(LOD) * (floor(pos*exp2(-LOD)) + dirPositive);
+		vec3 a = exp2(LOD) * floor(pos*exp2(-LOD)+dirPositive);
+	//	vec3 a = ((ivec3(pos) >> int(LOD)) << int(LOD)) + dirPositive*exp2(LOD);
 		vec3 b = bound + stepDir * ((1.0 - hit) * exp2(LOD));
 		bound = mix(a, b, plane);
 	}

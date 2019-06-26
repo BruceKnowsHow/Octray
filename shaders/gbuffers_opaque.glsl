@@ -84,6 +84,7 @@ void main() {
 #include "/../shaders/lib/encoding.glsl"
 
 uniform sampler2D tex;
+uniform sampler2D normals;
 
 uniform mat4 gbufferModelViewInverse;
 uniform vec3 cameraPosition;

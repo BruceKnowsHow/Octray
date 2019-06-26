@@ -4,13 +4,14 @@ const int shadowDiameter = 2 * shadowRadius;
 vec3 Part1Transform(vec3 position, int LOD) {
 	position.y += floor(cameraPosition.y);
 	
-//	position.xz += shadowRadius;
+	position.xz += shadowRadius;
 	
 	return position;
 }
 
 vec3 Part1InvTransform(vec3 position) {
 	position.y -= floor(cameraPosition.y);
+	position.xz -= shadowRadius;
 	
 	return position;
 }
@@ -24,7 +25,7 @@ ivec2 WorldToVoxelCoord0(vec3 position) { // Blocks are layed out one-dimensiona
 	const int widthl2 = int(log2(width));
 	const ivec2 shift = ivec2(ceil(log2(shadowDiameter)) * vec2(1.0, 2.0));
 	
-	position.xz += shadowRadius;
+//	position.xz += shadowRadius;
 	
 	ivec3 b = ivec3(position);
 	b.zy = b.zy << shift;
@@ -42,7 +43,34 @@ ivec2 WorldToVoxelCoord0(vec3 position, int LOD) { // Blocks are layed out one-d
 	const int width = shadowMapResolution;
 	const int widthl2 = int(log2(width));
 	
-	position.xz += shadowRadius;
+//	position.xz += shadowRadius;
+	
+	ivec3 b = ivec3(position) >> LOD;
+	b.zy = b.zy << ivec2((ceil(log2(shadowDiameter)) - LOD) * vec2(1.0, 2.0));
+	
+	int linenum = b.x + b.y + b.z;
+	
+	return ivec2(linenum % width, linenum >> widthl2) + lodOffset[LOD]*2;
+}
+
+vec2 WorldToVoxelCoord0(vec3 position, int LOD, const bool d) {
+	const ivec2 lodOffset[8] = ivec2[8](
+		ivec2(0, 0), ivec2(0, 4096), ivec2(0, 6144), ivec2(0, 7168),
+		ivec2(0, 7680), ivec2(0, 7936), ivec2(0, 8064), ivec2(0, 8128));
+	
+	const int width = shadowMapResolution;
+	const int widthl2 = int(log2(width));
+	
+//	position.xz += shadowRadius;
+	
+	vec3 a = floor(position * exp2(-LOD));
+	vec2 shift = (ceil(log2(shadowDiameter)) - LOD) * vec2(1.0, 2.0);
+	a.yz *= exp2(vec2(8.0, 8.0));
+	
+	a.x += a.z;
+	
+//	return (a.xy + lodOffset[LOD]*2 + 0.5) / shadowMapResolution;
+	
 	
 	ivec3 pos = ivec3(position) >> LOD;
 	
@@ -51,7 +79,8 @@ ivec2 WorldToVoxelCoord0(vec3 position, int LOD) { // Blocks are layed out one-d
 	
 	int linenum = b.x + b.y + b.z;
 	
-	return ivec2(linenum % width, linenum >> widthl2) + lodOffset[LOD]*2;
+	return (vec2(ivec2(linenum % width, linenum >> widthl2) + lodOffset[LOD]*2) + 0.5) / shadowMapResolution;
+//	return ivec2(linenum % width, linenum >> widthl2) + lodOffset[LOD]*2;
 }
 
 ivec2 WorldToVoxelCoord1(vec3 position, int LOD) { // Each 16x16x16 chunk is laid out as a 4096x1 strip. Chunk strips are stacked on top of eachother.
