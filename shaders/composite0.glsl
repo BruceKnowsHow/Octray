@@ -71,7 +71,6 @@ vec3 GetWorldSpacePosition(vec2 coord, float depth) {
 /* DRAWBUFFERS:0 */
 #include "/../shaders/lib/exit.glsl"
 
-
 void main() {
 	/*
 	vec3 c = textureLod(colortex1, texcoord, 0).xxx;
@@ -127,26 +126,25 @@ void main() {
 	vec3 wPos = GetWorldSpacePosition(texcoord, depth0); // Origin at eye
 	
 	vec3 lastDir = vec3(0.0);
-	vec3 marchPos = VoxelMarch(vec3(0.0), normalize(wPos), lastDir, 7, false);
+	vec3 marchPos = VoxelMarch(vec3(0.0), normalize(wPos), lastDir, 7);
 //	vec3 marchPos = vec3(0.0);
 	
 	vec3 rayDir = reflect(normalize(wPos), lastDir);
+	vec3 plane = lastDir;
 	vec3 currPos = Part1InvTransform(marchPos) - gbufferModelViewInverse[3].xyz - fract(cameraPosition);;
 	int LOD = 7;
 	
 	vec3 C = vec3(0.0);
 	float alpha = 1.0;
 	
-	for (int i = 0; i < 2; ++i) {
-		vec3 plane = vec3(0.0);
-		currPos = VoxelMarch(currPos, rayDir, plane, LOD, true);
-		LOD = 0;
+	for (int i = 0; i < 1; ++i) {
+		currPos = VoxelMarch(currPos, rayDir, plane, 0);
 		if (currPos.z == -1e35) { C = SKY.rgb*alpha; break; }
 		
 		vec3 benin = Part1InvTransform(currPos) - gbufferModelViewInverse[3].xyz - fract(cameraPosition);
 		
 		vec3 coord = fract(currPos);
-		show(coord);
+		
 		coord.xy = (abs(plane.y) > 0.5) ? (coord.xz) : ((abs(plane.x) > 0.5) ? coord.zy :  coord.xy);
 	//	coord.xy = (abs(plane.y) > 0.5) ? (coord.xz) : ((abs(plane.x) > 0.5) ? coord.xy :  coord.zy);
 		
@@ -158,17 +156,15 @@ void main() {
 		
 		C += textureLod(colortex2, tCoord, 0).rgb * unpackVertColor(Lookup(currPos, 1)) * alpha;
 		alpha *= 1.0-dot(normalize(benin), plane*sign(benin));
-		show(1.0-dot(normalize(benin), plane*sign(benin)))
+		
 		currPos = benin;
 		rayDir = reflect(rayDir, plane * sign(rayDir));
 	}
 	
-//	marchPos = Part1Transform(currPos, 0) + gbufferModelViewInverse[3].xyz + fract(cameraPosition);
-//	show(Part1InvTransform(marchPos))
-	vec3 sunlightDir = vec3(0.0);
+	vec3 sunlightDir = lastDir;
 //	float sunlight = 1.0 - 0.5 * float(VoxelMarch1(wPos, normalize(vec3(0.8, 0.3, 0.5)), sunlightDir, 0, true).z > -1e34);
 	vec3 light = normalize(mat3(gbufferModelViewInverse) * shadowLightPosition);
-	float sunlight = 1.0 - 0.5 * float(VoxelMarch(wPos, light, sunlightDir, 0, true).z > -1e34);
+	float sunlight = 1.0 - 0.5 * float(VoxelMarch(wPos, light, sunlightDir, 0).z > -1e34);
 //	float sunlight = 1.0;
 	
 //	wPos = marchPos - (+ gbufferModelViewInverse[3].xyz + fract(cameraPosition));
@@ -176,11 +172,7 @@ void main() {
 	
 	vec2 midTexCoord = unpackTexcoord(Lookup(marchPos, 0));
 	
-	mat3 tbnMatrix;
-//	tbnMatrix[0] = normalize(texture2D(colortex5, texcoord).rgb);
-	tbnMatrix[0] = normalize(vec3(lastDir.z, 0.0, 1.0-lastDir.z));
-	tbnMatrix[2] = normalize(lastDir * sign(-wPos));
-	tbnMatrix[1] = normalize(cross(tbnMatrix[0], tbnMatrix[2]));
+	mat3 tbnMatrix = DecodeNormalU(texelFetch(colortex5, ivec2(texcoord*viewSize), 0).r);
 	
 	vec3 coord = (fract(wPos + fract(cameraPosition + gbufferModelViewInverse[3].xyz)) * 2.0 - 1.0) * tbnMatrix * 0.5 + 0.5;
 	
@@ -188,10 +180,10 @@ void main() {
 	vec2 cornerTexCoord = midTexCoord - 0.5 * spriteSize; // Coordinate of texture's starting corner in [0, 1] texture space
 	vec2 coordInSprite = coord.xy * spriteSize; // Fragment's position within sprite space
 	
-//	vec2 tCoord = textureLod(colortex1, texcoord, 0).st;
-	vec2 tCoord = cornerTexCoord + coordInSprite;
+	vec2 tCoord = textureLod(colortex1, texcoord, 0).st;
+//	vec2 tCoord = cornerTexCoord + coordInSprite;
 	
-	vec3 vColor = unpackVertColor(Lookup(marchPos, 1));
+	vec3 vColor = rgb(vec3(unpack2x8(texelFetch(colortex1, ivec2(texcoord*viewSize), 0).b), 1.0));
 	
 	vec3  color   = textureLod(colortex2, tCoord, 0).rgb * vColor;// * vColor;
 	vec3 tNormal   = textureLod(colortex3, tCoord, 0).rgb;
@@ -199,8 +191,8 @@ void main() {
 	
 	gl_FragData[0].rgb = color;
 	gl_FragData[0].rgb = (C+color)/2.0;
-	gl_FragData[0].rgb = mix(color*sunlight, C, 1.0+dot(normalize(wPos), tbnMatrix[2]));
-//	gl_FragData[0].rgb = mix(color*sunlight, C, 0.3);
+	gl_FragData[0].rgb = mix(color*sunlight, C, pow(1.0+dot(normalize(wPos), tbnMatrix[2]), 2.0));
+//	gl_FragData[0].rgb = mix(color*sunlight, C, 1.0);
 	
 //	show(texelFetch(shadowtex0, ivec2(texcoord * shadowMapResolution), 0).x < 1.0)
 //	show(texelFetch(shadowtex0, ivec2(texcoord * shadowMapResolution/vec2(16.0, 256.0)), 0).x < 1.0)

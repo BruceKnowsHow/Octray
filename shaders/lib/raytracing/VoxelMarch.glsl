@@ -108,9 +108,8 @@ vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, int LOD, const 
 const float epsilon = 1.0 / (512.0);
 const float epsilon2 = 1.0 / 1024.0/16 / 4;
 
-vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane, float LOD, const bool fromSurface) {
-	if (fromSurface)
-		rayOrig += rayDir * abs(rayOrig) * epsilon;
+vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, inout vec3 plane, float LOD) {
+	rayOrig += plane * abs(rayOrig) * sign(rayDir) * epsilon;
 	
 	vec3 pos0 = Part1Transform(rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition), int(LOD));
 	vec3 pos  = pos0;
@@ -130,7 +129,8 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane, float LOD, const bool
 	
 	int t = 0;
 	
-	vec3 lodStep = vec3(int(pos0*exp2(-LOD-1)) != int(pos0*exp2(-LOD)));
+	vec3 lodStep = vec3(floor(pos0*exp2(-LOD-1)) == floor(pos0*exp2(-LOD)));
+	lodStep = mix(lodStep, 1.0-lodStep, 1.0-dirPositive)*0;
 	
 	while (t++ < 128) {
 //	while (true) {
@@ -140,12 +140,12 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane, float LOD, const bool
 		float oldPos = dot(pos, plane);
 		pos = P0 + rayDir * L;
 		
-//		Debug += 1.0 / 64.0;
+	//	Debug += 1.0 / 128.0;
 		
 		if (any(greaterThan(abs(pos - vec2(128, shadowRadius).yxy), vec2(128, shadowRadius).yxy))) { break; }
 		
 		LOD += (abs(int(dot(pos,plane)*exp2(-LOD-1)) - int(oldPos*exp2(-LOD-1))));
-	//	if (dot(lodStep, plane) > 1.0) { ++LOD; lodStep = mix(lodStep, vec3(0.0), plane); }
+	//	if (dot(lodStep, plane) > 1.5) { ++LOD; lodStep = mix(lodStep, vec3(0.0), plane); }
 		LOD = min(LOD, 7);
 		
 		float lookup = Lookup(pos, int(LOD));

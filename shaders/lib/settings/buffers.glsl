@@ -3,8 +3,8 @@
 
 /*
 const int colortex0Format = RGB8;
-const int colortex1Format = RG16; // texcoord.st
-const int colortex5Format = RGB32F;
+const int colortex1Format = RGB16; // texcoord.st
+const int colortex5Format = R32F;
 
 const bool colortex0Clear = false;
 const bool colortex1Clear = false;

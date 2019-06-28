@@ -125,7 +125,7 @@ void main() {
 	#endif
 	
 	
-	vec3 triCentroid = (wPosition[0] + wPosition[1] + wPosition[2]) / 3.0 - vNormal[0] / 2.0;
+	vec3 triCentroid = (wPosition[0] + wPosition[1] + wPosition[2]) / 3.0 - vNormal[0] / 32.0;
 	
 	_vColor = vColor[0];
 	_midTexCoord = midTexCoord[0];
