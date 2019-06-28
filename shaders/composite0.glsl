@@ -123,13 +123,26 @@ void main() {
 		return;
 	}
 	
+	
+	mat3 tbnMatrix = DecodeNormalU(texelFetch(colortex5, ivec2(texcoord*viewSize), 0).r);
+	
+	vec2 tCoord = textureLod(colortex1, texcoord, 0).st;
+//	vec2 tCoord = cornerTexCoord + coordInSprite;
+	
+	vec3 vColor = rgb(vec3(unpack2x8(texelFetch(colortex1, ivec2(texcoord*viewSize), 0).b), 1.0));
+	
+	vec3  color   =  textureLod(colortex2, tCoord, 0).rgb * vColor;// * vColor;
+	vec3 normal   = (textureLod(colortex3, tCoord, 0).rgb * 2.0 - 1.0) * tbnMatrix;
+	vec3 specular =  textureLod(colortex4, tCoord, 0).rgb;
+	
+	
 	vec3 wPos = GetWorldSpacePosition(texcoord, depth0); // Origin at eye
 	
 	vec3 lastDir = vec3(0.0);
 	vec3 marchPos = VoxelMarch(vec3(0.0), normalize(wPos), lastDir, 7);
 //	vec3 marchPos = vec3(0.0);
 	
-	vec3 rayDir = reflect(normalize(wPos), lastDir);
+	vec3 rayDir = reflect(normalize(wPos), normal);
 	vec3 plane = lastDir;
 	vec3 currPos = Part1InvTransform(marchPos) - gbufferModelViewInverse[3].xyz - fract(cameraPosition);;
 	int LOD = 7;
@@ -162,32 +175,17 @@ void main() {
 	}
 	
 	vec3 sunlightDir = lastDir;
-//	float sunlight = 1.0 - 0.5 * float(VoxelMarch1(wPos, normalize(vec3(0.8, 0.3, 0.5)), sunlightDir, 0, true).z > -1e34);
 	vec3 light = normalize(mat3(gbufferModelViewInverse) * shadowLightPosition);
 	float sunlight = 1.0 - 0.5 * float(VoxelMarch(wPos, light, sunlightDir, 0).z > -1e34);
 //	float sunlight = 1.0;
 	
-//	wPos = marchPos - (+ gbufferModelViewInverse[3].xyz + fract(cameraPosition));
-//	wPos.y -= floor(cameraPosition.y);
-	
 	vec2 midTexCoord = unpackTexcoord(Lookup(marchPos, 0));
-	
-	mat3 tbnMatrix = DecodeNormalU(texelFetch(colortex5, ivec2(texcoord*viewSize), 0).r);
 	
 	vec3 coord = (fract(wPos + fract(cameraPosition + gbufferModelViewInverse[3].xyz)) * 2.0 - 1.0) * tbnMatrix * 0.5 + 0.5;
 	
 	vec2 spriteSize = 16.0 / atlasSize; // Sprite size in [0, 1] texture space
 	vec2 cornerTexCoord = midTexCoord - 0.5 * spriteSize; // Coordinate of texture's starting corner in [0, 1] texture space
 	vec2 coordInSprite = coord.xy * spriteSize; // Fragment's position within sprite space
-	
-	vec2 tCoord = textureLod(colortex1, texcoord, 0).st;
-//	vec2 tCoord = cornerTexCoord + coordInSprite;
-	
-	vec3 vColor = rgb(vec3(unpack2x8(texelFetch(colortex1, ivec2(texcoord*viewSize), 0).b), 1.0));
-	
-	vec3  color   = textureLod(colortex2, tCoord, 0).rgb * vColor;// * vColor;
-	vec3 tNormal   = textureLod(colortex3, tCoord, 0).rgb;
-	vec3 specular = textureLod(colortex4, tCoord, 0).rgb;
 	
 	gl_FragData[0].rgb = color;
 	gl_FragData[0].rgb = (C+color)/2.0;
