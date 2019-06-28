@@ -36,13 +36,13 @@ float fMin(vec3 a, out vec3 val) {
 	return ret;
 }
 
-vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, const bool fromSurface) {
-	if (fromSurface)
-		rayOrig += rayDir * abs(rayOrig) * 0.0005;
+const float epsilon = 1.0 / (512.0);
+const float epsilon2 = 1.0 / 1024.0/16 / 4;
+
+vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane) {
+	rayOrig += plane * abs(rayOrig) * sign(rayDir) * epsilon*0;
 	
-	vec3 adjOrig = rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition);
-	
-	vec3 pos0 = Part1Transform(adjOrig, 0);
+	vec3 pos0 = Part1Transform(rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition), 0);
 	vec3 pos  = pos0;
 	
 	vec3 stepDir = sign(rayDir);
@@ -56,13 +56,13 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, const bool fromSur
 	float t = 0.0;
 	
 	// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep1&type=pdf
-	while (all(lessThan(abs(pos.xyz - vec3(shadowRadius, 128, shadowRadius)), vec3(shadowRadius, 128.0, shadowRadius)))) {
+	while (t++ < 128 && all(lessThan(abs(pos.xyz - vec3(shadowRadius, 128, shadowRadius)), vec3(shadowRadius, 128.0, shadowRadius)))) {
 		float lookup = Lookup(pos);
 		
-		if (lookup < 1.0) return pos;
+		if (lookup < 1.0) return pos0+dot(plane,tMax)*rayDir;
 		
-		lastStep = fMin(tMax);
-		muls = muls + lastStep;
+		plane = fMin(tMax);
+		muls = muls + plane;
 		
 		tMax = tMax0 + tDelta * muls;
 		pos = pos0 + stepDir * muls;
@@ -71,13 +71,10 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, const bool fromSur
 	return vec3(0.0, 0.0, -1e35);
 }
 
-vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, int LOD, const bool fromSurface) {
-	if (fromSurface)
-		rayOrig += rayDir * abs(rayOrig) * 0.0005;
+vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, inout vec3 plane, int LOD) {
+	rayOrig += plane * abs(rayOrig) * sign(rayDir) * epsilon;
 	
-	vec3 adjOrig = rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition);
-	
-	vec3 pos0 = Part1Transform(adjOrig, LOD);
+	vec3 pos0 = Part1Transform(rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition), LOD);
 	vec3 pos  = pos0;
 	
 	vec3 stepDir = sign(rayDir);
@@ -90,13 +87,13 @@ vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, int LOD, const 
 	
 	float t = 0.0;
 	
-	while (all(lessThan(abs(pos.xyz - vec3(0, 128, 0)), vec3(shadowRadius, 128.0, shadowRadius)))) {
+	while (t++ < 128 && all(lessThan(abs(pos.xyz - vec2(128, shadowRadius).yxy), vec2(128, shadowRadius).yxy))) {
 		float lookup = Lookup(pos, LOD);
 		
-		if (lookup < 1.0) return pos;
+		if (lookup < 1.0) return pos0+dot(plane,tMax)*rayDir;
 		
-		lastStep = fMin(tMax) * exp2(LOD);
-		muls = muls + lastStep;
+		plane = fMin(tMax) * exp2(LOD);
+		muls = muls + plane;
 		
 		tMax = tMax0 + tDelta * muls;
 		pos = pos0 + stepDir * muls;
@@ -104,9 +101,6 @@ vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, out vec3 lastStep, int LOD, const 
 	
 	return vec3(0.0, 0.0, -1e35);
 }
-
-const float epsilon = 1.0 / (512.0);
-const float epsilon2 = 1.0 / 1024.0/16 / 4;
 
 vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, inout vec3 plane, float LOD) {
 	rayOrig += plane * abs(rayOrig) * sign(rayDir) * epsilon;
@@ -132,7 +126,7 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, inout vec3 plane, float LOD) {
 	vec3 lodStep = vec3(floor(pos0*exp2(-LOD-1)) == floor(pos0*exp2(-LOD)));
 	lodStep = mix(lodStep, 1.0-lodStep, 1.0-dirPositive)*0;
 	
-	while (t++ < 128) {
+	while (t++ < 256) {
 //	while (true) {
 		vec3 tMax = bound*tDelta + scalePos0;
 	//	vec3 tMax = (bound - pos0)*tDelta;

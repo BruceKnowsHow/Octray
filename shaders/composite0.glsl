@@ -144,8 +144,7 @@ void main() {
 	
 	vec3 rayDir = reflect(normalize(wPos), normal);
 	vec3 plane = lastDir;
-	vec3 currPos = Part1InvTransform(marchPos) - gbufferModelViewInverse[3].xyz - fract(cameraPosition);;
-	int LOD = 7;
+	vec3 currPos = Part1InvTransform(marchPos) - gbufferModelViewInverse[3].xyz - fract(cameraPosition);
 	
 	vec3 C = vec3(0.0);
 	float alpha = 1.0;
@@ -162,7 +161,7 @@ void main() {
 	//	coord.xy = (abs(plane.y) > 0.5) ? (coord.xz) : ((abs(plane.x) > 0.5) ? coord.xy :  coord.zy);
 		
 		vec2 midTexCoord = unpackTexcoord(Lookup(currPos, 0));
-		vec2 spriteSize = 16.0 / atlasSize; // Sprite size in [0, 1] texture space
+		vec2 spriteSize = 64.0 / atlasSize; // Sprite size in [0, 1] texture space
 		vec2 cornerTexCoord = midTexCoord - 0.5 * spriteSize; // Coordinate of texture's starting corner in [0, 1] texture space
 		vec2 coordInSprite = coord.xy * spriteSize; // Fragment's position within sprite space
 		vec2 tCoord = cornerTexCoord + coordInSprite;
