@@ -96,7 +96,7 @@ flat in vec2 midTexCoord;
 void main() {
 	if (discardflag > 0.0) discard;
 	if (textureLod(tex, texcoord, 0).a <= 0.1*0) discard;
-	
+	show(textureQueryLod(tex, texcoord).r/4.0)
 	gl_FragData[0] = vec4(texcoord, pack2x8(hsv(vColor).rg), 1.0);
 	gl_FragData[1] = vec4(EncodeNormalU(tbnMatrix), 0.0, 0.0, 1.0);
 	

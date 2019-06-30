@@ -102,14 +102,14 @@ vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, inout vec3 plane, int LOD) {
 	return vec3(0.0, 0.0, -1e35);
 }
 
-vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, inout vec3 plane, float LOD) {
-	rayOrig += plane * abs(rayOrig) * sign(rayDir) * epsilon;
+float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD) {
+	pos += plane * abs(pos) * sign(rayDir) * epsilon;
 	
-	vec3 pos0 = Part1Transform(rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition), int(LOD));
-	vec3 pos  = pos0;
+	vec3 pos0 = Part1Transform(pos + gbufferModelViewInverse[3].xyz + fract(cameraPosition), int(LOD));
+	pos = pos0;
 	
 	while (LOD > 0 && Lookup(pos0, int(LOD)) < 1.0) --LOD; // March down to the LOD at which we don't hit anything
-	if (LOD == 0 && Lookup(pos0, int(LOD)) < 1.0) return pos0; // If already inside a block, return
+	if (LOD == 0 && Lookup(pos0, 0) < 1.0) return Lookup(pos0, 0); // If already inside a block, return
 	
 	vec3 stepDir = sign(rayDir);
 	vec3 dirPositive = (stepDir * 0.5 + 0.5);
@@ -126,7 +126,7 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, inout vec3 plane, float LOD) {
 	vec3 lodStep = vec3(floor(pos0*exp2(-LOD-1)) == floor(pos0*exp2(-LOD)));
 	lodStep = mix(lodStep, 1.0-lodStep, 1.0-dirPositive)*0;
 	
-	while (t++ < 256) {
+	while (t++ < 128) {
 //	while (true) {
 		vec3 tMax = bound*tDelta + scalePos0;
 	//	vec3 tMax = (bound - pos0)*tDelta;
@@ -134,6 +134,7 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, inout vec3 plane, float LOD) {
 		float oldPos = dot(pos, plane);
 		pos = P0 + rayDir * L;
 		
+	//	Debug += rgb(vec3(LOD/8.0, 1.0, 1.0))/64.0;
 	//	Debug += 1.0 / 128.0;
 		
 		if (any(greaterThan(abs(pos - vec2(128, shadowRadius).yxy), vec2(128, shadowRadius).yxy))) { break; }
@@ -148,7 +149,7 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, inout vec3 plane, float LOD) {
 		LOD -= (hit);
 		lodStep += plane;
 		lodStep = mix(lodStep, lodStep * (1.0 - hit), plane);
-		if (LOD < 0) return pos;
+		if (LOD < 0) return lookup;
 		
 		vec3 a = exp2(LOD) * floor(pos*exp2(-LOD)+dirPositive);
 	//	vec3 a = ((ivec3(pos) >> int(LOD)) << int(LOD)) + dirPositive*exp2(LOD);
@@ -156,5 +157,5 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, inout vec3 plane, float LOD) {
 		bound = mix(a, b, plane);
 	}
 	
-	return vec3(0.0, 0.0, -1e35);
+	return -1e35;
 }
