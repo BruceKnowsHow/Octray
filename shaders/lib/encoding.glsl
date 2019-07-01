@@ -1,34 +1,14 @@
 #include "/../shaders/lib/utility.glsl"
 
-float EncodeNormal(vec3 normal) {
-	normal = clamp(normal, -1.0, 1.0);
-	normal.xy = vec2(atan(normal.x, normal.z), acos(normal.y)) / PI;
-	normal.x += 1.0;
-	normal.xy = round(normal.xy * 2048.0);
-	normal.y = min(normal.y, 2047.0);
-	
-	uvec2 enc = uvec2(normal.xy);
-	enc.x = enc.x & 4095;
-	enc.y = enc.y << uint(12);
-	
-	return uintBitsToFloat(enc.x + enc.y);
+vec2 EncodeNormal(vec3 normal) {
+    return vec2(normal.xy * inversesqrt(normal.z * 8.0 + 8.0) + 0.5);
 }
 
-vec3 DecodeNormal(float enc) {
-	uvec3 e = uvec3(floatBitsToUint(enc));
-	e.y = e.y >> 12;
-	e.xy = e.xy & uvec2(4095, 2047);
-	
-	vec4 normal;
-	
-	normal.xy   = e.xy;
-	normal.xy  /= 2048.0;
-	normal.x   -= 1.0;
-	normal.xy  *= PI;
-	normal.xwzy = vec4(sin(normal.xy), cos(normal.xy));
-	normal.xz  *= normal.w;
-	
-	return normal.xyz;
+vec3 DecodeNormal(vec2 encodedNormal) {
+	encodedNormal = encodedNormal * 4.0 - 2.0;
+	float f = dot(encodedNormal, encodedNormal);
+	float g = sqrt(1.0 - f * 0.25);
+	return vec3(encodedNormal * g, 1.0 - f * 0.5);
 }
 
 
@@ -100,7 +80,8 @@ float EncodeNormalU(mat3 tbnMatrix) {
 	normal.xy = vec2(atan(normal.x, normal.z), acos(normal.y)) / PI; // Range vec2([-1.0, 1.0], [0.0, 1.0])
 	normal.x += 1.0; // Range [0.0, 2.0]
 	normal.xy = round(normal.xy * 1024.0); // Range vec2([0.0, 2048.0], [0.0, 1024.0])
-	normal.y = min(normal.y, 1023.0); // Range [0.0, 1024.0)
+//	normal.y = min(normal.y, 1023.0); // Range [0.0, 1024.0)
+	normal.y = mod(normal.y, 1024.0); // Range [0.0, 1024.0)
 	
 	uvec3 enc;
 	enc.xy = uvec2(normal.xy);
@@ -112,7 +93,8 @@ float EncodeNormalU(mat3 tbnMatrix) {
 	angle /= PI;
 	angle += 1.0;
 	angle = round(angle * 1024.0);
-	angle = min(angle, 2047.0);
+//	angle = min(angle, 2047.0);
+	angle = mod(angle, 2048.0);
 	
 	enc.z = uint(angle) << 21;
 	

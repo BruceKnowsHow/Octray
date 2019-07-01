@@ -98,26 +98,17 @@ in mat3 tbnMatrix;
 flat in vec2 midTexCoord;
 flat in float blockID;
 
-/* DRAWBUFFERS:1567 */
+/* DRAWBUFFERS:15 */
 #include "/../shaders/lib/exit.glsl"
-
-#include "/../shaders/block.properties"
 
 void main() {
 	if (discardflag > 0.0) discard;
-	
-	vec4 diffuse = textureLod(tex, texcoord, 0);
-	
-	if (diffuse.a <= 0.0) discard;
+	if (textureLod(tex, texcoord, 0).a <= 0.0) discard;
 	
 	
-	diffuse.rgb = diffuse.rgb * vColor.rgb * vColor.a;
-	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
-	vec2 spec   = textureLod(specular, texcoord, 0).rg;
-	
-	gl_FragData[0] = vec4(EncodeNormal(tbnMatrix[2] * mat3(gbufferModelViewInverse)), 0.0, 1.0);
-	gl_FragData[2] = vec4(diffuse.rgb, 1.0);
-	gl_FragData[3] = vec4(EncodeNormal(normal), pack2x8(spec), 1.0);
+	gl_FragData[0] = vec4(vec3(0,1,1), 1.0);
+//	gl_FragData[0] = vec4(texcoord, pack2x8(hsv(vColor.rgb).rg), 1.0);
+//	gl_FragData[1] = vec4(EncodeNormalU(tbnMatrix), 0.0, 0.0, 1.0);
 	
 	exit();
 }

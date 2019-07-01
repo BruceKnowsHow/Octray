@@ -5,6 +5,8 @@
 const int colortex0Format = RGB8;
 const int colortex1Format = RGB16; // texcoord.st
 const int colortex5Format = R32F;
+const int colortex6Format = RGB8;
+const int colortex7Format = RGB16;
 
 const bool colortex0Clear = false;
 const bool colortex1Clear = false;

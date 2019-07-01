@@ -103,7 +103,8 @@ vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, inout vec3 plane, int LOD) {
 }
 
 float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD) {
-	pos += plane * abs(pos) * sign(rayDir) * epsilon;
+	pos += plane * (abs(pos) + 1.0) * sign(rayDir) * epsilon;
+//	pos = intBitsToFloat(floatBitsToInt(pos) + ivec3(1024*64 * plane * (sign(rayDir * pos)*0.5+0.5+sign(rayDir * pos))));
 	pos = Part1Transform(pos + gbufferModelViewInverse[3].xyz + fract(cameraPosition), int(LOD));
 	
 	while (LOD > 0 && Lookup(pos, int(LOD)) < 1.0) --LOD; // March down to the LOD at which we don't hit anything
@@ -117,6 +118,7 @@ float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD) {
 	vec3 bound = exp2(LOD) * floor(pos * exp2(-LOD) + dirPositive); // FloorN(exp2(LOD)), or ceilN if positive stepdir
 	
 	vec3 scalePos0 = -pos * tDelta;
+	vec3 pos0 = pos;
 	vec3 P0 = intBitsToFloat(floatBitsToInt(pos) + ivec3(dirNeg));
 //	vec3 P0 = pos + dirNeg*epsilon2/4.0;
 	
@@ -126,7 +128,6 @@ float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD) {
 	int t = 0;
 	
 	while (t++ < 128) {
-//	while (true) {
 		vec3 tMax = bound*tDelta + scalePos0;
 	//	vec3 tMax = (bound - pos0)*tDelta;
 		float L = fMin(tMax, plane);

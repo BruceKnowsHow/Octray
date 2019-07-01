@@ -31,12 +31,13 @@ uniform vec3 previousCameraPosition;
 
 uniform float frameTimeCounter;
 
-out vec3 vColor;
+out vec4 vColor;
 out vec2 midTexCoord;
 out vec3 wPosition;
 out vec3 vNormal;
-out float blockID;
 out float discardflag;
+
+flat out float blockID;
 
 mat3 CalculateTBN() {
 	vec3 tangent  = normalize(mat3(shadowModelViewInverse) * gl_NormalMatrix * at_tangent.xyz);
@@ -46,18 +47,19 @@ mat3 CalculateTBN() {
 	return mat3(tangent, binormal, normal);
 }
 
+#include "/../shaders/block.properties"
+
 void main() {
-	discardflag = 0.0;
-	discardflag += float(mc_Entity.x == 0.0);
-	discardflag += float(mc_Entity.x == 1.0);
-	
-	if (discardflag > 0.0) {
-		gl_Position = vec4(-1.0);
-		return;
-	}
-	
-	vColor  = gl_Color.rgb;
 	blockID = mc_Entity.x;
+	
+	discardflag = 0.0;
+	discardflag += float(isEntity(blockID));
+	discardflag += float(!isVoxelized(blockID));
+	
+	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
+	
+	
+	vColor  = gl_Color;
 	vNormal = normalize(mat3(shadowModelViewInverse) * gl_NormalMatrix * gl_Normal);
 	midTexCoord = mc_midTexCoord.st;
 	
@@ -95,14 +97,13 @@ uniform vec3 cameraPosition;
 
 uniform ivec2 atlasSize;
 
-in vec3 vColor[];
+in vec4 vColor[];
 in vec2 midTexCoord[];
 in vec3 wPosition[];
 in vec3 vNormal[];
-in float blockID[];
 in float discardflag[];
 
-out vec3 _vColor;
+out vec4 _vColor;
 out vec2 _midTexCoord;
 out float _discardflag;
 
@@ -149,7 +150,7 @@ void main() {
 		coord /= shadowMapResolution;
 		
 		depth = -1.0;
-		if (i == 1) depth = packVertColor(vColor[0]);
+		if (i == 1) depth = packVertColor(vColor[0].rgb);
 		
 		gl_Position = vec4(coord * 2.0 - 1.0, depth, 1.0);
 		EmitVertex();
@@ -175,7 +176,7 @@ void main() {
 	#define midTexCoord _midTexCoord
 #endif
 
-in vec3 vColor;
+in vec4 vColor;
 in vec2 midTexCoord;
 
 //#include "/../shaders/lib/exit.glsl"
