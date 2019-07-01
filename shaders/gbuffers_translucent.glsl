@@ -81,9 +81,15 @@ void main() {
 uniform sampler2D tex;
 uniform sampler2D normals;
 uniform sampler2D specular;
+uniform sampler2D shadowtex0;
 
 uniform mat4 gbufferModelViewInverse;
 uniform vec2 viewSize;
+
+uniform vec3 shadowLightPosition;
+uniform vec3 cameraPosition;
+
+uniform ivec2 atlasSize;
 
 in float discardflag;
 
@@ -98,15 +104,37 @@ in mat3 tbnMatrix;
 flat in vec2 midTexCoord;
 flat in float blockID;
 
-/* DRAWBUFFERS:15 */
+#include "/../shaders/lib/settings/shadows.glsl"
+#include "/../shaders/lib/raytracing/VoxelMarch.glsl"
+#include "/../shaders/lib/raytracing/ComputeRaytracedReflections.glsl"
+
+#include "/../shaders/block.properties"
+
+/* DRAWBUFFERS:0 */
 #include "/../shaders/lib/exit.glsl"
 
 void main() {
 	if (discardflag > 0.0) discard;
-	if (textureLod(tex, texcoord, 0).a <= 0.0) discard;
+	
+	vec4 diffuse = textureLod(tex, texcoord, 0);
+	
+	if (diffuse.a <= 0.0) discard;
 	
 	
-	gl_FragData[0] = vec4(vec3(0,1,1), 1.0);
+	diffuse.rgb = diffuse.rgb * vColor.rgb * vColor.a;
+	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
+	vec2 spec   = textureLod(specular, texcoord, 0).rg;
+	
+	vec3 color = diffuse.rgb;
+	vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
+	vec3 rayDir = reflect(normalize(currPos), tbnMatrix[2]);
+	float alpha = (1.0-dot(normalize(currPos), tbnMatrix[2])) * (spec.x);
+	if (isWater(blockID)) alpha = 1.0;
+	vec3 flatNormal = abs(tbnMatrix[2]) * (currPos);
+	show(normalize(currPos))
+	ComputeReflections(color, currPos, rayDir, flatNormal, alpha, tex, normals, specular);
+	
+	gl_FragData[0] = vec4(color, 1.0);
 //	gl_FragData[0] = vec4(texcoord, pack2x8(hsv(vColor.rgb).rg), 1.0);
 //	gl_FragData[1] = vec4(EncodeNormalU(tbnMatrix), 0.0, 0.0, 1.0);
 	
