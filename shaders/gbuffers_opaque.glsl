@@ -48,7 +48,10 @@ mat3 CalculateTBN() {
 void main() {
 	blockID = mc_Entity.x;
 	
+	
+	
 	discardflag = 0.0;
+//	discardflag += float(isVoxelized(blockID));
 //	discardflag += float(!isVoxelized(blockID));
 //	discardflag += float(isEntity(blockID));
 	

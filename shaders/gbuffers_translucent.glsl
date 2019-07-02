@@ -82,6 +82,7 @@ uniform sampler2D tex;
 uniform sampler2D normals;
 uniform sampler2D specular;
 uniform sampler2D shadowtex0;
+uniform sampler2D noisetex;
 
 uniform mat4 gbufferModelViewInverse;
 uniform vec2 viewSize;
@@ -90,6 +91,8 @@ uniform vec3 shadowLightPosition;
 uniform vec3 cameraPosition;
 
 uniform ivec2 atlasSize;
+
+uniform float frameTimeCounter;
 
 in float discardflag;
 
@@ -107,6 +110,7 @@ flat in float blockID;
 #include "/../shaders/lib/settings/shadows.glsl"
 #include "/../shaders/lib/raytracing/VoxelMarch.glsl"
 #include "/../shaders/lib/raytracing/ComputeRaytracedReflections.glsl"
+#include "/../shaders/lib/WaterWaves.fsh"
 
 #include "/../shaders/block.properties"
 
@@ -123,15 +127,17 @@ void main() {
 	
 	diffuse.rgb = diffuse.rgb * vColor.rgb * vColor.a;
 	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
+	normal = tbnMatrix*GetWaveNormals(wPosition*0, tbnMatrix[2]);
 	vec2 spec   = textureLod(specular, texcoord, 0).rg;
 	
-	vec3 color = diffuse.rgb;
+	vec3 color = diffuse.rgb*0;
 	vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
-	vec3 rayDir = reflect(normalize(currPos), tbnMatrix[2]);
+	vec3 rayDir = refract(normalize(currPos), normal*vec3(1,-1,1), 1.0 / 1.33);
 	float alpha = (1.0-dot(normalize(currPos), tbnMatrix[2])) * (spec.x);
-	if (isWater(blockID)) alpha = 1.0;
+//	if (isWater(blockID)) alpha = 1.0;
+	alpha = 1.0;
 	vec3 flatNormal = abs(tbnMatrix[2]) * (currPos);
-	show(normalize(currPos))
+	
 	ComputeReflections(color, currPos, rayDir, flatNormal, alpha, tex, normals, specular);
 	
 	gl_FragData[0] = vec4(color, 1.0);

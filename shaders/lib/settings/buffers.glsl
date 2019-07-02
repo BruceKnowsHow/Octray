@@ -22,6 +22,6 @@ const bool shadowcolor0Mipmap = false;
 const bool shadowcolor0Nearest = false;
 */
 
-const int noiseTextureResolution = 16; // [16 32 64 128 256 512 1024]
+const int noiseTextureResolution = 64; // [16 32 64 128 256 512 1024]
 
 #endif

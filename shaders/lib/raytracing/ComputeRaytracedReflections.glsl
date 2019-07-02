@@ -44,6 +44,8 @@ void ComputeReflections(inout vec3 color, inout vec3 currPos, inout vec3 rayDir,
 	for (int i = 0; i < 10; ++i) {
 		if (alpha <= 0) return;
 		
+		vec3 old = currPos;
+		
 		float lookup = VoxelMarch(currPos, rayDir, flatNormal, 0);
 		if (lookup == -1e35) { color += SKY.rgb * alpha; return; }
 		
@@ -62,7 +64,13 @@ void ComputeReflections(inout vec3 color, inout vec3 currPos, inout vec3 rayDir,
 		float iRef  = (1.0 - abs(dot(rayDir, normal))) * (specular.x);
 		float iBase = 1.0 - iRef;
 		
-		color += diffuse * sunlight * iBase * alpha;
+		vec3 C = diffuse * sunlight * iBase * alpha;
+		
+		#if defined gbuffers_water
+		if (i == 0) C = mix(vec3(0.0, 0.5, 1.0)*0.15, C, clamp(exp2(-distance(wPos, old)*0.5), 0.0, 1.0));
+		#endif
+		
+		color += C;
 		
 		alpha *= iRef;
 		currPos = wPos;
