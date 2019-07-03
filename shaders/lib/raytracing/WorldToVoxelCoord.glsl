@@ -6,12 +6,16 @@ vec3 Part1Transform(vec3 position, int LOD) {
 	
 	position.xz += shadowRadius;
 	
+	position.xz += mod(floor(cameraPosition.xz), 4.0);
+	
 	return position;
 }
 
 vec3 Part1InvTransform(vec3 position) {
 	position.y -= floor(cameraPosition.y);
 	position.xz -= shadowRadius;
+	
+	position.xz -= mod(floor(cameraPosition.xz), 4.0);
 	
 	return position;
 }

@@ -34,11 +34,12 @@ float ComputeSunlight(vec3 wPos, vec3 normal, vec3 flatNormal, vec3 lightDir) {
 	return sunlight;
 }
 
-#define SKY vec4(0.2, 0.5, 1.0, 1.0)
+#define SKY (vec4(0.3, 0.6, 1.0, 1.0))
 
 vec3 light = normalize(mat3(gbufferModelViewInverse) * shadowLightPosition);
 
-void ComputeReflections(inout vec3 color, inout vec3 currPos, inout vec3 rayDir, inout vec3 flatNormal, inout float alpha,
+void ComputeReflections(inout vec3 color, inout vec3 currPos, inout vec3 rayDir, inout vec3 flatNormal,
+                        inout float alpha, const bool doUnderwaterFog,
                         sampler2D texSampler, sampler2D normalSampler, sampler2D specSampler)
 {
 	for (int i = 0; i < 10; ++i) {
@@ -56,18 +57,22 @@ void ComputeReflections(inout vec3 color, inout vec3 currPos, inout vec3 rayDir,
 		
 		vec3 diffuse  = textureLod(texSampler, tCoord, 0).rgb * unpackVertColor(Lookup(currPos, 1));
 		vec3 normal   = tbn * normalize(textureLod(normalSampler, tCoord, 0).rgb * 2.0 - 1.0);
-		vec3 specular = textureLod(specSampler, tCoord, 0).rgb;
+		vec3 spec = textureLod(specSampler, tCoord, 0).rgb;
 		
 		vec3 wPos = Part1InvTransform(currPos) - gbufferModelViewInverse[3].xyz - fract(cameraPosition);
 		float sunlight = ComputeSunlight(wPos, normal, tbn[2], light);
 		
-		float iRef  = (1.0 - abs(dot(rayDir, normal))) * (specular.x);
+		#if defined gbuffers_water
+		spec.x = 0.0;
+		#endif
+		
+		float iRef  = (1.0 - abs(dot(rayDir, normal))) * (spec.x);
 		float iBase = 1.0 - iRef;
 		
 		vec3 C = diffuse * sunlight * iBase * alpha;
 		
 		#if defined gbuffers_water
-		if (i == 0) C = mix(vec3(0.0, 0.5, 1.0)*0.15, C, clamp(exp2(-distance(wPos, old)*0.5), 0.0, 1.0));
+		if (doUnderwaterFog && i == 0) C = mix(vec3(0.0, 0.5, 1.0)*0.3*alpha, C, clamp(exp2(-distance(wPos, old)*0.5), 0.0, 1.0));
 		#endif
 		
 		color += C;

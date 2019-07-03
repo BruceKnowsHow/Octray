@@ -135,11 +135,11 @@ void main() {
 	vec3 currPos = wPos;
 	vec3 rayDir = reflect(normalize(currPos), normal);
 	vec3 plane = abs(flatNormal);
-	show(normalize(currPos))
+	
 	float alpha = (1.0-dot(normalize(currPos), plane * sign(currPos))) * (specular.x);
 	vec3 color = diffuse * sunlight * (1.0 - alpha);
 	
-	ComputeReflections(color, currPos, rayDir, plane, alpha, colortex2, colortex3, colortex4);
+	ComputeReflections(color, currPos, rayDir, plane, alpha, false, colortex2, colortex3, colortex4);
 	
 	gl_FragData[0].rgb = color;
 	

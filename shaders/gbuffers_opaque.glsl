@@ -52,7 +52,7 @@ void main() {
 	
 	discardflag = 0.0;
 //	discardflag += float(isVoxelized(blockID));
-//	discardflag += float(!isVoxelized(blockID));
+	discardflag += float(!isVoxelized(blockID));
 //	discardflag += float(isEntity(blockID));
 	
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
@@ -114,7 +114,7 @@ void main() {
 	if (diffuse.a <= 0.0) discard;
 	
 	
-	diffuse.rgb = diffuse.rgb * vColor.rgb * vColor.a;
+	diffuse.rgb = diffuse.rgb * rgb(vec3(hsv(vColor.rgb).rg * vec2(1.0, 1.2), 1.0)) * vColor.a;
 	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
 	vec2 spec   = textureLod(specular, texcoord, 0).rg;
 	

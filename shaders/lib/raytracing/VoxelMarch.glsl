@@ -127,7 +127,7 @@ float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD) {
 	
 	int t = 0;
 	
-	while (t++ < 128) {
+	while (t++ < 256) {
 		vec3 tMax = bound*tDelta + scalePos0;
 	//	vec3 tMax = (bound - pos0)*tDelta;
 		float L = fMin(tMax, plane);

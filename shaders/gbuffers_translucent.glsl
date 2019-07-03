@@ -48,7 +48,13 @@ mat3 CalculateTBN() {
 void main() {
 	blockID = mc_Entity.x;
 	
+	tbnMatrix = CalculateTBN();
+	vec4 position = gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex;
+	
+	wPosition = position.xyz;
+	
 	discardflag = 0.0;
+	discardflag = float(isWater(blockID)) * float(dot(wPosition - gbufferModelViewInverse[3].xyz, tbnMatrix[2]) > 0.0);
 //	discardflag += float(!isVoxelized(blockID));
 //	discardflag += float(isEntity(blockID));
 	
@@ -59,12 +65,6 @@ void main() {
 	texcoord    = gl_MultiTexCoord0.st;
 	midTexCoord = mc_midTexCoord.st;
 	lmcoord     = mat2(gl_TextureMatrix[1]) * gl_MultiTexCoord1.st;
-	
-	vec4 position = gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex;
-	
-	wPosition = position.xyz;
-	
-	tbnMatrix = CalculateTBN();
 	
 	gl_Position = gbufferProjection * gbufferModelView * position;
 }
@@ -132,13 +132,19 @@ void main() {
 	
 	vec3 color = diffuse.rgb*0;
 	vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
-	vec3 rayDir = refract(normalize(currPos), normal*vec3(1,-1,1), 1.0 / 1.33);
-	float alpha = (1.0-dot(normalize(currPos), tbnMatrix[2])) * (spec.x);
-//	if (isWater(blockID)) alpha = 1.0;
-	alpha = 1.0;
-	vec3 flatNormal = abs(tbnMatrix[2]) * (currPos);
 	
-	ComputeReflections(color, currPos, rayDir, flatNormal, alpha, tex, normals, specular);
+	vec3 rayDir = refract(normalize(currPos), normal, 1.0 / 1.3333);
+	float refr = (-dot(normalize(currPos), normal));
+	
+	float refl = 1.0-refr;
+	
+	vec3 flatNormal = abs(tbnMatrix[2]) * (currPos)*0;
+	
+	ComputeReflections(color, currPos, rayDir, flatNormal, refr, true, tex, normals, specular);
+	
+	currPos = wPosition - gbufferModelViewInverse[3].xyz;
+	rayDir = reflect(normalize(currPos), normal);
+	ComputeReflections(color, currPos, rayDir, flatNormal, refl, false, tex, normals, specular);
 	
 	gl_FragData[0] = vec4(color, 1.0);
 //	gl_FragData[0] = vec4(texcoord, pack2x8(hsv(vColor.rgb).rg), 1.0);

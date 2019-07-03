@@ -123,23 +123,69 @@ vec2 GetWaveDifferentials(vec2 coord, const float scale) { // Get finite wave di
 	return a - vec2(aX, aY);
 }
 
+#define WATER_PARALLAX
+
+vec2 GetParallaxWave(vec2 worldPos, float angleCoeff) {
+#ifndef WATER_PARALLAX
+	return worldPos;
+#endif
+	
+	const float parallaxDist = 15.0 * 5.0;
+	const float distFade     = parallaxDist / 3.0;
+	const float MinQuality   = 0.5;
+	const float maxQuality   = 1.5;
+	
+//	float intensity = clamp01((parallaxDist - length(position[1]) * FOV / 90.0) / distFade) * 0.85 * TERRAIN_PARALLAX_INTENSITY;
+	float intensity = 1.0;
+	
+//	if (intensity < 0.01) return worldPos;
+	
+	vec3  tangentRay = normalize(wPosition - gbufferModelViewInverse[3].xyz) * tbnMatrix;
+	vec3  stepSize = 0.1 * vec3(1.0, 1.0, 1.0);
+	float stepCoeff = -tangentRay.z * 5.0 / stepSize.z;
+	
+	angleCoeff = clamp(angleCoeff * 2.0, 0.0, 1.0) * stepCoeff;
+	
+	vec3 step   = tangentRay   * stepSize;
+	     step.z = tangentRay.z * -tangentRay.z * 5.0;
+	
+	float rayHeight = angleCoeff;
+	float sampleHeight = GetWaves(worldPos) * angleCoeff;
+	
+	float count = 0.0;
+	
+	while(sampleHeight < rayHeight && count++ < 150.0) {
+		worldPos  += step.xy * clamp(rayHeight - sampleHeight, 0.0, 1.0);
+		rayHeight += step.z;
+		
+		sampleHeight = GetWaves(worldPos) * angleCoeff;
+	}
+	
+	return worldPos;
+}
+
 vec3 GetWaveNormals(vec3 worldSpacePosition, vec3 flatWorldNormal) {
 	if (WAVE_MULT == 0.0) return vec3(0.0, 0.0, 1.0);
 	
 	SetupWaveFBM();
 	
-	float angleCoeff  = dot(normalize(-wPosition.xyz), normalize(flatWorldNormal));
-	      angleCoeff /= clamp(length(wPosition) * 0.05, 1.0, 10.0);
-	      angleCoeff  = clamp(angleCoeff * 2.5, 0.0, 1.0);
+	float angleCoeff  = dot(normalize(-wPosition.xyz + gbufferModelViewInverse[3].xyz), normalize(flatWorldNormal));
+	      angleCoeff /= clamp(length(wPosition) * 0.00001, 1.0, 10.0);
+	      angleCoeff  = clamp(angleCoeff, 0.0, 1.0);
 	      angleCoeff  = sqrt(angleCoeff);
+	
+	angleCoeff = ((-wPosition.xyz + gbufferModelViewInverse[3].xyz) * mat3(gbufferModelViewInverse)).z;
+	angleCoeff = clamp(20.0/(angleCoeff+20.0), 0.0, 1.0);
+	angleCoeff = sqrt(dot(normalize(-wPosition.xyz + gbufferModelViewInverse[3].xyz), normalize(flatWorldNormal)));
 	
 //	vec3 worldPos    = wPosition + cameraPosition - worldDisplacement;
 	vec3 worldPos    = wPosition + cameraPosition;
 	     worldPos.xz = worldPos.xz + worldPos.y;
 	
+	worldPos.xz = GetParallaxWave(worldPos.xz, angleCoeff);
 	
-//	vec2 diff = GetWaveDifferentials(worldPos.xz, 0.1) * angleCoeff;
-	vec2 diff = GetWaveDifferentials(worldPos.xz, 0.1);
+	vec2 diff = GetWaveDifferentials(worldPos.xz, 0.1) * angleCoeff;
+//	vec2 diff = GetWaveDifferentials(worldPos.xz, 0.1);
 	
 	return vec3(diff, sqrt(1.0 - dot(diff, diff)));
 }
