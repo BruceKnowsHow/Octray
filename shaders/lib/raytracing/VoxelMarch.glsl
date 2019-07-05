@@ -42,7 +42,7 @@ const float epsilon2 = 1.0 / 1024.0 / 4;
 vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane) {
 	rayOrig += plane * abs(rayOrig) * sign(rayDir) * epsilon*0;
 	
-	vec3 pos0 = Part1Transform(rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition), 0);
+	vec3 pos0 = Part1Transform(rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition));
 	vec3 pos  = pos0;
 	
 	vec3 stepDir = sign(rayDir);
@@ -74,7 +74,7 @@ vec3 VoxelMarch(vec3 rayOrig, vec3 rayDir, out vec3 plane) {
 vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, inout vec3 plane, int LOD) {
 	rayOrig += plane * abs(rayOrig) * sign(rayDir) * epsilon;
 	
-	vec3 pos0 = Part1Transform(rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition), LOD);
+	vec3 pos0 = Part1Transform(rayOrig + gbufferModelViewInverse[3].xyz + fract(cameraPosition));
 	vec3 pos  = pos0;
 	
 	vec3 stepDir = sign(rayDir);
@@ -102,25 +102,25 @@ vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, inout vec3 plane, int LOD) {
 	return vec3(0.0, 0.0, -1e35);
 }
 
-float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD) {
-	pos += plane * (abs(pos) + 1.0) * sign(rayDir) * epsilon;
+float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD, const bool underwater) {
+	pos += (abs(pos) + 1.0) * sign(rayDir) / 4096.0;
+	pos = Part1Transform(pos);
 //	pos = intBitsToFloat(floatBitsToInt(pos) + ivec3(1024*64 * plane * (sign(rayDir * pos)*0.5+0.5+sign(rayDir * pos))));
-	pos = Part1Transform(pos + gbufferModelViewInverse[3].xyz + fract(cameraPosition), int(LOD));
 	
 	while (LOD > 0 && Lookup(pos, int(LOD)) < 1.0) --LOD; // March down to the LOD at which we don't hit anything
 	if (LOD == 0 && Lookup(pos, 0) < 1.0) return Lookup(pos, 0); // If already inside a block, return
 	
 	vec3 stepDir = sign(rayDir);
 	vec3 dirPositive = (stepDir * 0.5 + 0.5);
-	ivec3 dirNeg = ivec3(mix(vec3(-2.0), vec3(5.0), dirPositive));
 	vec3 tDelta  = 1.0 / rayDir;
 	
 	vec3 bound = exp2(LOD) * floor(pos * exp2(-LOD) + dirPositive); // FloorN(exp2(LOD)), or ceilN if positive stepdir
 	
 	vec3 scalePos0 = -pos * tDelta;
 	vec3 pos0 = pos;
-	vec3 P0 = intBitsToFloat(floatBitsToInt(pos) + ivec3(dirNeg));
-//	vec3 P0 = pos + dirNeg*epsilon2/4.0;
+	vec3 P0 = intBitsToFloat(floatBitsToInt(pos) + ivec3(mix(vec3(-2), vec3(2), dirPositive)));
+//	vec3 P0 = pos + ivec3(mix(vec3(-1.0), vec3(1.0), dirPositive)) / 4096.0 / 4.0;
+//	vec3 P0 = pos + vec3(mix(vec3(-1.0), vec3(1.0), dirPositive)) / 4096.0 / 4.0 / 4.0 / 2.0;
 	
 	vec3 lodStep = vec3(floor(pos*exp2(-LOD-1)) == floor(pos*exp2(-LOD)));
 	lodStep = mix(lodStep, 1.0-lodStep, 1.0-dirPositive)*0;
@@ -128,8 +128,8 @@ float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD) {
 	int t = 0;
 	
 	while (t++ < 256) {
-		vec3 tMax = bound*tDelta + scalePos0;
-	//	vec3 tMax = (bound - pos0)*tDelta;
+	//	vec3 tMax = bound*tDelta + scalePos0;
+		vec3 tMax = (bound - pos0)*tDelta;
 		float L = fMin(tMax, plane);
 		float oldPos = dot(pos, plane);
 		pos = P0 + rayDir * L;
@@ -139,11 +139,13 @@ float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD) {
 		
 		if (any(greaterThan(abs(pos - vec2(128, shadowRadius).yxy), vec2(128, shadowRadius).yxy))) { break; }
 		
+		if (underwater && distance(pos, pos0) > 16.0) break;
+		
 		LOD += (abs(int(dot(pos,plane)*exp2(-LOD-1)) - int(oldPos*exp2(-LOD-1))));
 	//	if (dot(lodStep, plane) > 1.5) { ++LOD; lodStep = mix(lodStep, vec3(0.0), plane); }
 		LOD = min(LOD, 7);
 		
-		float lookup = Lookup(pos, int(LOD));
+		float lookup = Lookup(floor(pos), int(LOD));
 		float hit = clamp(1e35 - lookup*1e35, 0.0, 1.0);
 		
 		LOD -= (hit);

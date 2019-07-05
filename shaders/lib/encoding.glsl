@@ -66,7 +66,7 @@ vec3 unpackVertColor(float enc) {
 	return rgb(c);
 }
 
-float EncodeNormalU(mat3 tbnMatrix) {
+float EncodeTBNU(mat3 tbnMatrix) {
 	vec3 tangent = tbnMatrix[0];
 	vec3 normal = tbnMatrix[2];
 	
@@ -101,7 +101,7 @@ float EncodeNormalU(mat3 tbnMatrix) {
 	return uintBitsToFloat(enc.x + enc.y + enc.z); // X occupies first 12 bits, Y occupies next 11 bits
 }
 
-mat3 DecodeNormalU(float enc) {
+mat3 DecodeTBNU(float enc) {
 	uvec3 e = uvec3(floatBitsToUint(enc));
 	e.yz = e.yz >> uvec2(11, 21);
 	e.xy = e.xy & uvec2(2047, 1023);
@@ -132,6 +132,38 @@ mat3 DecodeNormalU(float enc) {
 	return tbnMatrix;
 }
 
+float EncodeNormalU(vec3 normal) {
+	normal = clamp(normal, -1.0, 1.0);
+	normal.xy = vec2(atan(normal.x, normal.z), acos(normal.y)) / PI; // Range vec2([-1.0, 1.0], [0.0, 1.0])
+	normal.x += 1.0; // Range [0.0, 2.0]
+	normal.xy = round(normal.xy * 1024.0); // Range vec2([0.0, 2048.0], [0.0, 1024.0])
+//	normal.y = min(normal.y, 1023.0); // Range [0.0, 1024.0)
+	normal.y = mod(normal.y, 1024.0); // Range [0.0, 1024.0)
+	
+	uvec2 enc = uvec2(normal.xy);
+	enc.x = enc.x & 2047; // Wrap around the value 2048
+	enc.y = enc.y << 11;  // Multiply by 2048
+	
+	return uintBitsToFloat(enc.x + enc.y); // X occupies first 12 bits, Y occupies next 11 bits
+}
+
+vec3 DecodeNormalU(float enc) {
+	uvec2 e = uvec2(floatBitsToUint(enc));
+	e.y = e.y >> 11;
+	e.xy = e.xy & uvec2(2047, 1023);
+	
+	vec4 normal;
+	
+	normal.xy   = e.xy;
+	normal.xy  /= 1024.0;
+	normal.x   -= 1.0;
+	normal.xy  *= PI;
+	normal.xwzy = vec4(sin(normal.xy), cos(normal.xy));
+	normal.xz  *= normal.w;
+	
+	return normal.xyz;
+}
+
 float pack2x8(vec2 a) {
 	a = round(clamp(a, 0.0, 1.0) * 255.0);
 	return (a.x + a.y * 256.0) / (256.0*255.0);
@@ -145,3 +177,57 @@ vec2 unpack2x8(float enc) {
 	
 	return a / 255.0;
 }
+
+float pack4x8(vec4 v) {
+	v = round(clamp(v, 0.0, 1.0) * 255.0);
+	uvec4 u = uvec4(v) << uvec4(0, 8, 16, 24);
+	return uintBitsToFloat(u.r + u.g + u.b + u.a);
+}
+
+vec4 unpack4x8(float e) {
+	uvec4 u = floatBitsToUint(e) >> uvec4(0, 8, 16, 24);
+	return vec4(u % 256) / 255.0;
+}
+
+
+
+struct Mask {
+	bool isWater;
+	bool isVoxelized;
+	bool isTranslucent;
+	bool isEntity;
+};
+
+/*
+float EncodeMaterialIDs(vec4 flags) {
+	uvec4 u = uvec4(round(clamp(flags, 0.0, 1.0))) << uvec4(0, 1, 2, 3);
+	return float(u.r + u.g + u.b + u.a) / 16.0;
+}
+
+vec4 DecodeMaterialIDs(float e) {
+	uvec4 u = e * 16.0;
+	return floor(mod(flags, 2.0));
+}
+
+float GetMaterialMask(float mask, float materialID) {
+	return float(abs(materialID - mask) < 0.1);
+}
+
+Mask CalculateMasks(float materialIDs) {
+	Mask mask;
+	
+	mask.materialIDs = materialIDs;
+	mask.matIDs      = materialIDs;
+	
+	DecodeMaterialIDs(mask.matIDs, mask.bits);
+	
+	mask.translucent = GetMaterialMask(2, mask.matIDs);
+	mask.emissive    = GetMaterialMask(3, mask.matIDs);
+	mask.hand        = GetMaterialMask(5, mask.matIDs);
+	
+	mask.transparent = mask.bits.x;
+	mask.water       = mask.bits.y;
+	
+	return mask;
+}
+*/

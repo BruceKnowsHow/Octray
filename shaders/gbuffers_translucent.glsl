@@ -90,6 +90,8 @@ uniform vec2 viewSize;
 uniform vec3 shadowLightPosition;
 uniform vec3 cameraPosition;
 
+vec3 sunDir = normalize(mat3(gbufferModelViewInverse) * shadowLightPosition);
+
 uniform ivec2 atlasSize;
 
 uniform float frameTimeCounter;
@@ -109,12 +111,12 @@ flat in float blockID;
 
 #include "/../shaders/lib/settings/shadows.glsl"
 #include "/../shaders/lib/raytracing/VoxelMarch.glsl"
-#include "/../shaders/lib/raytracing/ComputeRaytracedReflections.glsl"
 #include "/../shaders/lib/WaterWaves.fsh"
+#include "/../shaders/lib/raytracing/ComputeRaytracedReflections.glsl"
 
 #include "/../shaders/block.properties"
 
-/* DRAWBUFFERS:0 */
+/* DRAWBUFFERS:23 */
 #include "/../shaders/lib/exit.glsl"
 
 void main() {
@@ -129,26 +131,24 @@ void main() {
 	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
 	normal = tbnMatrix*GetWaveNormals(wPosition*0, tbnMatrix[2]);
 	vec2 spec   = textureLod(specular, texcoord, 0).rg;
+	spec.g = float(isWater(blockID)) * 0.9;
 	
 	vec3 color = diffuse.rgb*0;
+	
 	vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
 	
-	vec3 rayDir = refract(normalize(currPos), normal, 1.0 / 1.3333);
 	float refr = (-dot(normalize(currPos), normal));
+	float refl = 1.0 - refr;
 	
-	float refl = 1.0-refr;
+	vec3 rayDir = reflect(normalize(currPos), normal);
+	RaytraceColorFromDirection(color, currPos, rayDir, refl, true, false, tex, normals, specular);
 	
-	vec3 flatNormal = abs(tbnMatrix[2]) * (currPos)*0;
+	rayDir = refract(normalize(currPos), normal, 1.0 / 1.3333);
+	RaytraceColorFromDirection(color, currPos, rayDir, refr, false, true, tex, normals, specular);
 	
-	ComputeReflections(color, currPos, rayDir, flatNormal, refr, true, tex, normals, specular);
-	
-	currPos = wPosition - gbufferModelViewInverse[3].xyz;
-	rayDir = reflect(normalize(currPos), normal);
-	ComputeReflections(color, currPos, rayDir, flatNormal, refl, false, tex, normals, specular);
 	
 	gl_FragData[0] = vec4(color, 1.0);
-//	gl_FragData[0] = vec4(texcoord, pack2x8(hsv(vColor.rgb).rg), 1.0);
-//	gl_FragData[1] = vec4(EncodeNormalU(tbnMatrix), 0.0, 0.0, 1.0);
+	gl_FragData[1] = vec4(EncodeNormalU(normal), pack2x8(spec), 0.0, 1.0);
 	
 	exit();
 }

@@ -131,10 +131,10 @@ void main() {
 	_vColor = vColor[0];
 	_midTexCoord = midTexCoord[0];
 	
-	if (any(greaterThan(abs(triCentroid.xz), vec2(shadowRadius))))
+	if (any(greaterThan(abs(triCentroid.xz), vec2(shadowRadius - 4.0))))
 		return;
 	
-	vec2 coord = WorldToVoxelCoord(Part1Transform(triCentroid, 0), 0) + 0.5;
+	vec2 coord = WorldToVoxelCoord(Part1Transform(triCentroid), 0) + 0.5;
 	coord /= shadowMapResolution;
 	
 	// Can pass an unsigned integer range [0, 2^23 - 1]
@@ -146,7 +146,7 @@ void main() {
 	
 	
 	for (int i = 1; i <= 7; ++i) {
-		coord = WorldToVoxelCoord(Part1Transform(triCentroid, i), i) + 0.5;
+		coord = WorldToVoxelCoord(Part1Transform(triCentroid), i) + 0.5;
 		coord /= shadowMapResolution;
 		
 		depth = -1.0;

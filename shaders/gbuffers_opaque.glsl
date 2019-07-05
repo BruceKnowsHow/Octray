@@ -52,7 +52,7 @@ void main() {
 	
 	discardflag = 0.0;
 //	discardflag += float(isVoxelized(blockID));
-	discardflag += float(!isVoxelized(blockID));
+//	discardflag += float(!isVoxelized(blockID));
 //	discardflag += float(isEntity(blockID));
 	
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
@@ -101,7 +101,7 @@ in mat3 tbnMatrix;
 flat in vec2 midTexCoord;
 flat in float blockID;
 
-/* DRAWBUFFERS:1567 */
+/* DRAWBUFFERS:1 */
 #include "/../shaders/lib/exit.glsl"
 
 #include "/../shaders/block.properties"
@@ -118,9 +118,9 @@ void main() {
 	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
 	vec2 spec   = textureLod(specular, texcoord, 0).rg;
 	
-	gl_FragData[0] = vec4(EncodeNormal(tbnMatrix[2] * mat3(gbufferModelViewInverse)), 0.0, 1.0);
-	gl_FragData[2] = vec4(diffuse.rgb, 1.0);
-	gl_FragData[3] = vec4(EncodeNormal(normal), pack2x8(spec), 1.0);
+	spec.g = float(isVoxelized(blockID))*0.9;
+	
+	gl_FragData[0] = vec4(pack4x8(vec4(diffuse.rgb, 0.0)), EncodeNormalU(normal), pack2x8(spec), 1.0);
 	
 	exit();
 }

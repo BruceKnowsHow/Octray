@@ -9,4 +9,5 @@ value.DEBUG_VIEW.-1=gbuffers_opaque
 value.DEBUG_VIEW.0=deferred0
 value.DEBUG_VIEW.20=gbuffers_transparent
 value.DEBUG_VIEW.30=composite0
+value.DEBUG_VIEW.31=composite1
 value.DEBUG_VIEW.50=final

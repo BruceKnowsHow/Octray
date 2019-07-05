@@ -1,3 +1,6 @@
+#ifndef WATERWAVES_FSH
+#define WATERWAVES_FSH
+
 const int noiseTextureResolution = 64; // [16 32 64 128 256 512 1024]
 const float noiseRes = float(noiseTextureResolution);
 const float noiseResInverse = 1.0 / noiseRes;
@@ -164,7 +167,7 @@ vec2 GetParallaxWave(vec2 worldPos, float angleCoeff) {
 	return worldPos;
 }
 
-vec3 GetWaveNormals(vec3 worldSpacePosition, vec3 flatWorldNormal) {
+vec3 GetWaveNormals(vec3 wPos, vec3 flatWorldNormal) {
 	if (WAVE_MULT == 0.0) return vec3(0.0, 0.0, 1.0);
 	
 	SetupWaveFBM();
@@ -185,7 +188,8 @@ vec3 GetWaveNormals(vec3 worldSpacePosition, vec3 flatWorldNormal) {
 	worldPos.xz = GetParallaxWave(worldPos.xz, angleCoeff);
 	
 	vec2 diff = GetWaveDifferentials(worldPos.xz, 0.1) * angleCoeff;
-//	vec2 diff = GetWaveDifferentials(worldPos.xz, 0.1);
 	
 	return vec3(diff, sqrt(1.0 - dot(diff, diff)));
 }
+
+#endif

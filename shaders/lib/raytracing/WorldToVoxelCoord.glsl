@@ -1,12 +1,16 @@
 const int shadowRadius = int(shadowDistance);
 const int shadowDiameter = 2 * shadowRadius;
 
-vec3 Part1Transform(vec3 position, int LOD) {
+vec3 Part1Transform(vec3 position) {
 	position.y += floor(cameraPosition.y);
 	
 	position.xz += shadowRadius;
 	
 	position.xz += mod(floor(cameraPosition.xz), 4.0);
+	
+	#ifndef gbuffers_shadow
+	position += gbufferModelViewInverse[3].xyz + fract(cameraPosition);
+	#endif
 	
 	return position;
 }
@@ -16,6 +20,10 @@ vec3 Part1InvTransform(vec3 position) {
 	position.xz -= shadowRadius;
 	
 	position.xz -= mod(floor(cameraPosition.xz), 4.0);
+	
+	#ifndef gbuffers_shadow
+	position -= gbufferModelViewInverse[3].xyz + fract(cameraPosition);
+	#endif
 	
 	return position;
 }

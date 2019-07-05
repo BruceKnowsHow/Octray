@@ -1,5 +1,5 @@
 //#define DEBUG
-#define DEBUG_VIEW 0 // [-10 -1 0 20 30 50]
+#define DEBUG_VIEW 0 // [-10 -1 0 20 30 31 50]
 
 #if ShaderStage < 0 && defined vsh
 	out vec3 vDebug;
