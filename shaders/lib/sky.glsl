@@ -35,7 +35,7 @@ vec2 GetNoise2D(vec2 coord) {
 }
 
 float GetCoverage(float clouds, float coverage) {
-	return csmooth(clamp((coverage + clouds - 1.0) * 1.1 - 0., 0.0, 1.0));
+	return csmooth(clamp((coverage + clouds - 1.0) * 1.1 - 0.0, 0.0, 1.0));
 }
 
 float CloudFBM(vec2 coord, out mat4x2 c, vec3 weights, float weight) {
@@ -71,7 +71,7 @@ float CloudFBM(vec2 coord, out mat4x2 c, vec3 weights, float weight) {
 vec3 sunlightColor = vec3(1.0, 0.8, 0.7);
 vec3 skylightColor = vec3(0.8, 0.9, 1.0);
 
-vec3 Compute2DCloudPlane(inout vec3 absorb, vec3 wPos, vec3 wDir, float sunglow) {
+vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow) {
 #ifndef CLOUDS_2D
 	return vec3(0.0);
 #endif
@@ -87,7 +87,7 @@ vec3 Compute2DCloudPlane(inout vec3 absorb, vec3 wPos, vec3 wDir, float sunglow)
 	
 	vec3 oldAbsorb = absorb;
 	
-	const float coverage = CLOUD_COVERAGE_2D * 1.16*1.1;
+	const float coverage = CLOUD_COVERAGE_2D * 1.16;
 	const vec3  weights  = vec3(0.5, 0.135, 0.075);
 	const float weight   = weights.x + weights.y + weights.z;
 	
@@ -279,19 +279,25 @@ vec3 ComputeFarSpace(vec3 wDir, vec3 absorb) {
 }
 
 vec3 ComputeSunspot(vec3 wDir, inout vec3 absorb) {
-	float sunspot = float(dot(wDir, sunDir) > 0.995);
-	vec3 color = vec3(float(sunspot) * 5.0) * absorb;
+	float sunspot = float(dot(wDir, sunDir) > 0.9994 + 0*0.9999567766);
+	vec3 color = vec3(float(sunspot) * 500.0) * absorb;
 	
 	absorb *= 1.0 - sunspot;
 	
 	return color;
 }
 
-vec3 ComputeBackSky(vec3 wDir) {
-	vec3 absorb = vec3(1.0);
-	vec3 color;
+vec3 ComputeClouds(vec3 wPos, vec3 wDir, inout vec3 absorb) {
+	vec3 color = vec3(0.0);
 	
-	color  = Compute2DCloudPlane(absorb, vec3(0.0), wDir, 0.0);
+	color += Compute2DCloudPlane(wPos, wDir, absorb, 0.0);
+	
+	return color;
+}
+
+vec3 ComputeBackSky(vec3 wDir, inout vec3 absorb) {
+	vec3 color  = vec3(0.0);
+	
 	color += ComputeAtmosphericSky(wDir, 1.0, absorb);
 	color += ComputeSunspot(wDir, absorb);
 	color += ComputeFarSpace(wDir, absorb);
@@ -299,18 +305,11 @@ vec3 ComputeBackSky(vec3 wDir) {
 	return color;
 }
 
-vec3 ComputeClouds(vec3 wPos, vec3 wDir, out vec3 absorb) {
-	absorb = vec3(1.0);
-	return vec3(0.0);
-}
-
 vec3 ComputeTotalSky(vec3 wPos, vec3 wDir, inout vec3 absorb) {
 	vec3 color;
 	
-	color  = Compute2DCloudPlane(absorb, wPos, wDir, 0.0);
-	color += ComputeAtmosphericSky(wDir, 1.0, absorb);
-	color += ComputeSunspot(wDir, absorb);
-	color += ComputeFarSpace(wDir, absorb);
+	color += ComputeClouds(wPos, wDir, absorb);
+	color += ComputeBackSky(wDir, absorb);
 	
 	return color;
 }

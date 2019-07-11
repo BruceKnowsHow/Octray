@@ -96,6 +96,8 @@ uniform ivec2 atlasSize;
 
 uniform float frameTimeCounter;
 
+uniform int isEyeInWater;
+
 in float discardflag;
 
 in vec2 texcoord;
@@ -127,7 +129,7 @@ void main() {
 	if (diffuse.a <= 0.0) discard;
 	
 	
-	diffuse.rgb = diffuse.rgb * vColor.rgb * vColor.a;
+	diffuse.rgb = pow(diffuse.rgb * vColor.rgb, vec3(2.2)) * vColor.a;
 	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
 	normal = tbnMatrix*GetWaveNormals(wPosition*0, tbnMatrix[2]);
 	vec2 spec   = textureLod(specular, texcoord, 0).rg;
@@ -138,14 +140,17 @@ void main() {
 	vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
 	
 	float refr = (-dot(normalize(currPos), normal));
+	if (isEyeInWater == 1) refr = 1.0;
 	float refl = 1.0 - refr;
 	
 	vec3 rayDir = reflect(normalize(currPos), normal);
 	RaytraceColorFromDirection(color, currPos, rayDir, refl, true, false, tex, normals, specular);
 	
 	rayDir = refract(normalize(currPos), normal, 1.0 / 1.3333);
-	RaytraceColorFromDirection(color, currPos, rayDir, refr, false, true, tex, normals, specular);
-	
+	if (isEyeInWater == 0)
+		RaytraceColorFromDirection(color, currPos, rayDir, refr, false, true, tex, normals, specular);
+	else
+		RaytraceColorFromDirection(color, currPos, rayDir, refr, true, false, tex, normals, specular);
 	
 	gl_FragData[0] = vec4(color, 1.0);
 	gl_FragData[1] = vec4(EncodeNormalU(normal), pack2x8(spec), 0.0, 1.0);

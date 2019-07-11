@@ -26,12 +26,14 @@ uniform ivec2 atlasSize;
 
 noperspective in vec2 texcoord;
 
+#include "/../shaders/lib/Tonemap.glsl"
+
 #include "/../shaders/lib/exit.glsl"
 
 void main() {
 	vec3 color = texture(colortex0, texcoord).rgb;
 	
-	gl_FragColor.rgb = color;
+	gl_FragColor.rgb = Tonemap(color);
 	
 	exit();
 }

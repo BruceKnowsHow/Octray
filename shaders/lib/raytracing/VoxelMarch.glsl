@@ -139,7 +139,7 @@ float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD, const
 		
 		if (any(greaterThan(abs(pos - vec2(128, shadowRadius).yxy), vec2(128, shadowRadius).yxy))) { break; }
 		
-		if (underwater && distance(pos, pos0) > 16.0) break;
+	//	if (underwater && distance(pos, pos0) > 16.0) break;
 		
 		LOD += (abs(int(dot(pos,plane)*exp2(-LOD-1)) - int(oldPos*exp2(-LOD-1))));
 	//	if (dot(lodStep, plane) > 1.5) { ++LOD; lodStep = mix(lodStep, vec3(0.0), plane); }

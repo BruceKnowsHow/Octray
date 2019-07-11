@@ -2,9 +2,9 @@
 #define LIB_SETTINGS_BUFFERS_GLSL
 
 /*
-const int colortex0Format = RGB8; // final output color
+const int colortex0Format = R11F_G11F_B10F; // final output color
 const int colortex1Format = RGB32F;
-const int colortex2Format = RGB8; // water color
+const int colortex2Format = R11F_G11F_B10F; // water color
 const int colortex3Format = RG32F;
 
 const bool colortex0Clear = true;
