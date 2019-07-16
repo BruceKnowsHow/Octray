@@ -52,7 +52,7 @@ void main() {
 	
 	discardflag = 0.0;
 //	discardflag += float(isVoxelized(blockID));
-//	discardflag += float(!isVoxelized(blockID));
+	discardflag += float(!isVoxelized(blockID));
 //	discardflag += float(isEntity(blockID));
 	
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }

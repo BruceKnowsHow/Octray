@@ -121,6 +121,12 @@ flat in float blockID;
 /* DRAWBUFFERS:23 */
 #include "/../shaders/lib/exit.glsl"
 
+float GetRefractiveIndex(float ID) {
+	if (isWater(ID)) return 1.3333;
+	if (isGlass(ID)) return 1.52;
+	return 1.0;
+}
+
 void main() {
 	if (discardflag > 0.0) discard;
 	
@@ -128,29 +134,50 @@ void main() {
 	
 	if (diffuse.a <= 0.0) discard;
 	
+	diffuse.rgb = pow(diffuse.rgb, vec3(2.2)) * vColor.rgb;
+	vec3 normal = tbnMatrix * ( (isWater(blockID)) ? GetWaveNormals(wPosition*0, tbnMatrix[2]) : normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0) );
+	vec2 spec   = (isWater(blockID)) ? vec2(0.0, 1.0) : textureLod(specular, texcoord, 0).rg*0;
+	vec3 color = diffuse.rgb;
 	
-	diffuse.rgb = pow(diffuse.rgb * vColor.rgb, vec3(2.2)) * vColor.a;
-	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
-	normal = tbnMatrix*GetWaveNormals(wPosition*0, tbnMatrix[2]);
-	vec2 spec   = textureLod(specular, texcoord, 0).rg;
-	spec.g = float(isWater(blockID)) * 0.9;
+	if (isWater(blockID)) diffuse *= 0.0;
 	
-	vec3 color = diffuse.rgb*0;
-	
-	vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
-	
-	float refr = (-dot(normalize(currPos), normal));
-	if (isEyeInWater == 1) refr = 1.0;
-	float refl = 1.0 - refr;
-	
-	vec3 rayDir = reflect(normalize(currPos), normal);
-	RaytraceColorFromDirection(color, currPos, rayDir, refl, true, false, tex, normals, specular);
-	
-	rayDir = refract(normalize(currPos), normal, 1.0 / 1.3333);
-	if (isEyeInWater == 0)
-		RaytraceColorFromDirection(color, currPos, rayDir, refr, false, true, tex, normals, specular);
-	else
-		RaytraceColorFromDirection(color, currPos, rayDir, refr, true, false, tex, normals, specular);
+	if (isEyeInWater == 0) {
+		vec3 backColor = vec3(0.0);
+		
+		vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
+		
+		float refl = (1.0 - abs(dot(normalize(currPos), normal))) * spec.g;
+		float refr = (1-refl);
+		
+		vec3 rayDir = reflect(normalize(currPos), normal);
+		RaytraceColorFromDirection(backColor, currPos, rayDir, refl, true, false, tex, normals, specular);
+		
+		float ior = 1.0 / GetRefractiveIndex(blockID);
+		
+		rayDir = refract(normalize(currPos), normal, ior);
+		RaytraceColorFromDirection(backColor, currPos, rayDir, refr, !isWater(blockID), isWater(blockID), tex, normals, specular);
+		
+		if (isGlass(blockID)) backColor *= diffuse.rgb;
+		
+		color = mix(backColor, color, diffuse.a);
+	} else if (isEyeInWater == 1) {
+		vec3 backColor = vec3(0.0);
+		
+		vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
+		
+		float refr = 1.0;
+		float refl = 1.0 - refr;
+		
+		vec3 rayDir = reflect(normalize(currPos), normal);
+	//	RaytraceColorFromDirection(backColor, currPos, rayDir, refl, true, false, tex, normals, specular);
+		
+		float ior = isWater(blockID) ? 0.95 : 1.0 / GetRefractiveIndex(blockID);
+		
+		rayDir = refract(normalize(currPos), normal, ior);
+		RaytraceColorFromDirection(backColor, currPos, rayDir, refr, isWater(blockID), false, tex, normals, specular);
+		
+		color = mix(backColor, color, diffuse.a);
+	}
 	
 	gl_FragData[0] = vec4(color, 1.0);
 	gl_FragData[1] = vec4(EncodeNormalU(normal), pack2x8(spec), 0.0, 1.0);

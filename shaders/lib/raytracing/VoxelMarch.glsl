@@ -102,7 +102,7 @@ vec3 VoxelMarchLOD(vec3 rayOrig, vec3 rayDir, inout vec3 plane, int LOD) {
 	return vec3(0.0, 0.0, -1e35);
 }
 
-float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD, const bool underwater) {
+float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD, bool underwater) {
 	pos += (abs(pos) + 1.0) * sign(rayDir) / 4096.0;
 	pos = Part1Transform(pos);
 //	pos = intBitsToFloat(floatBitsToInt(pos) + ivec3(1024*64 * plane * (sign(rayDir * pos)*0.5+0.5+sign(rayDir * pos))));

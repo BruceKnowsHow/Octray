@@ -41,7 +41,7 @@ float RaytraceSunlight(vec3 wPos, vec3 normal) {
 #include "/../shaders/lib/Tonemap.glsl"
 
 void RaytraceColorFromDirection(inout vec3 color, vec3 currPos, vec3 rayDir,
-                        float alpha, const bool doSpecular, const bool underwaterMarch,
+                        float alpha, bool doSpecular, bool underwaterMarch,
                         sampler2D texSampler, sampler2D normalSampler, sampler2D specSampler)
 {
 	for (int i = 0; i < 10; ++i) {

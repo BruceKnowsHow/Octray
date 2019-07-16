@@ -68,8 +68,8 @@ float CloudFBM(vec2 coord, out mat4x2 c, vec3 weights, float weight) {
 	return cloud * 0.63;
 }
 
-vec3 sunlightColor = vec3(1.0, 0.8, 0.7);
-vec3 skylightColor = vec3(0.8, 0.9, 1.0);
+vec3 sunlightColor = vec3(1.0, 1.0, 1.0);
+vec3 skylightColor = vec3(0.6, 0.8, 1.0);
 
 vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow) {
 #ifndef CLOUDS_2D
@@ -87,7 +87,7 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow)
 	
 	vec3 oldAbsorb = absorb;
 	
-	const float coverage = CLOUD_COVERAGE_2D * 1.16;
+	const float coverage = CLOUD_COVERAGE_2D * 1.12;
 	const vec3  weights  = vec3(0.5, 0.135, 0.075);
 	const float weight   = weights.x + weights.y + weights.z;
 	
@@ -96,7 +96,7 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow)
 	mat4x2 coords;
 	
 	float cloudAlpha = CloudFBM(coord, coords, weights, weight);
-	cloudAlpha = GetCoverage(cloudAlpha, coverage);
+	cloudAlpha = GetCoverage(cloudAlpha, coverage) * abs(wDir.y) * 4.0;
 	
 	vec2 lightOffset = sunDir.xz * 0.2;
 	
@@ -110,7 +110,7 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow)
 //	sunlight *= mix(pow(cloudAlpha, 1.6) * 2.5, 2.0, sunglow);
 //	sunlight *= mix(10.0, 1.0, sqrt(sunglow));
 	
-	vec3 directColor  = sunlightColor * 2.0;
+	vec3 directColor  = sunlightColor * 2.5;
 //	     directColor *= 1.0 + pow(sunglow, 10.0) * 10.0 / (sunlight * 0.8 + 0.2);
 //	     directColor *= mix(vec3(1.0), vec3(0.4, 0.5, 0.6), timeNight);
 	
@@ -120,7 +120,7 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow)
 	
 	absorb *= clamp(1.0 - cloudAlpha, 0.0, 1.0);
 	
-	return cloud * cloudAlpha * oldAbsorb;
+	return cloud * cloudAlpha * oldAbsorb * 5.0;
 }
 
 
