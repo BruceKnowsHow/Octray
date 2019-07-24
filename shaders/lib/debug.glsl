@@ -1,3 +1,7 @@
+#ifndef DEBUG_GLSL
+#define DEBUG_GLSL
+
+
 //#define DEBUG
 #define DEBUG_VIEW 0 // [-10 -1 0 20 30 31 50]
 
@@ -26,4 +30,7 @@ void show( vec4 x) { Debug = x.rgb; }
 	#define show(x) DANGLING_SHOW
 #else
 	#define show(x) show(x);
+#endif
+
+
 #endif

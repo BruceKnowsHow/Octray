@@ -4,9 +4,9 @@
 #include "/../shaders/lib/utility.glsl"
 #include "/../shaders/lib/debug.glsl"
 
-attribute vec4 mc_Entity;
+attribute vec3 mc_Entity;
 attribute vec4 at_tangent;
-attribute vec4 mc_midTexCoord;
+attribute vec2 mc_midTexCoord;
 
 uniform sampler2D tex;
 
@@ -48,11 +48,9 @@ mat3 CalculateTBN() {
 void main() {
 	blockID = mc_Entity.x;
 	
-	
-	
 	discardflag = 0.0;
 //	discardflag += float(isVoxelized(blockID));
-	discardflag += float(!isVoxelized(blockID));
+//	discardflag += float(!isVoxelized(blockID));
 //	discardflag += float(isEntity(blockID));
 	
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
@@ -112,7 +110,6 @@ void main() {
 	vec4 diffuse = textureLod(tex, texcoord, 0);
 	
 	if (diffuse.a <= 0.0) discard;
-	
 	
 	diffuse.rgb = diffuse.rgb * rgb(vec3(hsv(vColor.rgb).rg * vec2(1.0, 1.2), 1.0)) * vColor.a;
 	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);

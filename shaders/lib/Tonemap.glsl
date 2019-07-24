@@ -21,9 +21,21 @@ float Tonemap1ThresholdF(vec3 color) {
 }
 
 vec3 Tonemap1Threshold(vec3 color) {
-	color = pow(color, vec3(1.2)) * pow(color + 1.0, vec3(3.2));
+	vec3 derivative = (5.0 / 11.0) / (pow(color, vec3(6.0 / 11.0)) * pow(color + 1.0, vec3(16.0 / 11.0)));
 	
-	return color * (11.0 / 5.0) / 255.0;
-} 
+	return min(derivative, vec3(1.0));
+}
+
+bool NotEnoughLightToBeVisible(float possibleAdditionalColor, float currentColor) {
+	float oneOverDerivative = (5.0 / 11.0) * pow(currentColor, 6.0 / 11.0) * pow(currentColor + 1.0, 16.0 / 11.0);
+	
+	return possibleAdditionalColor * min(oneOverDerivative, 1.0) < 1.0 / 255.0;
+}
+
+bool NotEnoughLightToBeVisible(vec3 possibleAdditionalColor, vec3 currentColor) {
+	vec3 oneOverDerivative = (5.0 / 11.0) * pow(currentColor, vec3(6.0 / 11.0)) * pow(currentColor + 1.0, vec3(16.0 / 11.0));
+	
+	return all(lessThan(possibleAdditionalColor * min(oneOverDerivative, vec3(1.0)), vec3(1.0 / 255.0)));
+}
 
 #endif

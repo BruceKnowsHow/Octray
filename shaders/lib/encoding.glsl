@@ -1,3 +1,6 @@
+#ifndef ENCODING_GLSL
+#define ENCODING_GLSL
+
 #include "/../shaders/lib/utility.glsl"
 
 vec2 EncodeNormal(vec3 normal) {
@@ -14,7 +17,7 @@ vec3 DecodeNormal(vec2 encodedNormal) {
 
 // Packing functions for sending midTexCoord through the shadow depth buffer
 // Outputs a float in the range [-1.0, 1.0], which is what gl_Position.z takes in
-const vec2 tCoordBits = vec2(12.0, 11.0);
+const vec2 tCoordBits = vec2(8.0, 8.0);
 float packTexcoord(vec2 coord) {
 	coord.rg = floor(coord.rg * exp2(tCoordBits));
 	
@@ -37,7 +40,6 @@ vec2 unpackTexcoord(float enc) {
 	
 	return coord * (exp2(-tCoordBits));
 }
-
 
 // Packing functions for sending vertex color through the shadow depth buffer
 // Same constrains as mentioned above.
@@ -231,3 +233,5 @@ Mask CalculateMasks(float materialIDs) {
 	return mask;
 }
 */
+
+#endif

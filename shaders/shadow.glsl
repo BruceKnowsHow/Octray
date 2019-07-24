@@ -39,14 +39,6 @@ out float discardflag;
 
 flat out float blockID;
 
-mat3 CalculateTBN() {
-	vec3 tangent  = normalize(mat3(shadowModelViewInverse) * gl_NormalMatrix * at_tangent.xyz);
-	vec3 normal   = normalize(mat3(shadowModelViewInverse) * gl_NormalMatrix * gl_Normal) ;
-	vec3 binormal = cross(tangent, normal); // Orthogonalize binormal
-	
-	return mat3(tangent, binormal, normal);
-}
-
 #include "/../shaders/block.properties"
 
 void main() {
@@ -113,18 +105,6 @@ out float _discardflag;
 void main() {
 	if (discardflag[0] + discardflag[1] + discardflag[2] > 0.0)
 		return;
-	
-	#ifndef VOXELIZE
-	for (int i = 0; i < 3; ++i) {
-		gl_Position = gl_in[i].gl_Position;
-		_vColor = vColor[i];
-		_midTexCoord = midTexCoord[i];
-		EmitVertex();
-	}
-	
-	return;
-	#endif
-	
 	
 	vec3 triCentroid = (wPosition[0] + wPosition[1] + wPosition[2]) / 3.0 - vNormal[0] / 32.0;
 	

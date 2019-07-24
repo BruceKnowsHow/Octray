@@ -1,4 +1,4 @@
-#version 410 compatibility
+#version 450 compatibility
 #define ShaderStage 20
 #define world0
 #define gbuffers_water

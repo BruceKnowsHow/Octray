@@ -1,4 +1,4 @@
-#version 410 compatibility
+#version 450 compatibility
 #define ShaderStage 30
 #define world0
 #define composite0

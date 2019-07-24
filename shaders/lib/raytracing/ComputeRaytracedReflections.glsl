@@ -1,6 +1,8 @@
 #ifndef COMPUTE_RAYTRACED_REFLECTIONS_GLSL
 #define COMPUTE_RAYTRACED_REFLECTIONS_GLSL
 
+#include "/../shaders/lib/raytracing/VoxelMarch.glsl"
+
 mat3 GenerateTBN(vec3 normal) {
 	mat3 tbn;
 	tbn[2] = normal;
@@ -19,7 +21,7 @@ vec2 GetTexCoord(vec2 coord, float lookup) {
 	coord = coord * 0.5 + 0.5;
 	
 	vec2 midTexCoord = unpackTexcoord(lookup);
-	vec2 spriteSize = 64.0 / atlasSize; // Sprite size in [0, 1] texture space
+	vec2 spriteSize = 16.0 / atlasSize; // Sprite size in [0, 1] texture space
 	vec2 cornerTexCoord = midTexCoord - 0.5 * spriteSize; // Coordinate of texture's starting corner in [0, 1] texture space
 	vec2 coordInSprite = coord.xy * spriteSize; // Fragment's position within sprite space
 	vec2 tCoord = cornerTexCoord + coordInSprite;
@@ -55,7 +57,7 @@ void RaytraceColorFromDirection(inout vec3 color, vec3 currPos, vec3 rayDir,
 		vec3 wPos = Part1InvTransform(currPos);
 		float fog = WaterFogAmount(wPos, oldPos);
 		
-	//	if (underwaterMarch && alpha * (1.0 - fog) < TonemapThresholdF(color+WATER_COLOR*fog)) { color = color + WATER_COLOR*alpha; return; }
+		if (underwaterMarch && NotEnoughLightToBeVisible(alpha*(1-fog), alpha*(1-fog))) { show(1) color = color + WATER_COLOR*alpha; return; }
 		vec3 absorb = vec3(alpha);
 		if (lookup == -1e35) { color += ComputeTotalSky(wPos, rayDir, absorb); return; }
 		

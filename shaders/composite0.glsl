@@ -27,18 +27,19 @@ uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex3;
 uniform sampler2D colortex4;
-uniform sampler2D colortex5;
-uniform sampler2D colortex6;
-uniform sampler2D colortex7;
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
 uniform sampler2D shadowtex0;
 uniform sampler2D noisetex;
 
 // Do these weird declarations so that optifine doesn't create extra buffers
-#define smemin2 colortex2
-#define smemin3 colortex3
-#define smemin4 colortex4
+#define CUSTOM5 colortex5
+#define CUSTOM6 colortex6
+#define CUSTOM7 colortex7
+
+uniform sampler2D CUSTOM5;
+uniform sampler2D CUSTOM6;
+uniform sampler2D CUSTOM7;
 
 uniform mat4 shadowProjection;
 uniform mat4 shadowProjectionInverse;
@@ -73,8 +74,6 @@ vec3 GetWorldSpacePosition(vec2 coord, float depth) {
 	return pos.xyz;
 }
 
-#include "/../shaders/lib/raytracing/VoxelMarch.glsl"
-
 vec3 textureAniso(sampler2D samplr, vec2 coord, ivec2 texSize, vec2 LOD) {
 	vec2 c = coord / atlasSize;
 	
@@ -88,80 +87,6 @@ vec3 textureAniso(sampler2D samplr, vec2 coord, ivec2 texSize, vec2 LOD) {
 #include "/../shaders/lib/raytracing/ComputeRaytracedReflections.glsl"
 #include "/../shaders/lib/sky.glsl"
 #include "/../shaders/lib/WaterFog.glsl"
-
-float GetTextureCoordFromUnitRange(float x, int texture_size) {
-  return 0.5 / float(texture_size) + x * (1.0 - 1.0 / float(texture_size));
-}
-
-float GetUnitRangeFromTextureCoord(float u, int texture_size) {
-  return (u - 0.5 / float(texture_size)) / (1.0 - 1.0 / float(texture_size));
-}
-
-/*
-vec4 GetScatteringTextureUvwzFromRMuMuSNu(IN(AtmosphereParameters) atmosphere,
-	float r, float mu, float mu_s, float nu,
-	bool ray_r_mu_intersects_ground) {
-	
-	// Distance to top atmosphere boundary for a horizontal ray at ground level.
-	float H = sqrt(atmosphere.top_radius * atmosphere.top_radius - atmosphere.bottom_radius * atmosphere.bottom_radius);
-	// Distance to the horizon.
-	Length rho = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
-	float u_r = GetTextureCoordFromUnitRange(rho / H, SCATTERING_TEXTURE_R_SIZE);
-	
-	// Discriminant of the quadratic equation for the intersections of the ray
-	// (r,mu) with the ground (see RayIntersectsGround).
-	Length r_mu = r * mu;
-	Area discriminant =
-	r_mu * r_mu - r * r + atmosphere.bottom_radius * atmosphere.bottom_radius;
-	Number u_mu;
-	if (ray_r_mu_intersects_ground) {
-	// Distance to the ground for the ray (r,mu), and its minimum and maximum
-	// values over all mu - obtained for (r,-1) and (r,mu_horizon).
-	Length d = -r_mu - SafeSqrt(discriminant);
-	Length d_min = r - atmosphere.bottom_radius;
-	Length d_max = rho;
-	u_mu = 0.5 - 0.5 * GetTextureCoordFromUnitRange(d_max == d_min ? 0.0 :
-	(d - d_min) / (d_max - d_min), SCATTERING_TEXTURE_MU_SIZE / 2);
-	} else {
-	// Distance to the top atmosphere boundary for the ray (r,mu), and its
-	// minimum and maximum values over all mu - obtained for (r,1) and
-	// (r,mu_horizon).
-	Length d = -r_mu + SafeSqrt(discriminant + H * H);
-	Length d_min = atmosphere.top_radius - r;
-	Length d_max = rho + H;
-	u_mu = 0.5 + 0.5 * GetTextureCoordFromUnitRange(
-	(d - d_min) / (d_max - d_min), SCATTERING_TEXTURE_MU_SIZE / 2);
-	}
-	
-	Length d = DistanceToTopAtmosphereBoundary(
-	atmosphere, atmosphere.bottom_radius, mu_s);
-	Length d_min = atmosphere.top_radius - atmosphere.bottom_radius;
-	Length d_max = H;
-	Number a = (d - d_min) / (d_max - d_min);
-	Number A =
-	-2.0 * atmosphere.mu_s_min * atmosphere.bottom_radius / (d_max - d_min);
-	Number u_mu_s = GetTextureCoordFromUnitRange(
-	max(1.0 - a / A, 0.0) / (1.0 + a), SCATTERING_TEXTURE_MU_S_SIZE);
-	
-	Number u_nu = (nu + 1.0) / 2.0;
-	return vec4(u_nu, u_mu_s, u_mu, u_r);
-}*/
-
-ivec3 UvToUvw(ivec2 uv) {
-	return ivec3(uv % ivec2(256, 128), (uv.x / 256 + uv.y * 4));
-}
-
-ivec2 UvwToUv(ivec3 uvw) {
-	if (any(greaterThanEqual(uvw, ivec3(256, 128, 32)))) return ivec2(-1);
-	
-	return uvw.xy + ivec2(uvw.z % 4, uvw.z / 4);
-}
-
-vec2 UvwToUv(vec3 uvw) {
-	uvw *= vec3(256, 128, 32);
-	
-	return (uvw.xy + ivec2(mod(uvw.z, 4.0)*256, floor(uvw.z / 4.0)*128)) / 1024.0;
-}
 
 /* DRAWBUFFERS:0 */
 #include "/../shaders/lib/exit.glsl"
@@ -192,8 +117,8 @@ void main() {
 		
 		vec3 absorb = exp(fog / WATER_COLOR);
 		
-	//	if (all(lessThan(absorb, TonemapThreshold(absorb+16.0/255.0)))) { gl_FragData[0].rgb = absorb; exit(); return; }
-	//	if (depth1 >= 1.0) { gl_FragData[0].rgb = ComputeTotalSky(vec3(0.0), normalize(wPos1), absorb); exit(); return; }
+		if (NotEnoughLightToBeVisible(absorb, absorb)) { gl_FragData[0].rgb = absorb; exit(); return; }
+		if (depth1 >= 1.0) { gl_FragData[0].rgb = ComputeTotalSky(vec3(0.0), normalize(wPos1), absorb); exit(); return; }
 		
 		float sunlight = RaytraceSunlight(wPos1, normal);
 		
@@ -249,10 +174,6 @@ void main() {
 		
 		vec2 spec = unpack2x8(texelFetch(colortex1, itexcoord, 0).b);
 		
-		show(texelFetch(colortex4, UvwToUv(ivec3(itexcoord, 0)), 0).rgb * 3.0)
-		show(texture(colortex4, UvwToUv(vec3(texcoord, 31/32.0))).rgb * 3.0)
-	//	show(texelFetch(colortex4, ivec2(itexcoord), 0).rgb * 3.0)
-		
 		Mask mask;
 		mask.isTranslucent = (depth1 != depth0);
 		mask.isWater = (mask.isTranslucent) && (unpack2x8(texelFetch(colortex3, itexcoord, 0).g).g > 0.5);
@@ -284,6 +205,23 @@ void main() {
 				RaytraceColorFromDirection(color, currPos, rayDir, alpha, true, false, colortex5, colortex6, colortex7);
 			}
 		}
+		
+		Body j = Body(vec3(0.5, 66.65, 50.5), rotationMatrix(vec3(0,1,0), frameTimeCounter));
+		
+		for (int i = 0; i < 6; ++i) {
+			vec3 center = player_head_faces[i].center;
+			mat3 tbn = player_head_faces[i].tbn;
+			
+			center = j.rot * center;
+			tbn = j.rot * tbn;
+			
+			center += j.pos - (cameraPosition + gbufferModelViewInverse[3].xyz);
+			
+			vec2 coord = RayRectIntersection(vec3(0), normalize(wDir), center, tbn, wPos);
+			
+			if (coord.x > 0.0) color = vec3(coord, 0);
+		}
+		
 		
 		gl_FragData[0].rgb = color;
 	}
