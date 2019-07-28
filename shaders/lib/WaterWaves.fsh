@@ -1,4 +1,4 @@
-#ifndef WATERWAVES_FSH
+#if !defined WATERWAVES_FSH
 #define WATERWAVES_FSH
 
 const int noiseTextureResolution = 64; // [16 32 64 128 256 512 1024]

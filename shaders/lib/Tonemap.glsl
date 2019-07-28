@@ -1,4 +1,4 @@
-#ifndef TONEMAP_GLSL
+#if !defined TONEMAP_GLSL
 #define TONEMAP_GLSL
 
 #define Tonemap(x) Tonemap1(x)
@@ -33,9 +33,10 @@ bool NotEnoughLightToBeVisible(float possibleAdditionalColor, float currentColor
 }
 
 bool NotEnoughLightToBeVisible(vec3 possibleAdditionalColor, vec3 currentColor) {
+	vec3 derivative = (11.0 / 5.0) * pow(currentColor, vec3(-6.0 / 11.0)) * pow(currentColor + 1.0, vec3(-16.0 / 11.0));
 	vec3 oneOverDerivative = (5.0 / 11.0) * pow(currentColor, vec3(6.0 / 11.0)) * pow(currentColor + 1.0, vec3(16.0 / 11.0));
 	
-	return all(lessThan(possibleAdditionalColor * min(oneOverDerivative, vec3(1.0)), vec3(1.0 / 255.0)));
+	return all(lessThan(possibleAdditionalColor / (min(derivative, vec3(1.0))), vec3(0.1 / 255.0)));
 }
 
 #endif

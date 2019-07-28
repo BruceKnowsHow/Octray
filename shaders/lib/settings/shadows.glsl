@@ -1,4 +1,4 @@
-#ifndef LIB_SETTINGS_SHADOW_GLSL
+#if !defined LIB_SETTINGS_SHADOW_GLSL
 #define LIB_SETTINGS_SHADOW_GLSL
 
 const float shadowDistance           =  128; // [128 256]

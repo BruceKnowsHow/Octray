@@ -19,21 +19,16 @@ void main() {
 #include "/../shaders/lib/debug.glsl"
 uniform sampler2D colortex0;
 
-uniform ivec2 atlasSize;
-
 #include "/../shaders/lib/settings/shadows.glsl"
-#include "/../shaders/lib/encoding.glsl"
 
 noperspective in vec2 texcoord;
-
-#include "/../shaders/lib/Tonemap.glsl"
 
 #include "/../shaders/lib/exit.glsl"
 
 void main() {
 	vec3 color = texture(colortex0, texcoord).rgb;
 	
-	gl_FragColor.rgb = Tonemap(color);
+	gl_FragColor.rgb = color;
 	
 	exit();
 }

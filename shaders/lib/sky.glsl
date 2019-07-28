@@ -1,4 +1,4 @@
-#ifndef SKY_GLSL
+#if !defined SKY_GLSL
 #define SKY_GLSL
 
 #define CLOUDS_2D

@@ -1,4 +1,4 @@
-#ifndef LIB_UTILITY
+#if !defined LIB_UTILITY
 #define LIB_UTILITY
 
 #define PI 3.14159

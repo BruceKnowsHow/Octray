@@ -48,24 +48,22 @@ mat3 CalculateTBN() {
 void main() {
 	blockID = BackPortID(mc_Entity.x);
 	
+	tbnMatrix = CalculateTBN();
+	vec4 position = gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex;
+	
+	wPosition = position.xyz;
+	
 	discardflag = 0.0;
-//	discardflag += float(isVoxelized(blockID));
-//	discardflag += float(!isVoxelized(blockID));
+	discardflag = float(isWater(blockID)) * float(dot(wPosition - gbufferModelViewInverse[3].xyz, tbnMatrix[2]) > 0.0);
+//	discardflag += float(!isVoxelized(blockID) && !isWater(blockID));
 //	discardflag += float(isEntity(blockID));
 	
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
-	
 	
 	vColor      = gl_Color;
 	texcoord    = gl_MultiTexCoord0.st;
 	midTexCoord = mc_midTexCoord.st;
 	lmcoord     = mat2(gl_TextureMatrix[1]) * gl_MultiTexCoord1.st;
-	
-	vec4 position = gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex;
-	
-	wPosition = position.xyz;
-	
-	tbnMatrix = CalculateTBN();
 	
 	gl_Position = gbufferProjection * gbufferModelView * position;
 }

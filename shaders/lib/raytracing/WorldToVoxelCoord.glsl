@@ -1,4 +1,4 @@
-#ifndef WORLDTOVOXELCOORD_GLSL
+#if !defined WORLDTOVOXELCOORD_GLSL
 #define WORLDTOVOXELCOORD_GLSL
 
 const int shadowRadius = int(shadowDistance);

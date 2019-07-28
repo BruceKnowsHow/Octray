@@ -87,6 +87,7 @@ vec3 textureAniso(sampler2D samplr, vec2 coord, ivec2 texSize, vec2 LOD) {
 #include "/../shaders/lib/raytracing/ComputeRaytracedReflections.glsl"
 #include "/../shaders/lib/sky.glsl"
 #include "/../shaders/lib/WaterFog.glsl"
+#include "/../shaders/lib/Tonemap.glsl"
 
 /* DRAWBUFFERS:0 */
 #include "/../shaders/lib/exit.glsl"
@@ -117,8 +118,8 @@ void main() {
 		
 		vec3 absorb = exp(fog / WATER_COLOR);
 		
-		if (NotEnoughLightToBeVisible(absorb, absorb)) { gl_FragData[0].rgb = absorb; exit(); return; }
-		if (depth1 >= 1.0) { gl_FragData[0].rgb = ComputeTotalSky(vec3(0.0), normalize(wPos1), absorb); exit(); return; }
+		if (NotEnoughLightToBeVisible(absorb, absorb)) { gl_FragData[0].rgb = Tonemap(vec3(0.0)); exit(); return; }
+		if (depth0 >= 1.0) { gl_FragData[0].rgb = Tonemap(ComputeTotalSky(vec3(0.0), normalize(wPos1), absorb)); exit(); return; }
 		
 		float sunlight = RaytraceSunlight(wPos1, normal);
 		
@@ -132,7 +133,7 @@ void main() {
 		
 		color *= absorb;
 		
-		gl_FragData[0].rgb = color;
+		gl_FragData[0].rgb = Tonemap(color);
 		
 	} else if (cameraPosition.y + gbufferModelViewInverse[3].y > 256.0) { // Inside cloud volume
 		// Note: "layer" means color variable
@@ -153,7 +154,7 @@ void main() {
 		
 		if (absorb.r + absorb.g + absorb.b > 0.0) color += ComputeBackSky(wDir, absorb);
 		
-		gl_FragData[0].rgb = color;
+		gl_FragData[0].rgb = Tonemap(color);
 		
 	} else { // Above water & below clouds
 		// Render terrain layer & mask
@@ -167,8 +168,8 @@ void main() {
 		vec3 wDir = normalize(wPos);
 		vec3 absorb = vec3(1.0);
 		
-		if (depth0 >= 1.0) { gl_FragData[0].rgb = ComputeTotalSky(vec3(0.0), wDir, absorb); exit(); return; } // Immediately deal with sky
-	
+		if (depth0 >= 1.0) { gl_FragData[0].rgb = Tonemap(ComputeTotalSky(vec3(0.0), wDir, absorb)); exit(); return; } // Immediately deal with sky
+		
 		
 		vec3 color = vec3(0.0);
 		
@@ -189,46 +190,16 @@ void main() {
 			
 			float sunlight = RaytraceSunlight(wPos, normal);
 			
-			if (mask.isWater) { // Entities behind water
-				float fog = clamp(distance(wPos, GetWorldSpacePosition(texcoord, depth0)) / 5.0, 0.0, 1.0);
-				// TODO: add screen space refractions + reflections
-				color = diffuse * sunlight;
-				color = mix(color, texelFetch(colortex2, itexcoord, 0).rgb, fog);
+			vec3 currPos = wPos;
+			vec3 rayDir = reflect(normalize(currPos), normal);
 			
-			} else { // Opaque terrain in front
-				vec3 currPos = wPos;
-				vec3 rayDir = reflect(normalize(currPos), normal);
-				
-				float alpha = (1.0 + dot(normalize(currPos), normal)) * (spec.x);
-				
-				color = diffuse * sunlight * (1.0 - alpha);
-				RaytraceColorFromDirection(color, currPos, rayDir, alpha, true, false, colortex5, colortex6, colortex7);
-			}
+			float alpha = (1.0 + dot(normalize(currPos), normal)) * (spec.x);
 			
-			vec3 p = vec3(0);
-			vec3 pl;
-			VoxelMarch(p, normalize(wPos), pl, 0);
-			
+			color = diffuse * sunlight * (1.0 - alpha);
+			RaytraceColorFromDirection(color, currPos, rayDir, alpha, true, false, colortex5, colortex6, colortex7);
 		}
 		
-		Body j = Body(vec3(0.5, 66.65, 50.5), rotationMatrix(vec3(0,1,0), frameTimeCounter));
-		
-		for (int i = 0; i < 6; ++i) {
-			vec3 center = player_head_faces[i].center;
-			mat3 tbn = player_head_faces[i].tbn;
-			
-			center = j.rot * center;
-			tbn = j.rot * tbn;
-			
-			center += j.pos - (cameraPosition + gbufferModelViewInverse[3].xyz);
-			
-			vec2 coord = RayRectIntersection(vec3(0), normalize(wDir), center, tbn, wPos);
-			
-			if (coord.x > 0.0) color = vec3(coord, 0);
-		}
-		
-		
-		gl_FragData[0].rgb = color;
+		gl_FragData[0].rgb = Tonemap(color);
 	}
 	
 //	vec3 lastDir = vec3(0.0);

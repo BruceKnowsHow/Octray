@@ -1,4 +1,4 @@
-#ifndef ENCODING_GLSL
+#if !defined ENCODING_GLSL
 #define ENCODING_GLSL
 
 #include "/../shaders/lib/utility.glsl"

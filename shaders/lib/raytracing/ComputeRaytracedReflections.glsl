@@ -1,4 +1,4 @@
-#ifndef COMPUTE_RAYTRACED_REFLECTIONS_GLSL
+#if !defined COMPUTE_RAYTRACED_REFLECTIONS_GLSL
 #define COMPUTE_RAYTRACED_REFLECTIONS_GLSL
 
 #include "/../shaders/lib/raytracing/VoxelMarch.glsl"
@@ -57,7 +57,7 @@ void RaytraceColorFromDirection(inout vec3 color, vec3 currPos, vec3 rayDir,
 		vec3 wPos = Part1InvTransform(currPos);
 		float fog = WaterFogAmount(wPos, oldPos);
 		
-		if (underwaterMarch && NotEnoughLightToBeVisible(alpha*(1-fog), alpha*(1-fog))) { show(1) color = color + WATER_COLOR*alpha; return; }
+		if (underwaterMarch && NotEnoughLightToBeVisible(alpha*(1-fog), alpha*(1-fog))) { color = color + WATER_COLOR*alpha; return; }
 		vec3 absorb = vec3(alpha);
 		if (lookup == -1e35) { color += ComputeTotalSky(wPos, rayDir, absorb); return; }
 		
