@@ -42,7 +42,7 @@ flat out float blockID;
 #include "/../shaders/block.properties"
 
 void main() {
-	blockID = mc_Entity.x;
+	blockID = BackPortID(mc_Entity.x);
 	
 	discardflag = 0.0;
 	discardflag += float(isEntity(blockID));

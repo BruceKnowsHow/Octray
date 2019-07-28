@@ -204,6 +204,11 @@ void main() {
 				color = diffuse * sunlight * (1.0 - alpha);
 				RaytraceColorFromDirection(color, currPos, rayDir, alpha, true, false, colortex5, colortex6, colortex7);
 			}
+			
+			vec3 p = vec3(0);
+			vec3 pl;
+			VoxelMarch(p, normalize(wPos), pl, 0);
+			
 		}
 		
 		Body j = Body(vec3(0.5, 66.65, 50.5), rotationMatrix(vec3(0,1,0), frameTimeCounter));

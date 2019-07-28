@@ -46,7 +46,7 @@ mat3 CalculateTBN() {
 #include "/../shaders/block.properties"
 
 void main() {
-	blockID = mc_Entity.x;
+	blockID = BackPortID(mc_Entity.x);
 	
 	tbnMatrix = CalculateTBN();
 	vec4 position = gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex;

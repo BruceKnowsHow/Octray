@@ -31,10 +31,12 @@ vec3 Part1InvTransform(vec3 position) {
 	return position;
 }
 
-ivec2 WorldToVoxelCoord0(vec3 position, int LOD) { // Blocks are layed out one-dimensionally
+ivec2 WorldToVoxelCoord(vec3 position, int LOD) { // Blocks are layed out one-dimensionally
+	const float h0 = 256.0 * shadowDiameter * shadowDiameter / shadowMapResolution;
+	
 	const ivec2 lodOffset[8] = ivec2[8](
-		ivec2(0, 0), ivec2(0, 4096), ivec2(0, 6144), ivec2(0, 7168),
-		ivec2(0, 7680), ivec2(0, 7936), ivec2(0, 8064), ivec2(0, 8128));
+		ivec2(0, 0), ivec2(0, h0), ivec2(0, h0*1.5), ivec2(0, h0*1.75),
+		ivec2(0, h0*1.875), ivec2(0, h0*1.9375), ivec2(0, h0*1.96875), ivec2(0, h0*1.9921875));
 	
 	const int width = shadowMapResolution;
 	const int widthl2 = int(log2(width));
@@ -44,11 +46,7 @@ ivec2 WorldToVoxelCoord0(vec3 position, int LOD) { // Blocks are layed out one-d
 	
 	int linenum = b.x + b.y + b.z;
 	
-	return ivec2(linenum % width, linenum >> widthl2) + lodOffset[LOD]*2;
-}
-
-ivec2 WorldToVoxelCoord(vec3 position, int LOD) {
-	return WorldToVoxelCoord0(position, LOD);
+	return ivec2(linenum % width, linenum >> widthl2) + lodOffset[LOD];
 }
 
 #endif

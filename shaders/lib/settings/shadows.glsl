@@ -1,9 +1,8 @@
 #ifndef LIB_SETTINGS_SHADOW_GLSL
 #define LIB_SETTINGS_SHADOW_GLSL
 
-const float shadowDistance           =  128; // [8 32 128 256 512 1024]
-const int   shadowMapResolution      = 4096; // [64 512 1024 2048 4096 8192 16384] // (shadowDistance * 2.0) ^ (3 / 2)
-//const int   shadowMapResolution      = 4096;
+const float shadowDistance           =  128; // [128 256]
+const int   shadowMapResolution      = 5800; // [5800 11600]
 const float shadowDistanceRenderMul  =    2.0;
 const float shadowIntervalSize       =    0.000001;
 const float sunPathRotation          =   40.0;

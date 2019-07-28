@@ -121,6 +121,8 @@ float VoxelMarch(inout vec3 pos, vec3 rayDir, out vec3 plane, float LOD) {
 		float lookup = Lookup(floor(pos), int(LOD));
 		float hit = clamp(1e35 - lookup*1e35, 0.0, 1.0);
 		
+		Debug += 1.0 / 32.0;
+		
 		LOD -= (hit);
 		if (LOD < 0) return lookup;
 		
