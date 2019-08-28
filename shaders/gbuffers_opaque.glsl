@@ -80,6 +80,7 @@ void main() {
 uniform sampler2D tex;
 uniform sampler2D normals;
 uniform sampler2D specular;
+uniform sampler3D gaux1;
 
 uniform mat4 gbufferModelViewInverse;
 uniform vec2 viewSize;
@@ -113,10 +114,7 @@ void main() {
 	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
 	vec2 spec   = textureLod(specular, texcoord, 0).rg;
 	
-	spec.g = float(isVoxelized(blockID))*0.9;
-	
 	gl_FragData[0] = vec4(pack4x8(vec4(diffuse.rgb, 0.0)), EncodeNormalU(normal), pack2x8(spec), 1.0);
-	
 	exit();
 }
 

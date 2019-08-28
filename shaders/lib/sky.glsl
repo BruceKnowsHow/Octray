@@ -10,6 +10,9 @@
 const float noiseResInverse = 1.0 / noiseTextureResolution;
 #endif
 
+
+#include "/../shaders/lib/PrecomputeSky.glsl"
+
 float csmooth(float x) {
 	return x * x * (3.0 - 2.0 * x);
 }
@@ -116,13 +119,24 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow)
 	
 	vec3 ambientColor = mix(skylightColor, directColor, 0.15) * 0.1;
 	
+#if ShaderStage >= 30
+	vec3 trans;
+	directColor = 0.5*GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDir, 0.0, sunDir, trans);
+	
+	ambientColor = 0.2*GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans);
+#else
+	vec3 trans;
+	directColor = 0.5*GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDir, 0.0, sunDir, trans);
+	
+	ambientColor = 0.2*GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans);
+#endif
+	
 	vec3 cloud = mix(ambientColor, directColor, sunlight) * 2.0;
 	
 	absorb *= clamp(1.0 - cloudAlpha, 0.0, 1.0);
 	
 	return cloud * cloudAlpha * oldAbsorb * 5.0;
 }
-
 
 
 #define PHYSICAL_ATMOSPHERE
@@ -280,7 +294,7 @@ vec3 ComputeFarSpace(vec3 wDir, vec3 absorb) {
 
 vec3 ComputeSunspot(vec3 wDir, inout vec3 absorb) {
 	float sunspot = float(dot(wDir, sunDir) > 0.9994 + 0*0.9999567766);
-	vec3 color = vec3(float(sunspot) * 500.0) * absorb;
+	vec3 color = vec3(float(sunspot) * 100.0) * absorb;
 	
 	absorb *= 1.0 - sunspot;
 	
@@ -298,7 +312,16 @@ vec3 ComputeClouds(vec3 wPos, vec3 wDir, inout vec3 absorb) {
 vec3 ComputeBackSky(vec3 wDir, inout vec3 absorb) {
 	vec3 color  = vec3(0.0);
 	
-	color += ComputeAtmosphericSky(wDir, 1.0, absorb);
+#if ShaderStage < 30 || true
+//	color += ComputeAtmosphericSky(wDir, 1.0, absorb);
+	//	vec3 camera = vec3(0.0, max(cameraPosition.y-80, 0.0) / 1000.0 * 100.0 + ATMOSPHERE.bottom_radius, 0.0);
+	vec3 camera = vec3(0.0, 8000.0 / 1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+	color += GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, camera, wDir, 0.0, sunDir, absorb);
+#else
+//	vec3 camera = vec3(0.0, max(cameraPosition.y-80, 0.0) / 1000.0 * 100.0 + ATMOSPHERE.bottom_radius, 0.0);
+	vec3 camera = vec3(0.0, 8000.0 / 1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+	color += GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, camera, wDir, 0.0, sunDir, absorb);
+#endif
 	color += ComputeSunspot(wDir, absorb);
 	color += ComputeFarSpace(wDir, absorb);
 	

@@ -32,10 +32,15 @@ vec2 GetTexCoord(vec2 coord, float lookup) {
 float RaytraceSunlight(vec3 wPos, vec3 normal) {
 	vec3 plane = vec3(0.0);
 	float NdotL = clamp(dot(normal, sunDir), 0.0, 1.0) * float(dot(normal, sunDir) > 0.0);
+	#if ShaderStage >= 30
 	float direct = (NdotL > 0.0) ? float(VoxelMarch(wPos, sunDir, plane, 0, false) < -1.0) : 0.0;
-	float sunlight = NdotL * direct + 0.05;
+	#else
+	float direct = 0.0;
+	#endif
+	float sunlight = NdotL * direct * 3.0;
 	
-	return sunlight * 3.0;
+	
+	return mix(sunlight, 1.0, 0.3);
 }
 
 #include "/../shaders/lib/sky.glsl"
@@ -59,7 +64,7 @@ void RaytraceColorFromDirection(inout vec3 color, vec3 currPos, vec3 rayDir,
 		
 		if (underwaterMarch && NotEnoughLightToBeVisible(alpha*(1-fog), alpha*(1-fog))) { color = color + WATER_COLOR*alpha; return; }
 		vec3 absorb = vec3(alpha);
-		if (lookup == -1e35) { color += ComputeTotalSky(wPos, rayDir, absorb); return; }
+		if (lookup == -1e35) { color += ComputeTotalSky(wPos, rayDir, absorb) * alpha; return; }
 		
 		
 		mat3 tbn = GenerateTBN(plane * sign(-rayDir));

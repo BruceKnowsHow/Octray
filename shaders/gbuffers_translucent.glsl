@@ -17,14 +17,16 @@ uniform sampler2D normals;
 uniform sampler2D specular;
 uniform sampler2D shadowtex0;
 uniform sampler2D noisetex;
+uniform sampler3D gaux1;
 
 uniform mat4 gbufferModelViewInverse;
 uniform vec2 viewSize;
 
 uniform vec3 shadowLightPosition;
+uniform vec3 sunPosition;
 uniform vec3 cameraPosition;
 
-vec3 sunDir = normalize(mat3(gbufferModelViewInverse) * shadowLightPosition);
+vec3 sunDir = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 
 uniform ivec2 atlasSize;
 
@@ -55,6 +57,10 @@ flat in float blockID;
 /* DRAWBUFFERS:23 */
 #include "/../shaders/lib/exit.glsl"
 
+#if defined DEBUG && DEBUG_VIEW == ShaderStage
+/* DRAWBUFFERS:0 */
+#endif
+
 float GetRefractiveIndex(float ID) {
 	if (isWater(ID)) return 1.3333;
 	if (isGlass(ID)) return 1.52;
@@ -69,7 +75,8 @@ void main() {
 	if (diffuse.a <= 0.0) discard;
 	
 	diffuse.rgb = pow(diffuse.rgb, vec3(2.2)) * vColor.rgb;
-	vec3 normal = tbnMatrix * ( (isWater(blockID)) ? GetWaveNormals(wPosition*0, tbnMatrix[2]) : normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0) );
+	vec3 wPos = wPosition;
+	vec3 normal = tbnMatrix * ( (isWater(blockID)) ? GetWaveNormals(wPos, tbnMatrix[2]) : normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0) );
 	vec2 spec   = (isWater(blockID)) ? vec2(0.0, 1.0) : textureLod(specular, texcoord, 0).rg*0;
 	vec3 color = diffuse.rgb;
 	
@@ -78,7 +85,7 @@ void main() {
 	if (isEyeInWater == 0) {
 		vec3 backColor = vec3(0.0);
 		
-		vec3 currPos = wPosition - gbufferModelViewInverse[3].xyz;
+		vec3 currPos = wPos - gbufferModelViewInverse[3].xyz;
 		
 		float refl = (1.0 - abs(dot(normalize(currPos), normal))) * spec.g;
 		float refr = (1-refl);

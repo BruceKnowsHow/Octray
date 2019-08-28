@@ -116,12 +116,14 @@ float GetWaves(mat4x2 c, float offset) {
 	return waves;
 }
 
-vec2 GetWaveDifferentials(vec2 coord, const float scale) { // Get finite wave differentials for the world-space X and Z coordinates
+vec2 GetWaveDifferentials(vec2 coord, const float scale, out float height) { // Get finite wave differentials for the world-space X and Z coordinates
 	mat4x2 c;
 	
 	float a  = GetWaves(coord, c);
 	float aX = GetWaves(coord + vec2(scale,   0.0));
 	float aY = GetWaves(c, scale);
+	
+	height = a;
 	
 	return a - vec2(aX, aY);
 }
@@ -167,27 +169,32 @@ vec2 GetParallaxWave(vec2 worldPos, float angleCoeff) {
 	return worldPos;
 }
 
-vec3 GetWaveNormals(vec3 wPos, vec3 flatWorldNormal) {
+vec3 GetWaveNormals(inout vec3 wPos, vec3 flatWorldNormal) {
 	if (WAVE_MULT == 0.0) return vec3(0.0, 0.0, 1.0);
 	
 	SetupWaveFBM();
 	
-	float angleCoeff  = dot(normalize(-wPosition.xyz + gbufferModelViewInverse[3].xyz), normalize(flatWorldNormal));
-	      angleCoeff /= clamp(length(wPosition) * 0.00001, 1.0, 10.0);
+	float angleCoeff  = dot(normalize(-wPos + gbufferModelViewInverse[3].xyz), normalize(flatWorldNormal));
+	      angleCoeff /= clamp(length(wPos) * 0.00001, 1.0, 10.0);
 	      angleCoeff  = clamp(angleCoeff, 0.0, 1.0);
 	      angleCoeff  = sqrt(angleCoeff);
 	
-	angleCoeff = ((-wPosition.xyz + gbufferModelViewInverse[3].xyz) * mat3(gbufferModelViewInverse)).z;
+	angleCoeff = ((-wPos + gbufferModelViewInverse[3].xyz) * mat3(gbufferModelViewInverse)).z;
 	angleCoeff = clamp(20.0/(angleCoeff+20.0), 0.0, 1.0);
-	angleCoeff = sqrt(dot(normalize(-wPosition.xyz + gbufferModelViewInverse[3].xyz), normalize(flatWorldNormal)));
+	angleCoeff = sqrt(dot(normalize(-wPos + gbufferModelViewInverse[3].xyz), normalize(flatWorldNormal)));
 	
-//	vec3 worldPos    = wPosition + cameraPosition - worldDisplacement;
-	vec3 worldPos    = wPosition + cameraPosition;
+//	vec3 worldPos    = wPos + cameraPosition - worldDisplacement;
+	vec3 worldPos    = wPos + cameraPosition;
 	     worldPos.xz = worldPos.xz + worldPos.y;
 	
-	worldPos.xz = GetParallaxWave(worldPos.xz, angleCoeff);
+	vec2 offset = GetParallaxWave(worldPos.xz, angleCoeff) - worldPos.xz;
 	
-	vec2 diff = GetWaveDifferentials(worldPos.xz, 0.1) * angleCoeff;
+	worldPos.xz += offset;
+	
+	float height;
+	vec2 diff = GetWaveDifferentials(worldPos.xz, 0.1, height) * angleCoeff;
+	
+	wPos.y += height - (14.0 / 16.0);
 	
 	return vec3(diff, sqrt(1.0 - dot(diff, diff)));
 }

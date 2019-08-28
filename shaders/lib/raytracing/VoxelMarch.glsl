@@ -59,8 +59,6 @@ float VoxelMarch(inout vec3 pos, vec3 rayDir, out vec3 plane, float LOD) {
 	return -1e35;
 }
 
-
-
 float VoxelMarch(inout vec3 pos, vec3 rayDir, inout vec3 plane, float LOD, bool underwater) {
 	return VoxelMarch(pos, rayDir, plane, LOD);
 }

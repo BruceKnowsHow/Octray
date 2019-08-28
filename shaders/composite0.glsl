@@ -26,7 +26,7 @@ uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex3;
-uniform sampler2D colortex4;
+uniform sampler3D colortex4;
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
 uniform sampler2D shadowtex0;
@@ -47,13 +47,14 @@ uniform mat4 gbufferModelViewInverse;
 uniform mat4 gbufferProjectionInverse;
 
 uniform vec3 shadowLightPosition;
+uniform vec3 sunPosition;
 
 uniform ivec2 atlasSize;
 
 uniform vec3 cameraPosition;
 uniform vec3 previousCameraPosition;
 
-vec3 sunDir = normalize(mat3(gbufferModelViewInverse) * shadowLightPosition);
+vec3 sunDir = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 
 uniform vec2 viewSize;
 
@@ -86,6 +87,7 @@ vec3 textureAniso(sampler2D samplr, vec2 coord, ivec2 texSize, vec2 LOD) {
 
 #include "/../shaders/lib/raytracing/ComputeRaytracedReflections.glsl"
 #include "/../shaders/lib/sky.glsl"
+#include "/../shaders/lib/PrecomputeSky.glsl"
 #include "/../shaders/lib/WaterFog.glsl"
 #include "/../shaders/lib/Tonemap.glsl"
 
@@ -127,7 +129,7 @@ void main() {
 		
 		color = diffuse * sunlight;
 		
-		if (mask.isTranslucent && mask.isVoxelized) {
+		if (mask.isTranslucent) {
 			color = texelFetch(colortex2, itexcoord, 0).rgb;
 		}
 		
@@ -168,6 +170,10 @@ void main() {
 		vec3 wDir = normalize(wPos);
 		vec3 absorb = vec3(1.0);
 		
+		vec3 camera = vec3(0.0, 8000.0 / 1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+		vec3 point  = vec3(0.0, 8000.0 / 1000.0 + ATMOSPHERE.bottom_radius + wPos.y*10000.0, 0.0);
+		vec3 transmittance;
+		
 		if (depth0 >= 1.0) { gl_FragData[0].rgb = Tonemap(ComputeTotalSky(vec3(0.0), wDir, absorb)); exit(); return; } // Immediately deal with sky
 		
 		
@@ -181,7 +187,7 @@ void main() {
 		mask.isVoxelized = (spec.g > 0.5);
 		mask.isEntity = (!mask.isVoxelized);
 		
-		if (mask.isTranslucent && mask.isVoxelized) { // Flat terrain behind water
+		if (mask.isTranslucent&&false) { // Flat terrain behind water
 			color = texelFetch(colortex2, itexcoord, 0).rgb;
 			
 		} else { // Flat terrain infront of water, and opaque terrain behind it
@@ -197,6 +203,18 @@ void main() {
 			
 			color = diffuse * sunlight * (1.0 - alpha);
 			RaytraceColorFromDirection(color, currPos, rayDir, alpha, true, false, colortex5, colortex6, colortex7);
+			
+			
+			
+			vec3 in_scatter = GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4,
+				camera, camera + wPos / 1000.0, wPos, wDir, 0.0, sunDir, transmittance);
+			
+			in_scatter = GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, camera, wDir, 0.0, sunDir, transmittance);
+			in_scatter = GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4, camera, point, wPos, wDir, 0.0, sunDir, transmittance);
+			vec3 sky = GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, camera, wDir, 0.0, sunDir, transmittance);
+			
+		//	color = color + in_scatter * 0.01;
+			color = mix(color, sky, pow(clamp(length(wPos / 512.0), 0.0, 1.0), 2.0));
 		}
 		
 		gl_FragData[0].rgb = Tonemap(color);
