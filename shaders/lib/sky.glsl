@@ -319,7 +319,7 @@ vec3 ComputeBackSky(vec3 wDir, inout vec3 absorb) {
 	color += GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, camera, wDir, 0.0, sunDir, absorb);
 #else
 //	vec3 camera = vec3(0.0, max(cameraPosition.y-80, 0.0) / 1000.0 * 100.0 + ATMOSPHERE.bottom_radius, 0.0);
-	vec3 camera = vec3(0.0, 8000.0 / 1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+	vec3 camera = vec3(0.0, 1000.0 / 1000.0 + ATMOSPHERE.bottom_radius + max(0,cameraPosition.y-64) * 40.0 / 1000.0, 0.0);
 	color += GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, camera, wDir, 0.0, sunDir, absorb);
 #endif
 	color += ComputeSunspot(wDir, absorb);

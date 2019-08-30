@@ -93,6 +93,7 @@ const AtmosphereParameters ATMOSPHERE = AtmosphereParameters(
 	6360.000000,
 	// The distance between the planet center and the top of the atmosphere.
 	6420.000000,
+//	6480.000000,
 	// The density profile of air molecules, i.e. a function from altitude to
 	// dimensionless values between 0 (null density) and 1 (maximum density).
 	DensityProfile(DensityProfileLayer[2](DensityProfileLayer(0.000000,0.000000,0.000000,0.000000,0.000000),DensityProfileLayer(0.000000,1.000000,-0.125000,0.000000,0.000000))),
@@ -279,8 +280,8 @@ vec4 GetScatteringTextureUvwzFromRMuMuSNu(AtmosphereParameters atmosphere, float
 
 		float u_mu2 = 0.5 + 0.5 * GetTextureCoordFromUnitRange((d2 - d_min2) / (d_max2 - d_min2), SCATTERING_TEXTURE_MU_SIZE / 2);
 		
-		u_mu = mix(u_mu, u_mu2, 0.0);
-		u_mu = mix(u_mu, 1.0, 1.0);
+	//	u_mu = mix(u_mu, u_mu2, 0.0);
+	//	u_mu = mix(u_mu, 1.0, 1.0);
 		
 	} else {
 		// Distance to the top atmosphere boundary for the ray (r,mu), and its
@@ -328,7 +329,7 @@ vec3 GetCombinedScattering(AtmosphereParameters atmosphere, sampler3D scattering
 	
 	uvw0.z *= float(SCATTERING_TEXTURE_NU_SIZE) / float(SCATTERING_TEXTURE_NU_SIZE + 1.0);
 	uvw1.z *= float(SCATTERING_TEXTURE_NU_SIZE) / float(SCATTERING_TEXTURE_NU_SIZE + 1.0);
-
+	
 	#ifdef COMBINED_SCATTERING_TEXTURES
 		vec4 combined_scattering = texture(scattering_texture, uvw0) * (1.0 - lerp) + texture(scattering_texture, uvw1) * lerp;
 
@@ -373,7 +374,7 @@ vec3 sun_direction, out vec3 transmittance) {
 	float r = length(camera);
 	float rmu = dot(camera, view_ray);
 	float distance_to_top_atmosphere_boundary = -rmu - sqrt(rmu * rmu - r * r + atmosphere.top_radius * atmosphere.top_radius);
-
+	
 	// If the viewer is in space and the view ray intersects the atmosphere, move
 	// the viewer to the top atmosphere boundary (along the view ray):
 	if (distance_to_top_atmosphere_boundary > 0.0) {
@@ -422,20 +423,21 @@ vec3 sun_direction, out vec3 transmittance) {
 		scattering = scattering * shadow_transmittance;
 		single_mie_scattering = single_mie_scattering * shadow_transmittance;
 	}
-
-	return scattering * RayleighPhaseFunction(nu)/10.0 / 2.0 + 0*single_mie_scattering * MiePhaseFunction(atmosphere.mie_phase_function_g, nu)/3.0;
+	
+	return scattering * RayleighPhaseFunction(nu) / 20.0 + single_mie_scattering * MiePhaseFunction(atmosphere.mie_phase_function_g, nu);
 }
 
 vec3 GetSkyRadianceToPoint(AtmosphereParameters atmosphere,
 sampler2D transmittance_texture,
 sampler3D scattering_texture,
 sampler3D single_mie_scattering_texture,
-vec3 camera, vec3 point, vec3 wPos, vec3 wDir, float shadow_length,
+vec3 camera, vec3 point, float shadow_length,
 vec3 sun_direction, out vec3 transmittance) {
 	// Compute the distance to the top atmosphere boundary along the view ray,
 	// assuming the viewer is in space (or NaN if the view ray does not intersect
 	// the atmosphere).
-	vec3 view_ray = normalize(wDir);
+	vec3 view_ray = normalize(point - camera);
+//	vec3 view_ray = normalize(wDir);
 	float r = length(camera);
 	float rmu = dot(camera, view_ray);
 	float distance_to_top_atmosphere_boundary = -rmu - sqrt(rmu * rmu - r * r + atmosphere.top_radius * atmosphere.top_radius);
@@ -452,9 +454,9 @@ vec3 sun_direction, out vec3 transmittance) {
 	float mu = rmu / r;
 	float mu_s = dot(camera, sun_direction) / r;
 	float nu = dot(view_ray, sun_direction);
-//	float d = length(point - camera);
-	float d = length(wPos);
-	show(d)
+	float d = length(point - camera);
+//	float d = length(wPos);
+	
 	bool ray_r_mu_intersects_ground = RayIntersectsGround(atmosphere, r, mu);
 
 	transmittance = GetTransmittance(atmosphere, transmittance_texture, r, mu, d, ray_r_mu_intersects_ground);
@@ -485,7 +487,7 @@ vec3 sun_direction, out vec3 transmittance) {
 		// This is the T(x,x_s) term in Eq. (17) of our paper, for light shafts.
 		shadow_transmittance = GetTransmittance(atmosphere, transmittance_texture, r, mu, d, ray_r_mu_intersects_ground);
 	}
-
+	
 	scattering = scattering - shadow_transmittance * scattering_p;
 	single_mie_scattering = single_mie_scattering - shadow_transmittance * single_mie_scattering_p;
 
@@ -495,8 +497,9 @@ vec3 sun_direction, out vec3 transmittance) {
 
 	// Hack to avoid rendering artifacts when the sun is below the horizon.
 	single_mie_scattering = single_mie_scattering * smoothstep(float(0.0), float(0.01), mu_s);
-
-	return scattering * RayleighPhaseFunction(nu) + 0*single_mie_scattering * MiePhaseFunction(atmosphere.mie_phase_function_g, nu);
+	single_mie_scattering = max(vec3(0.0), single_mie_scattering);
+	
+	return scattering * RayleighPhaseFunction(nu) / 20.0 + single_mie_scattering * MiePhaseFunction(atmosphere.mie_phase_function_g, nu);
 }
 
 vec3 GetSolarRadiance() {

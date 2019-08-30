@@ -137,7 +137,7 @@ void main() {
 		
 		gl_FragData[0].rgb = Tonemap(color);
 		
-	} else if (cameraPosition.y + gbufferModelViewInverse[3].y > 256.0) { // Inside cloud volume
+	} else if (false && cameraPosition.y + gbufferModelViewInverse[3].y > 256.0) { // Inside cloud volume
 		// Note: "layer" means color variable
 		// Render cloud layer & behind-visibility
 		// Where visible, render terrain layer & mask
@@ -170,8 +170,9 @@ void main() {
 		vec3 wDir = normalize(wPos);
 		vec3 absorb = vec3(1.0);
 		
-		vec3 camera = vec3(0.0, 8000.0 / 1000.0 + ATMOSPHERE.bottom_radius, 0.0);
-		vec3 point  = vec3(0.0, 8000.0 / 1000.0 + ATMOSPHERE.bottom_radius + wPos.y*10000.0, 0.0);
+		vec3 camera = vec3(0.0, 1000.0 / 1000.0 + ATMOSPHERE.bottom_radius + max(0,cameraPosition.y-64) * 40.0 / 1000.0, 0.0);
+		vec3 point  = camera + wPos * 40.0/1000.0;
+		
 		vec3 transmittance;
 		
 		if (depth0 >= 1.0) { gl_FragData[0].rgb = Tonemap(ComputeTotalSky(vec3(0.0), wDir, absorb)); exit(); return; } // Immediately deal with sky
@@ -205,16 +206,10 @@ void main() {
 			RaytraceColorFromDirection(color, currPos, rayDir, alpha, true, false, colortex5, colortex6, colortex7);
 			
 			
+			vec3 in_scatter = GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4, camera, point, 0.0, sunDir, transmittance);
 			
-			vec3 in_scatter = GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4,
-				camera, camera + wPos / 1000.0, wPos, wDir, 0.0, sunDir, transmittance);
-			
-			in_scatter = GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, camera, wDir, 0.0, sunDir, transmittance);
-			in_scatter = GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4, camera, point, wPos, wDir, 0.0, sunDir, transmittance);
-			vec3 sky = GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, camera, wDir, 0.0, sunDir, transmittance);
-			
-		//	color = color + in_scatter * 0.01;
-			color = mix(color, sky, pow(clamp(length(wPos / 512.0), 0.0, 1.0), 2.0));
+			color = color * transmittance + in_scatter;
+		//	color = mix(color, sky, pow(clamp(length(wPos / 512.0), 0.0, 1.0), 2.0));
 		}
 		
 		gl_FragData[0].rgb = Tonemap(color);
