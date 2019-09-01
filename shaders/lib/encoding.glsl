@@ -16,29 +16,40 @@ vec3 DecodeNormal(vec2 encodedNormal) {
 
 
 // Packing functions for sending midTexCoord through the shadow depth buffer
-// Outputs a float in the range [-1.0, 1.0], which is what gl_Position.z takes in
-const vec2 tCoordBits = vec2(8.0, 8.0);
+// Outputs a float in the range (-1.0, 1.0), which is what gl_Position.z takes in
+const vec3 B = vec3(8.0, 8.0, 8.0);
 float packTexcoord(vec2 coord) {
-	coord.rg = floor(coord.rg * exp2(tCoordBits));
+	float matID = floor(255.0);
 	
-	coord.r += coord.g * exp2(tCoordBits.x);
+	coord.rg = floor(coord.rg * exp2(B.gb));
 	
-	coord.r = exp2(tCoordBits.x + tCoordBits.y) - coord.r; // Flip the priority ordering of textures. This causes the top-grass texture to have priority over side-grass
+	float result = 0.0;
 	
-	return coord.r * exp2(-tCoordBits.x - tCoordBits.y + 1.0) - 1.0;
+	result += matID;
+	result += coord.r * exp2(B.r);
+	result += coord.g * exp2(B.r + B.g);
+	
+	result = exp2(B.r + B.g + B.b) - result; // Flip the priority ordering of textures. This causes the top-grass texture to have priority over side-grass
+	result = result / exp2(B.r + B.g + B.b - 1.0) - 1.0; // Compact into range (-1.0, 1.0)
+	
+	return result;
 }
 
-// The unpacking function takes a float in the range [0.0, 1.0], since this is what is read from the depth buffer
+// The unpacking function takes a float in the range (0.0, 1.0), since this is what is read from the depth buffer
 vec2 unpackTexcoord(float enc) {
-	enc *= exp2(tCoordBits.x + tCoordBits.y);
-	
-	enc = exp2(tCoordBits.x + tCoordBits.y) - enc; // Undo the priority flip
+	enc *= exp2(B.r + B.g + B.b); // Expand from range (-1.0, 1.0)
+	enc  = exp2(B.r + B.g + B.b) - enc; // Undo the priority flip
 	
 	vec2 coord;
-	coord.g = floor(enc * exp2(-tCoordBits.x));
-	coord.r = mod(enc, exp2(tCoordBits.x));
+	float matID = mod(floor(enc), exp2(B.r));
+	coord.r = mod(floor(enc / exp2(B.r)), exp2(B.g));
+	coord.g = mod(floor(enc / exp2(B.r + B.g)), exp2(B.b));
 	
-	return coord * (exp2(-tCoordBits));
+	#ifdef composite0
+	show(matID == 255)
+	#endif
+	
+	return coord * (exp2(-B.gb));
 }
 
 // Packing functions for sending vertex color through the shadow depth buffer
