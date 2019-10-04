@@ -45,10 +45,6 @@ vec2 unpackTexcoord(float enc) {
 	coord.r = mod(floor(enc / exp2(B.r)), exp2(B.g));
 	coord.g = mod(floor(enc / exp2(B.r + B.g)), exp2(B.b));
 	
-	#ifdef composite0
-	show(matID == 255)
-	#endif
-	
 	return coord * (exp2(-B.gb));
 }
 

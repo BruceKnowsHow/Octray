@@ -2,6 +2,7 @@
 #define LIB_UTILITY
 
 #define PI 3.14159
+#define TIME 0.0
 
 #define textureRaw(samplr, coord) texelFetch(samplr, ivec2((coord) * viewSize), 0)
 

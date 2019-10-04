@@ -11,6 +11,7 @@
 
 #include "/../shaders/lib/debug.glsl"
 #include "/../shaders/lib/encoding.glsl"
+#include "/../shaders/lib/utility.glsl"
 
 uniform sampler2D tex;
 uniform sampler2D normals;

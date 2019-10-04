@@ -120,7 +120,7 @@ void main() {
 		
 		vec3 absorb = exp(fog / WATER_COLOR);
 		
-		if (NotEnoughLightToBeVisible(absorb, absorb)) { gl_FragData[0].rgb = Tonemap(vec3(0.0)); exit(); return; }
+		if (NotEnoughLightToBeVisible(vec3(1.0) * absorb, absorb)) { gl_FragData[0].rgb = Tonemap(vec3(100.0)); exit(); return; }
 		if (depth0 >= 1.0) { gl_FragData[0].rgb = Tonemap(ComputeTotalSky(vec3(0.0), normalize(wPos1), absorb)); exit(); return; }
 		
 		float sunlight = RaytraceSunlight(wPos1, normal);
@@ -170,11 +170,6 @@ void main() {
 		vec3 wDir = normalize(wPos);
 		vec3 absorb = vec3(1.0);
 		
-		vec3 camera = vec3(0.0, 1000.0 / 1000.0 + ATMOSPHERE.bottom_radius + max(0,cameraPosition.y-64) * 40.0 / 1000.0, 0.0);
-		vec3 point  = camera + wPos * 40.0/1000.0;
-		
-		vec3 transmittance;
-		
 		if (depth0 >= 1.0) { gl_FragData[0].rgb = Tonemap(ComputeTotalSky(vec3(0.0), wDir, absorb)); exit(); return; } // Immediately deal with sky
 		
 		
@@ -201,14 +196,18 @@ void main() {
 			vec3 rayDir = reflect(normalize(currPos), normal);
 			
 			float alpha = (1.0 + dot(normalize(currPos), normal)) * (spec.x);
+			vec3 absorb = vec3(1.0);
 			
 			color = diffuse * sunlight * (1.0 - alpha);
 			RaytraceColorFromDirection(color, currPos, rayDir, alpha, true, false, colortex5, colortex6, colortex7);
 			
+			vec3 kCamera = vec3(0.0, (cameraPosition.y)/1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+			vec3 kPoint  = kCamera + wPos/1000.0;
 			
-			vec3 in_scatter = GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4, camera, point, 0.0, sunDir, transmittance);
+		//	vec3 transmittance = vec3(1.0);
 			
-			color = color * transmittance + in_scatter;
+		//	vec3 in_scatter = GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4, kCamera, kPoint, 0.0, sunDir, transmittance);
+		//	color = color * transmittance + in_scatter;
 		//	color = mix(color, sky, pow(clamp(length(wPos / 512.0), 0.0, 1.0), 2.0));
 		}
 		

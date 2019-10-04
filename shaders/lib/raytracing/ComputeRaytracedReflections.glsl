@@ -52,8 +52,9 @@ void RaytraceColorFromDirection(inout vec3 color, vec3 currPos, vec3 rayDir,
                         sampler2D texSampler, sampler2D normalSampler, sampler2D specSampler)
 {
 	for (int i = 0; i < 10; ++i) {
-		if (alpha < TonemapThresholdF(color)*0+1.0/255.0) return;
-		
+	//	if (alpha < 1.0/255.0) return;
+		if (NotEnoughLightToBeVisible(vec3(alpha), color, 128.0 / 255.0)) return;
+		show(i/10.0)
 		vec3 oldPos = currPos;
 		vec3 plane = vec3(0.0);
 		
@@ -62,7 +63,7 @@ void RaytraceColorFromDirection(inout vec3 color, vec3 currPos, vec3 rayDir,
 		vec3 wPos = Part1InvTransform(currPos);
 		float fog = WaterFogAmount(wPos, oldPos);
 		
-		if (underwaterMarch && NotEnoughLightToBeVisible(alpha*(1-fog), alpha*(1-fog))) { color = color + WATER_COLOR*alpha; return; }
+		if (underwaterMarch && NotEnoughLightToBeVisible(vec3(alpha*(1-fog)), vec3(alpha*(1-fog)))) { color = color + WATER_COLOR*alpha; return; }
 		vec3 absorb = vec3(alpha);
 		if (lookup == -1e35) { color += ComputeTotalSky(wPos, rayDir, absorb) * alpha; return; }
 		

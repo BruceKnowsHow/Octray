@@ -12,6 +12,7 @@ const float noiseResInverse = 1.0 / noiseTextureResolution;
 
 
 #include "/../shaders/lib/PrecomputeSky.glsl"
+#include "/../shaders/lib/VolumetricClouds.glsl"
 
 float csmooth(float x) {
 	return x * x * (3.0 - 2.0 * x);
@@ -74,7 +75,7 @@ float CloudFBM(vec2 coord, out mat4x2 c, vec3 weights, float weight) {
 vec3 sunlightColor = vec3(1.0, 1.0, 1.0);
 vec3 skylightColor = vec3(0.6, 0.8, 1.0);
 
-vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow) {
+vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 transmit, float sunglow) {
 #ifndef CLOUDS_2D
 	return vec3(0.0);
 #endif
@@ -88,7 +89,7 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow)
 	if (wDir.y <= 0.0 != wPos.y >= cloudHeight) return vec3(0.0);
 	
 	
-	vec3 oldAbsorb = absorb;
+	vec3 oldTransmit = transmit;
 	
 	const float coverage = CLOUD_COVERAGE_2D * 1.12;
 	const vec3  weights  = vec3(0.5, 0.135, 0.075);
@@ -133,116 +134,9 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 absorb, float sunglow)
 	
 	vec3 cloud = mix(ambientColor, directColor, sunlight) * 2.0;
 	
-	absorb *= clamp(1.0 - cloudAlpha, 0.0, 1.0);
+	transmit *= clamp(1.0 - cloudAlpha, 0.0, 1.0);
 	
-	return cloud * cloudAlpha * oldAbsorb * 5.0;
-}
-
-
-#define PHYSICAL_ATMOSPHERE
-
-vec2 AtmosphereDistances(vec3 worldPosition, vec3 worldDirection, const float atmosphereRadius, const vec2 radiiSquared) {
-	// Considers the planet's center as the coordinate origin, as per convention
-	
-	float b  = -dot(worldPosition, worldDirection);
-	float bb = b * b;
-	vec2  c  = dot(worldPosition, worldPosition) - radiiSquared;
-	
-	vec2 delta   = sqrt(max(bb - c, 0.0)); // .x is for planet distance, .y is for atmosphere distance
-	     delta.x = -delta.x; // Invert delta.x so we don't have to subtract it later
-	
-	if (worldPosition.y < atmosphereRadius) { // If inside the atmosphere, uniform condition
-		if (bb < c.x || b < 0.0) return vec2(b + delta.y, 0.0); // If the earth is not visible to the ray, check against the atmosphere instead
-		
-		vec2 dist     = b + delta;
-		vec3 hitPoint = worldPosition + worldDirection * dist.x;
-		
-		float horizonCoeff = dot(normalize(hitPoint), worldDirection);
-		      horizonCoeff = exp2(horizonCoeff * 5.0);
-		
-		return vec2(mix(dist.x, dist.y, horizonCoeff), 0.0);
-	} else {
-		if (b < 0.0) return vec2(0.0);
-		
-		if (bb < c.x) return vec2(2.0 * delta.y, b - delta.y);
-		
-		return vec2((delta.y + delta.x) * 2.0, b - delta.y);
-	}
-}
-
-vec3 ComputeAtmosphericSky(vec3 worldDirection, float visibility, inout vec3 absorb) {
-	const float iSteps = 12;
-	
-	const vec3  OZoneCoeff    =  vec3(3.426, 8.298, 0.356) * 6e-7;
-	const vec3  rayleighCoeff =  vec3(0.58, 1.35, 3.31) * 1e-5               * -1.0;
-	const vec3  rayleighOZone = (vec3(0.58, 1.35, 3.31) * 1e-5 + OZoneCoeff) * -1.0;
-	const float      mieCoeff = 7e-6 * -1.0;
-	
-	const float rayleighHeight = 8.0e3 * 0.25;
-	const float      mieHeight = 1.2e3 * 2.0;
-	
-	const float     planetRadius = 6371.0e2;
-	const float atmosphereRadius = 6471.0e2;
-	
-	const vec2 radiiSquared = vec2(planetRadius, atmosphereRadius) * vec2(planetRadius, atmosphereRadius);
-	
-	vec3 worldPosition = vec3(0.0, planetRadius + 1.061e3 + max(cameraPosition.y - 72, 0.0) * 40.0*0, 0.0);
-	
-	vec2 atmosphereDistances = AtmosphereDistances(worldPosition, worldDirection, atmosphereRadius, radiiSquared);
-	
-	if (atmosphereDistances.x <= 0.0) return vec3(0.0);
-	
-	float iStepSize  = atmosphereDistances.x / iSteps; // Calculate the step size of the primary ray
-	vec3  iStep      = worldDirection * iStepSize;
-	
-	const vec2 scatterMUL = -1.0 / vec2(rayleighHeight, mieHeight);
-	vec4  scatterADD = vec2(log2(iStepSize), 0.0).xxyy - planetRadius * scatterMUL.rgrg;
-	
-	
-	vec3 iPos = worldPosition + worldDirection * (iStepSize * 0.5 + atmosphereDistances.y); // Calculate the primary ray sample position
-	
-	vec3 c = vec3(dot(iPos, iPos), dot(iPos, iStep) * 2.0, (iStepSize*iStepSize)); // dot(iStep, iStep)
-	vec2 e = vec2(dot(iPos, sunDir), dot(iStep, sunDir));
-	
-	
-	vec3 rayleigh = vec3(0.0); // Accumulators for Rayleigh and Mie scattering
-	vec3 mie      = vec3(0.0);
-	
-	vec3 oldAbsorb = absorb;
-	
-	vec2 opticalDepth = vec2(0.0); // Optical depth accumulators
-	
-    // Sample the primary ray
-	for (float i = 0; i < iSteps; i++) {
-		float iPosLength2 = fma(fma(c.z, i, c.y), i, c.x);
-		
-		float b = fma(e.y, i, e.x); // b = dot(iPos, sunDir);
-		float jStepSize = sqrt(fma(b, b, radiiSquared.y - iPosLength2)) - b; // jStepSize = sqrt(b*b + radiiSquared.y - dot(iPos, iPos)) - b;
-		
-		float jPosLength2 = fma(fma(jStepSize, 0.25, b), jStepSize, iPosLength2);
-		
-		vec4 opticalStep = exp2(sqrt(vec2(iPosLength2, jPosLength2)).xxyy * scatterMUL.rgrg + scatterADD); // Calculate the optical depth of the Rayleigh and Mie scattering for this step
-		opticalDepth += opticalStep.rg;
-		opticalStep.ba = opticalStep.ba * jStepSize + opticalDepth;
-		
-		vec3 attn = exp2(rayleighOZone * opticalStep.b + (mieCoeff * opticalStep.a));
-		
-		rayleigh += opticalStep.r * attn;
-		mie      += opticalStep.g * attn;
-		absorb	 *= attn;
-    }
-	
-	// Calculate the Rayleigh and Mie phases
-	float g = 0.9;
-	float gg = g * g;
-    float  mu = e.y / iStepSize; // dot(worldDirection, sunDir);
-    float rayleighPhase = 1.5 * (1.0 + mu * mu);
-    float      miePhase = rayleighPhase * (1.0 - gg) / (pow(1.0 + gg - 2.0 * mu * g, 1.5) * (2.0 + gg));
-	
-	mie = max(mie, 0.0);
-	
-    // Calculate and return the final color
-    return -(rayleigh * rayleighPhase * rayleighCoeff + mie * miePhase * mieCoeff) * oldAbsorb;
+	return cloud * cloudAlpha * oldTransmit * 5.0;
 }
 
 #define STARS true // [true false]
@@ -265,7 +159,7 @@ void CalculateStars(inout vec3 color, vec3 worldDir, float visibility, const boo
 //	if (ROTATE_STARS) {
 //		vec3 shadowCoord     = mat3(shadowViewMatrix) * worldDir;
 //		     shadowCoord.xz *= sign(sunVector.y);
-//		
+//
 //		coord  = vec2(atan(shadowCoord.x, shadowCoord.z), acos(shadowCoord.y));
 //		coord *= 3.0 * STAR_SCALE * noiseScale;
 //	} else
@@ -281,7 +175,9 @@ void CalculateStars(inout vec3 color, vec3 worldDir, float visibility, const boo
 }
 
 
-vec3 ComputeFarSpace(vec3 wDir, vec3 absorb) {
+vec3 ComputeFarSpace(vec3 wDir, vec3 transmit) {
+	return vec3(0.0);
+	
 	vec2 coord = wDir.xz * (2.5 * STAR_SCALE * (2.0 - wDir.y));
 	
 	float noise  = texture(noisetex, coord * 0.5).r;
@@ -289,50 +185,61 @@ vec3 ComputeFarSpace(vec3 wDir, vec3 absorb) {
 	
 	float star = clamp(noise - 1.3 / STAR_COVERAGE, 0.0, 1.0);
 	
-	return vec3(star) * 10.0 * absorb;
+	return vec3(star) * 10.0 * transmit;
 }
 
-vec3 ComputeSunspot(vec3 wDir, inout vec3 absorb) {
+vec3 ComputeSunspot(vec3 wDir, inout vec3 transmit) {
 	float sunspot = float(dot(wDir, sunDir) > 0.9994 + 0*0.9999567766);
-	vec3 color = vec3(float(sunspot) * 100.0) * absorb;
+	vec3 color = vec3(float(sunspot) * 100.0) * transmit;
 	
-	absorb *= 1.0 - sunspot;
+	transmit *= 1.0 - sunspot;
 	
 	return color;
 }
 
-vec3 ComputeClouds(vec3 wPos, vec3 wDir, inout vec3 absorb) {
+vec3 ComputeClouds(vec3 wPos, vec3 wDir, inout vec3 transmit) {
 	vec3 color = vec3(0.0);
 	
-	color += Compute2DCloudPlane(wPos, wDir, absorb, 0.0);
+	color += Compute2DCloudPlane(wPos, wDir, transmit, 0.0);
 	
 	return color;
 }
 
-vec3 ComputeBackSky(vec3 wDir, inout vec3 absorb) {
+vec3 ComputeBackSky(vec3 wDir, inout vec3 transmit) {
 	vec3 color  = vec3(0.0);
 	
-#if ShaderStage < 30 || true
-//	color += ComputeAtmosphericSky(wDir, 1.0, absorb);
-	//	vec3 camera = vec3(0.0, max(cameraPosition.y-80, 0.0) / 1000.0 * 100.0 + ATMOSPHERE.bottom_radius, 0.0);
-	vec3 camera = vec3(0.0, 8000.0 / 1000.0 + ATMOSPHERE.bottom_radius, 0.0);
-	color += GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, camera, wDir, 0.0, sunDir, absorb);
-#else
-//	vec3 camera = vec3(0.0, max(cameraPosition.y-80, 0.0) / 1000.0 * 100.0 + ATMOSPHERE.bottom_radius, 0.0);
-	vec3 camera = vec3(0.0, 1000.0 / 1000.0 + ATMOSPHERE.bottom_radius + max(0,cameraPosition.y-64) * 40.0 / 1000.0, 0.0);
-	color += GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, camera, wDir, 0.0, sunDir, absorb);
-#endif
-	color += ComputeSunspot(wDir, absorb);
-	color += ComputeFarSpace(wDir, absorb);
+	
+	color += ComputeSunspot(wDir, transmit);
+	color += ComputeFarSpace(wDir, transmit);
 	
 	return color;
 }
 
-vec3 ComputeTotalSky(vec3 wPos, vec3 wDir, inout vec3 absorb) {
+vec3 ComputeTotalSky(vec3 wPos, vec3 wDir, inout vec3 transmit) {
 	vec3 color;
 	
-	color += ComputeClouds(wPos, wDir, absorb);
-	color += ComputeBackSky(wDir, absorb);
+	return vec3(0.0);
+	
+	// Camera position in km relative to earth center
+	vec3 kCamera = vec3(0.0, (cameraPosition.y)/1000.0 + ATMOSPHERE.bottom_radius, 0.0) + wPos/1000.0;
+	
+	vec2 planetSphere = rsi(vec3(0.0, kCamera.y*1000.0, 0.0), wDir, ATMOSPHERE.bottom_radius*1000.0);
+	
+	vec3 kPoint = kCamera + planetSphere.y / 1000.0 * wDir;
+	
+	calculateVolumetricClouds(color, transmit, wPos, wDir, sunDir, vec2(0.0), 1.0, ATMOSPHERE.bottom_radius*1000.0, VC_QUALITY, VC_SUNLIGHT_QUALITY);
+	
+#if ShaderStage < 30
+	color += GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, kCamera, wDir, 0.0, sunDir, transmit);
+#else
+//	color += GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, kCamera, wDir, 0.0, sunDir, transmit);
+	if (planetSphere.y > 0.0)
+		{ color += GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4, kCamera, kPoint, 0.0, sunDir, transmit); }
+	else
+		{ color += GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, kCamera, wDir, 0.0, sunDir, transmit); }
+#endif
+	
+	color += ComputeBackSky(wDir, transmit);
 	
 	return color;
 }
