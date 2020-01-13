@@ -32,6 +32,8 @@ out vec3 wPosition;
 
 out mat3 tbnMatrix;
 
+flat out vec3 glnormal;
+
 flat out vec2 midTexCoord;
 flat out float blockID;
 
@@ -54,19 +56,127 @@ void main() {
 	wPosition = position.xyz;
 	
 	discardflag = 0.0;
-	discardflag = float(isWater(blockID)) * float(dot(wPosition - gbufferModelViewInverse[3].xyz, tbnMatrix[2]) > 0.0);
+	discardflag += float(isWater(blockID)) * float(dot(wPosition - gbufferModelViewInverse[3].xyz, tbnMatrix[2]) > 0.0);
+	discardflag += float(!isVoxelized(blockID));
 //	discardflag += float(!isVoxelized(blockID) && !isWater(blockID));
 //	discardflag += float(isEntity(blockID));
 	
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
 	
-	vColor      = gl_Color;
-	texcoord    = gl_MultiTexCoord0.st;
-	midTexCoord = mc_midTexCoord.st;
-	lmcoord     = mat2(gl_TextureMatrix[1]) * gl_MultiTexCoord1.st;
+	texcoord = gl_MultiTexCoord0.st;
+	midTexCoord = mc_midTexCoord;
 	
 	gl_Position = gbufferProjection * gbufferModelView * position;
 }
+
+#endif
+/***********************************************************************/
+
+/***********************************************************************/
+#if defined gsh
+
+layout(triangles) in;
+layout(triangle_strip, max_vertices = 8) out;
+
+uniform vec3 cameraPosition;
+uniform mat4 gbufferModelViewInverse;
+
+in float discardflag[];
+
+in vec2 texcoord[];
+in vec2 lmcoord[];
+
+in vec4 vColor[];
+in vec3 wPosition[];
+
+in mat3 tbnMatrix[];
+
+flat in vec2 midTexCoord[];
+flat in float blockID[];
+
+flat in vec3 glnormal[];
+
+out float _discardflag;
+
+out vec2 _texcoord;
+out vec2 _lmcoord;
+
+out vec4 _vColor;
+out vec3 _wPosition;
+
+out mat3 _tbnMatrix;
+
+out vec3 vPos;
+
+flat out vec2 _midTexCoord;
+flat out float _blockID;
+
+flat out vec2 vCoord;
+flat out ivec2 sCoord;
+
+flat out vec2[3] cornerTexCoord;
+flat out vec3 _glnormal;
+
+
+#include "/../shaders/lib/settings/shadows.glsl"
+#include "/../shaders/lib/raytracing/WorldToVoxelCoord.glsl"
+#include "/../shaders/lib/encoding.glsl"
+
+void main() {
+	if (discardflag[0] + discardflag[1] + discardflag[2] > 0.0)
+		return;
+	
+	vec3 triCentroid = (wPosition[0] + wPosition[1] + wPosition[2]) / 3.0 - tbnMatrix[0][2] / 4096.0;
+	
+	if (any(greaterThan(abs(triCentroid.xz), vec2(shadowRadius - 4.0))))
+		return;
+	
+	vec2 coord = VoxelToTextureSpace(WorldToVoxelSpace(triCentroid), 0) + 0.5;
+	coord /= shadowMapResolution;
+	
+	for (int i = 0; i < 3; ++i) {
+		_discardflag = discardflag[i];
+		_texcoord = texcoord[i];
+		_lmcoord = lmcoord[i];
+		_vColor = vColor[i];
+		_wPosition = wPosition[i];
+		_tbnMatrix = tbnMatrix[i];
+		_midTexCoord = midTexCoord[i];
+		_blockID = blockID[i];
+		gl_Position = gl_in[i].gl_Position;
+		vCoord = coord;
+		vPos = (WorldToVoxelSpace(triCentroid) + (-gbufferModelViewInverse[3].xyz + fract(cameraPosition*0)));
+		sCoord = VoxelToTextureSpace(WorldToVoxelSpace(triCentroid) + (-gbufferModelViewInverse[3].xyz + fract(cameraPosition*0)), 0);
+		cornerTexCoord = vec2[3](texcoord[0], texcoord[1], texcoord[2]);
+		_glnormal = glnormal[i];
+		EmitVertex();
+	}
+	
+	EndPrimitive();
+	
+	
+	
+	
+	
+	// // Can pass an unsigned integer range [0, 2^23 - 1]
+	// float depth = packTexcoord(midTexCoord[0]);
+	// gl_Position = vec4(coord * 2.0 - 1.0, depth, 1.0);
+	//
+	// EmitVertex();
+	//
+	// for (int i = 1; i <= 7; ++i) {
+	// 	coord = VoxelToTextureSpace(WorldToVoxelSpace(triCentroid), i) + 0.5;
+	// 	coord /= shadowMapResolution;
+	//
+	// 	depth = -1.0;
+	// 	if (i == 1) depth = packVertColor(vColor[0].rgb);
+	//
+	// 	gl_Position = vec4(coord * 2.0 - 1.0, depth, 1.0);
+	// 	EmitVertex();
+	// }
+	//
+	// EndPrimitive();
+};
 
 #endif
 /***********************************************************************/
@@ -84,6 +194,21 @@ uniform sampler3D gaux1;
 
 uniform mat4 gbufferModelViewInverse;
 uniform vec2 viewSize;
+uniform ivec2 atlasSize;
+uniform int frameCounter;
+
+#define GSH_ACTIVE
+#ifdef GSH_ACTIVE
+	#define discardflag _discardflag
+	#define texcoord _texcoord
+	#define lmcoord _lmcoord
+	#define vColor _vColor
+	#define wPosition _wPosition
+	#define tbnMatrix _tbnMatrix
+	#define midTexCoord _midTexCoord
+	#define blockID _blockID
+	#define glnormal _glnormal
+#endif
 
 in float discardflag;
 
@@ -95,10 +220,18 @@ in vec3 wPosition;
 
 in mat3 tbnMatrix;
 
+in vec3 vPos;
+
 flat in vec2 midTexCoord;
 flat in float blockID;
 
-/* DRAWBUFFERS:1 */
+flat in vec2 vCoord;
+flat in ivec2 sCoord;
+flat in vec3 glnormal;
+
+flat in vec2[3] cornerTexCoord;
+
+/* DRAWBUFFERS:12 */
 #include "/../shaders/lib/exit.glsl"
 
 #include "/../shaders/block.properties"
@@ -106,15 +239,16 @@ flat in float blockID;
 void main() {
 	if (discardflag > 0.0) discard;
 	
-	vec4 diffuse = textureLod(tex, texcoord, 0);
+	uint tbnIndex = 0;
+	if (abs(tbnMatrix[2].x) > 0.5) tbnIndex = 0;
+	else if (abs(tbnMatrix[2].y) > 0.5) tbnIndex = 1;
+	else                           tbnIndex = 2;
 	
-	if (diffuse.a <= 0.0) discard;
+	gl_FragData[0] = vec4(intBitsToFloat(sCoord), float(tbnIndex), 1.0);
+	gl_FragData[1] = vec4(vPos, 1.0);
 	
-	diffuse.rgb = diffuse.rgb * rgb(vec3(hsv(vColor.rgb).rg * vec2(1.0, 1.2), 1.0)) * vColor.a;
-	vec3 normal = tbnMatrix * normalize(textureLod(normals, texcoord, 0).rgb * 2.0 - 1.0);
-	vec2 spec   = textureLod(specular, texcoord, 0).rg;
+	vec2 spriteSize = abs(midTexCoord - cornerTexCoord[0]) * 2.0 * atlasSize;
 	
-	gl_FragData[0] = vec4(pack4x8(vec4(diffuse.rgb, 0.0)), EncodeNormalU(normal), pack2x8(spec), 1.0);
 	exit();
 }
 

@@ -5,10 +5,10 @@
 //#define DEBUG
 #define DEBUG_VIEW 30 // [-10 -1 30 50]
 
-#if ShaderStage < 0 && defined vsh
+#if false && ShaderStage < 0 && defined vsh
 	out vec3 vDebug;
 	#define Debug vDebug
-#elif ShaderStage < 0 && defined fsh
+#elif false && ShaderStage < 0 && defined fsh
 	in vec3 vDebug;
 	vec3 Debug = vDebug;
 #else

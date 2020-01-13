@@ -17,9 +17,9 @@ vec3 DecodeNormal(vec2 encodedNormal) {
 
 // Packing functions for sending midTexCoord through the shadow depth buffer
 // Outputs a float in the range (-1.0, 1.0), which is what gl_Position.z takes in
-const vec3 B = vec3(8.0, 8.0, 8.0);
+const vec3 B = vec3(0.0, 12.0, 12.0);
 float packTexcoord(vec2 coord) {
-	float matID = floor(255.0);
+	float matID = floor(255.0)*0;
 	
 	coord.rg = floor(coord.rg * exp2(B.gb));
 	
@@ -144,16 +144,16 @@ mat3 DecodeTBNU(float enc) {
 float EncodeNormalU(vec3 normal) {
 	normal = clamp(normal, -1.0, 1.0);
 	normal.xy = vec2(atan(normal.x, normal.z), acos(normal.y)) / PI; // Range vec2([-1.0, 1.0], [0.0, 1.0])
-	normal.x += 1.0; // Range [0.0, 2.0]
+	normal.x  = normal.x + 1.0; // Range [0.0, 2.0]
 	normal.xy = round(normal.xy * 1024.0); // Range vec2([0.0, 2048.0], [0.0, 1024.0])
 //	normal.y = min(normal.y, 1023.0); // Range [0.0, 1024.0)
-	normal.y = mod(normal.y, 1024.0); // Range [0.0, 1024.0)
+//	normal.y = mod(normal.y, 1024.0); // Range [0.0, 1024.0)
 	
 	uvec2 enc = uvec2(normal.xy);
-	enc.x = enc.x & 2047; // Wrap around the value 2048
-	enc.y = enc.y << 11;  // Multiply by 2048
+	enc.x =  enc.x & 2047; // Wrap around the value 2048
+	enc.y = (enc.y & 1023) << 11;  // Multiply by 2048
 	
-	return uintBitsToFloat(enc.x + enc.y); // X occupies first 12 bits, Y occupies next 11 bits
+	return uintBitsToFloat(enc.x + enc.y); // X occupies first 11 bits, Y occupies next 10 bits
 }
 
 vec3 DecodeNormalU(float enc) {
@@ -165,7 +165,7 @@ vec3 DecodeNormalU(float enc) {
 	
 	normal.xy   = e.xy;
 	normal.xy  /= 1024.0;
-	normal.x   -= 1.0;
+	normal.x    = normal.x - 1.0;
 	normal.xy  *= PI;
 	normal.xwzy = vec4(sin(normal.xy), cos(normal.xy));
 	normal.xz  *= normal.w;

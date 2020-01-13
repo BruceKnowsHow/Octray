@@ -11,8 +11,8 @@
 #define VC_MULTISCAT    //Simulates multiscattering.
 #define VC_MULTISCAT_QUALITY 3  //[1 2 3 4 5 6 7 8]
 
-#define volumetric_cloudThicknessMult 1.0 //[0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0]
-#define volumetric_cloudDensity 0.05  //[0.005 0.075 0.01 0.0125 0.015 0.0175 0.02 0.025 0.03 0.035 0.04 0.045 0.05 0.06 0.07 0.08 0.09 0.1]
+#define volumetric_cloudThicknessMult 1.0 //[0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0 10.0]
+#define volumetric_cloudDensity 0.05  //[0.005 0.075 0.01 0.0125 0.015 0.0175 0.02 0.025 0.03 0.035 0.04 0.045 0.05 0.06 0.07 0.08 0.09 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define volumetric_cloudHeight 1600.0   //[100.0 110.0 120.0 130.0 140.0 160.0 180.0 200.0 220.0 240.0 260.0 280.0 300.0 400.0 500.0 600.0 700.0 800.0 900.0 1000.0 1200.0 1400.0 1600.0 1800.0 2000.0 10000.0]
 #define volumetric_cloudMinHeight volumetric_cloudHeight
 
@@ -38,7 +38,15 @@ float CalculateDitherPattern() {
 	
 	vec2 count = vec2(mod(gl_FragCoord.st, vec2(4.0)));
 	
+	#if defined composite0
+	count = vec2(mod(tc * viewSize, vec2(4.0)));
+	#endif
+	
 	int dither = ditherPattern[int(count.x) + int(count.y) * 4] + 1;
+	
+	#if defined composite0
+	return float(WangHash(uint(gl_FragCoord.x * gl_FragCoord.y) * (frameCounter + 1))) / 4294967296.0;
+	#endif
 	
 	return float(dither) / 17.0;
 }
@@ -60,7 +68,7 @@ float remap(float value, const float originalMin, const float originalMax, const
 }
 
 float calculate3DNoise(vec3 position){
-	vec3 p = floor(position); 
+	vec3 p = floor(position);
 	vec3 b = fract(position);
 		b = cubeSmooth(b);
 
@@ -239,7 +247,7 @@ void calculateVolumetricClouds(inout vec3 cloud, inout vec3 absorb, vec3 wPos, v
 	
 	dither = CalculateDitherPattern();
 	
-	vec3 cPos = wPos + cameraPosition;
+	vec3 cPos = wPos + cameraPosition * vec2(1000.0, 1.0).xyx;
 	
 	float vDotL = dot(wDir, wLightVector);
 	
@@ -354,26 +362,26 @@ void calculateVolumetricClouds(inout vec3 cloud, inout vec3 absorb, vec3 wPos, v
 	
 	trans = vec3(1.0);
 	
-	vec3 skyLighting = skylightScattering * GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans) * 0.25 * rPI;
+	vec3 skyLighting = skylightScattering * PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans) * 0.25 * rPI;
 	cloud = (directLighting + skyLighting) * PI;
 
 	cloudHitPos /= totTrans;
 	cloudHitPos -= cPos;
 
 	vec3 skyCamera = vec3(0.0, (cameraPosition.y)/1000.0 + ATMOSPHERE.bottom_radius, 0.0) + wPos/1000.0;
-	vec3 point = skyCamera + cloudHitPos/1000.0;
+	vec3 point = skyCamera + cloudHitPos/10000.0;
 	
 	
 	
 	vec3 transmittanceAP = vec3(1.0);
-	vec3 in_scatter = GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4, skyCamera, point, 0.0, wLightVector, transmittanceAP);
+	vec3 in_scatter = PrecomputedSkyToPoint(skyCamera, point, 0.0, wLightVector, transmittanceAP);
 	
 	if (any(isnan(in_scatter))) {
 		in_scatter = vec3(0.0);
 		transmittanceAP = vec3(1.0);
 	}
 	
-	cloud = cloud * transmittanceAP + in_scatter * (1.0 - transmittance);
+	cloud = cloud * transmittanceAP*absorb + in_scatter * (1.0 - transmittance)*absorb;
 	absorb *= transmittance;
 	
 	return;

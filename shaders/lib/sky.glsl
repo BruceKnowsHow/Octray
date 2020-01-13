@@ -122,14 +122,14 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 transmit, float sunglo
 	
 #if ShaderStage >= 30
 	vec3 trans;
-	directColor = 0.5*GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDir, 0.0, sunDir, trans);
+	directColor = 0.5*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDir, 0.0, sunDir, trans);
 	
-	ambientColor = 0.2*GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans);
+	ambientColor = 0.2*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans);
 #else
 	vec3 trans;
-	directColor = 0.5*GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDir, 0.0, sunDir, trans);
+	directColor = 0.5*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDir, 0.0, sunDir, trans);
 	
-	ambientColor = 0.2*GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans);
+	ambientColor = 0.2*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans);
 #endif
 	
 	vec3 cloud = mix(ambientColor, directColor, sunlight) * 2.0;
@@ -218,28 +218,21 @@ vec3 ComputeBackSky(vec3 wDir, inout vec3 transmit) {
 vec3 ComputeTotalSky(vec3 wPos, vec3 wDir, inout vec3 transmit) {
 	vec3 color;
 	
-	return vec3(0.0);
-	
 	// Camera position in km relative to earth center
-	vec3 kCamera = vec3(0.0, (cameraPosition.y)/1000.0 + ATMOSPHERE.bottom_radius, 0.0) + wPos/1000.0;
+	vec3 kCamera = vec3(0.0, (cameraPosition.y)/1000.0*0 + 8.0 + ATMOSPHERE.bottom_radius, 0.0) + wPos/1000.0*0 * 8000.0;
 	
 	vec2 planetSphere = rsi(vec3(0.0, kCamera.y*1000.0, 0.0), wDir, ATMOSPHERE.bottom_radius*1000.0);
 	
 	vec3 kPoint = kCamera + planetSphere.y / 1000.0 * wDir;
 	
-	calculateVolumetricClouds(color, transmit, wPos, wDir, sunDir, vec2(0.0), 1.0, ATMOSPHERE.bottom_radius*1000.0, VC_QUALITY, VC_SUNLIGHT_QUALITY);
+//	calculateVolumetricClouds(color, transmit, wPos, wDir, sunDir, vec2(0.0), 1.0, ATMOSPHERE.bottom_radius*1000.0, VC_QUALITY, VC_SUNLIGHT_QUALITY);
 	
-#if ShaderStage < 30
-	color += GetSkyRadiance(ATMOSPHERE, normals, gaux1, gaux1, kCamera, wDir, 0.0, sunDir, transmit);
-#else
-//	color += GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, kCamera, wDir, 0.0, sunDir, transmit);
-	if (planetSphere.y > 0.0)
-		{ color += GetSkyRadianceToPoint(ATMOSPHERE, colortex0, colortex4, colortex4, kCamera, kPoint, 0.0, sunDir, transmit); }
+	if (false && planetSphere.y > 0.0)
+		{ color += PrecomputedSkyToPoint(kCamera, kPoint, 0.0, sunDir, transmit); }
 	else
-		{ color += GetSkyRadiance(ATMOSPHERE, colortex0, colortex4, colortex4, kCamera, wDir, 0.0, sunDir, transmit); }
-#endif
+		{ color += PrecomputedSky(kCamera, wDir, 0.0, sunDir, transmit); }
 	
-	color += ComputeBackSky(wDir, transmit);
+	color += ComputeBackSky(wDir, transmit)*0;
 	
 	return color;
 }

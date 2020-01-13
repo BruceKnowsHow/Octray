@@ -4,4 +4,4 @@
 #define gbuffers_water
 #define vsh
 
-#include "/../shaders/gbuffers_translucent.glsl"
+#include "/../shaders/gbuffers_opaque.glsl"

@@ -1,8 +1,6 @@
 #if !defined _PRECOMPUTEDSKY_
 #define _PRECOMPUTEDSKY_
 
-#define PL_SCALE 1.0 // [1.0 40.0 1000.0]
-
 const int TRANSMITTANCE_TEXTURE_WIDTH = 256;
 const int TRANSMITTANCE_TEXTURE_HEIGHT = 64;
 const int SCATTERING_TEXTURE_R_SIZE = 32;
@@ -12,7 +10,6 @@ const int SCATTERING_TEXTURE_NU_SIZE = 8;
 const int IRRADIANCE_TEXTURE_WIDTH = 64;
 const int IRRADIANCE_TEXTURE_HEIGHT = 16;
 #define COMBINED_SCATTERING_TEXTURES
-
 
 // An atmosphere layer of width 'width', and whose density is defined as
 //   'exp_term' * exp('exp_scale' * h) + 'linear_term' * h + 'constant_term',
@@ -140,6 +137,26 @@ const AtmosphereParameters ATMOSPHERE = AtmosphereParameters(
 const vec3 SKY_SPECTRAL_RADIANCE_TO_LUMINANCE = vec3(683.000000,683.000000,683.000000) * PI;
 const vec3 SUN_SPECTRAL_RADIANCE_TO_LUMINANCE = vec3(98242.786222,69954.398112,66475.012354) * PI;
 
+const vec3 sunbright = SUN_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE.b;
+const vec3 skybright = 0.2 * SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+// const vec3 skybright = 1.0 * (SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE) /  (SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE).b;
+
+const float atmosphereScale = 5.0;
+vec3 kCamera = vec3(0.0, 5.0 + cameraPosition.y/1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+
+#define timeDay 1.0
+#define cubesmooth(x) ((x) * (x) * (3.0 - 2.0 * (x)))
+
+vec3 kPoint(vec3 wPos) {
+	return kCamera + wPos / 1000.0 * atmosphereScale;
+}
+
+#if ShaderStage > 0
+	#define atmosphereSampler colortex4
+#else
+	#define atmosphereSampler gaux1
+#endif
+
 /*
 * Use these textures as if you were just doing a texture lookup
 * from another custom texture attatchment.
@@ -167,8 +184,8 @@ float ClampDistance(float d) {
 	return max(d, 0.0);
 }
 
-float ClampRadius(AtmosphereParameters atmosphere, float r) {
-	return clamp(r, atmosphere.bottom_radius, atmosphere.top_radius);
+float ClampRadius(float r) {
+	return clamp(r, ATMOSPHERE.bottom_radius, ATMOSPHERE.top_radius);
 }
 
 float SafeSqrt(float a) {
@@ -191,28 +208,28 @@ float GetTextureCoordFromUnitRange(float x, int texture_size) {
 	return 0.5 / float(texture_size) + x * (1.0 - 1.0 / float(texture_size));
 }
 
-bool RayIntersectsGround(AtmosphereParameters atmosphere, float r, float mu) {
+bool RayIntersectsGround(float r, float mu) {
 //	return false;
-	return mu < 0.0 && r * r * (mu * mu - 1.0) + atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0;
+	return mu < 0.0 && r * r * (mu * mu - 1.0) + ATMOSPHERE.bottom_radius * ATMOSPHERE.bottom_radius >= 0.0;
 }
 
-float DistanceToTopAtmosphereBoundary(AtmosphereParameters atmosphere, float r, float mu) {
-	float discriminant = r * r * (mu * mu - 1.0) + atmosphere.top_radius * atmosphere.top_radius;
+float DistanceToTopAtmosphereBoundary(float r, float mu) {
+	float discriminant = r * r * (mu * mu - 1.0) + ATMOSPHERE.top_radius * ATMOSPHERE.top_radius;
 
 	return ClampDistance(-r * mu + SafeSqrt(discriminant));
 }
 
-vec2 GetTransmittanceTextureUvFromRMu(AtmosphereParameters atmosphere, float r, float mu) {
+vec2 GetTransmittanceTextureUvFromRMu(float r, float mu) {
 	// Distance to top atmosphere boundary for a horizontal ray at ground level.
-	float H = sqrt(atmosphere.top_radius * atmosphere.top_radius - atmosphere.bottom_radius * atmosphere.bottom_radius);
+	float H = sqrt(ATMOSPHERE.top_radius * ATMOSPHERE.top_radius - ATMOSPHERE.bottom_radius * ATMOSPHERE.bottom_radius);
 
 	// Distance to the horizon.
-	float rho = SafeSqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
+	float rho = SafeSqrt(r * r - ATMOSPHERE.bottom_radius * ATMOSPHERE.bottom_radius);
 
 	// Distance to the top atmosphere boundary for the ray (r,mu), and its minimum
 	// and maximum values over all mu - obtained for (r,1) and (r,mu_horizon).
-	float d = DistanceToTopAtmosphereBoundary(atmosphere, r, mu);
-	float d_min = atmosphere.top_radius - r;
+	float d = DistanceToTopAtmosphereBoundary(r, mu);
+	float d_min = ATMOSPHERE.top_radius - r;
 	float d_max = rho + H;
 	
 	float x_mu = (d - d_min) / (d_max - d_min);
@@ -220,109 +237,126 @@ vec2 GetTransmittanceTextureUvFromRMu(AtmosphereParameters atmosphere, float r, 
 	return vec2(GetTextureCoordFromUnitRange(x_mu, TRANSMITTANCE_TEXTURE_WIDTH), GetTextureCoordFromUnitRange(x_r, TRANSMITTANCE_TEXTURE_HEIGHT));
 }
 
-vec3 GetTransmittanceToTopAtmosphereBoundary(AtmosphereParameters atmosphere, sampler2D transmittance_texture, float r, float mu) {
-	vec2 uv = GetTransmittanceTextureUvFromRMu(atmosphere, r, mu);
+vec3 GetTransmittanceToTopAtmosphereBoundary(float r, float mu) {
+	vec2 uv = GetTransmittanceTextureUvFromRMu(r, mu);
 	
-#if ShaderStage >= 30
-	return vec3(transmittanceLookup(colortex4, uv).rgb);
-#else
-	return vec3(transmittanceLookup(gaux1, uv).rgb);
-#endif
-	return vec3(texture(transmittance_texture, uv));
+	return transmittanceLookup(atmosphereSampler, uv).rgb;
 }
 
-vec3 GetTransmittanceToSun(AtmosphereParameters atmosphere, sampler2D transmittance_texture, float r, float mu_s) {
-	float sin_theta_h = atmosphere.bottom_radius / r;
+vec3 GetTransmittanceToSun(float r, float mu_s) {
+	float sin_theta_h = ATMOSPHERE.bottom_radius / r;
 	float cos_theta_h = -sqrt(max(1.0 - sin_theta_h * sin_theta_h, 0.0));
 
-	return GetTransmittanceToTopAtmosphereBoundary(atmosphere, transmittance_texture, r, mu_s) *
-		smoothstep(-sin_theta_h * atmosphere.sun_angular_radius, sin_theta_h * atmosphere.sun_angular_radius, mu_s - cos_theta_h);
+	return GetTransmittanceToTopAtmosphereBoundary(r, mu_s) *
+		smoothstep(-sin_theta_h * ATMOSPHERE.sun_angular_radius, sin_theta_h * ATMOSPHERE.sun_angular_radius, mu_s - cos_theta_h);
 }
 
-vec3 GetTransmittance(AtmosphereParameters atmosphere, sampler2D transmittance_texture, float r, float mu, float d, bool ray_r_mu_intersects_ground) {
-	float r_d = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
+vec3 GetTransmittance(float r, float mu, float d, bool ray_r_mu_intersects_ground) {
+	float r_d = ClampRadius(sqrt(d * d + 2.0 * r * mu * d + r * r));
 	float mu_d = ClampCosine((r * mu + d) / r_d);
 
 	if (ray_r_mu_intersects_ground) {
-		return min(GetTransmittanceToTopAtmosphereBoundary(atmosphere, transmittance_texture, r_d, -mu_d) / 
-			GetTransmittanceToTopAtmosphereBoundary(atmosphere, transmittance_texture, r, -mu), vec3(1.0));
+		return min(GetTransmittanceToTopAtmosphereBoundary(r_d, -mu_d) /
+			GetTransmittanceToTopAtmosphereBoundary(r, -mu), vec3(1.0));
 	} else {
-		return min(GetTransmittanceToTopAtmosphereBoundary(atmosphere, transmittance_texture, r, mu) /
-			GetTransmittanceToTopAtmosphereBoundary(atmosphere, transmittance_texture, r_d, mu_d), vec3(1.0));
+		return min(GetTransmittanceToTopAtmosphereBoundary(r, mu) /
+			GetTransmittanceToTopAtmosphereBoundary(r_d, mu_d), vec3(1.0));
 	}
 
 }
 
-vec4 GetScatteringTextureUvwzFromRMuMuSNu(AtmosphereParameters atmosphere, float r, float mu, float mu_s, float nu, bool ray_r_mu_intersects_ground) {
+vec4 GetScatteringTextureUvwzFromRMuMuSNu(float r, float mu, float mu_s, float nu, bool ray_r_mu_intersects_ground) {
 	// Distance to top atmosphere boundary for a horizontal ray at ground level.
-	float H = sqrt(atmosphere.top_radius * atmosphere.top_radius - atmosphere.bottom_radius * atmosphere.bottom_radius);
+	float H = sqrt(ATMOSPHERE.top_radius * ATMOSPHERE.top_radius - ATMOSPHERE.bottom_radius * ATMOSPHERE.bottom_radius);
 	
-	if (distance(r, atmosphere.bottom_radius) < 0.1) { r = atmosphere.bottom_radius; }
+	if (distance(r, ATMOSPHERE.bottom_radius) < 0.1) { r = ATMOSPHERE.bottom_radius; }
 	
 	// Distance to the horizon.
-	float rho = SafeSqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
+	float rho = SafeSqrt(r * r - ATMOSPHERE.bottom_radius * ATMOSPHERE.bottom_radius);
 	float u_r = GetTextureCoordFromUnitRange(rho / H, SCATTERING_TEXTURE_R_SIZE);
 	
 	// Discriminant of the quadratic equation for the intersections of the ray
 	// (r,mu) with the ground (see RayIntersectsGround).
 	float r_mu = r * mu;
-	float discriminant = r_mu * r_mu - r * r + atmosphere.bottom_radius * atmosphere.bottom_radius;
+	float discriminant = r_mu * r_mu - r * r + ATMOSPHERE.bottom_radius * ATMOSPHERE.bottom_radius;
 
 	float u_mu;
-	if (ray_r_mu_intersects_ground) {
+	if (false && ray_r_mu_intersects_ground) {
 		// Distance to the ground for the ray (r,mu), and its minimum and maximum
 		// values over all mu - obtained for (r,-1) and (r,mu_horizon).
 		float d = -r_mu - SafeSqrt(discriminant);
-		float d_min = r - atmosphere.bottom_radius;
+		float d_min = r - ATMOSPHERE.bottom_radius;
 		float d_max = rho;
 
 		u_mu = 0.5 - 0.5 * GetTextureCoordFromUnitRange(d_max == d_min ? 0.0 : (d - d_min) / (d_max - d_min), SCATTERING_TEXTURE_MU_SIZE / 2);
 		
 		float d2 = -r_mu + SafeSqrt(discriminant + H * H);
-		float d_min2 = atmosphere.top_radius - r;
+		float d_min2 = ATMOSPHERE.top_radius - r;
 		float d_max2 = rho + H;
 
 		float u_mu2 = 0.5 + 0.5 * GetTextureCoordFromUnitRange((d2 - d_min2) / (d_max2 - d_min2), SCATTERING_TEXTURE_MU_SIZE / 2);
 		
 	//	u_mu = mix(u_mu, u_mu2, 0.0);
-	//	u_mu = mix(u_mu, 1.0, 1.0);
+	//	u_mu = mix(u_mu, 1.0, 0.5);
 		
 	} else {
 		// Distance to the top atmosphere boundary for the ray (r,mu), and its
 		// minimum and maximum values over all mu - obtained for (r,1) and
 		// (r,mu_horizon).
 		float d = -r_mu + SafeSqrt(discriminant + H * H);
-		float d_min = atmosphere.top_radius - r;
+		float d_min = ATMOSPHERE.top_radius - r;
 		float d_max = rho + H;
-
+		
 		u_mu = 0.5 + 0.5 * GetTextureCoordFromUnitRange((d - d_min) / (d_max - d_min), SCATTERING_TEXTURE_MU_SIZE / 2);
-	//	u_mu = mix(u_mu, 1.0, pow(1-abs(sunDir.y), 4.0)*0);
+		
+		float d2 = -r_mu + SafeSqrt(discriminant + H * H);
+		float d_min2 = ATMOSPHERE.top_radius - r;
+		float d_max2 = rho + H;
+
+		float u_mu2 = 0.5 + 0.5 * GetTextureCoordFromUnitRange((d2 - d_min2) / (d_max2 - d_min2), SCATTERING_TEXTURE_MU_SIZE / 2);
+		
+		
+		u_mu = mix(u_mu, u_mu2, 0.0);
+	//	u_mu = mix(u_mu, 1.0, pow(1-abs(sunDir.y), 4.0));
 	}
 
-	float d = DistanceToTopAtmosphereBoundary(atmosphere, atmosphere.bottom_radius, mu_s);
-	float d_min = atmosphere.top_radius - atmosphere.bottom_radius;
+	float d = DistanceToTopAtmosphereBoundary(ATMOSPHERE.bottom_radius, mu_s);
+	float d_min = ATMOSPHERE.top_radius - ATMOSPHERE.bottom_radius;
 	float d_max = H;
 	float a = (d - d_min) / (d_max - d_min);
-	float A = -2.0 * atmosphere.mu_s_min * atmosphere.bottom_radius / (d_max - d_min);
-	float u_mu_s = GetTextureCoordFromUnitRange(max(1.0 - a / A, 0.0) / (1.0 + a), SCATTERING_TEXTURE_MU_S_SIZE);
+	float ASDSA = -2.0 * ATMOSPHERE.mu_s_min * ATMOSPHERE.bottom_radius / (d_max - d_min);
+	float u_mu_s = GetTextureCoordFromUnitRange(max(1.0 - a / ASDSA, 0.0) / (1.0 + a), SCATTERING_TEXTURE_MU_S_SIZE);
 	
 	float u_nu = (nu + 1.0) / 2.0;
+	
+	#if defined fsh
+	// if (u_mu > 0.9 && u_mu < 1.1) u_mu = smoothstep(0.9, 1.1, u_mu) * 0.2 + 0.9;
+	if (u_mu > 0.95 && u_mu < 1.05) {
+		// u_nu -= 0.1;
+		// u_mu_s -= 0.1;
+		// u_r -= 0.1;
+		// u_mu = 0.1;
+//		discard;
+	}
+	
+	#endif
+	//u_mu -= 0.1;
 	return vec4(u_nu, u_mu_s, u_mu, u_r);
 }
 
 
 #ifdef COMBINED_SCATTERING_TEXTURES
-	vec3 GetExtrapolatedSingleMieScattering(AtmosphereParameters atmosphere, vec4 scattering) {
+	vec3 GetExtrapolatedSingleMieScattering(vec4 scattering) {
 		if (scattering.r == 0.0) return vec3(0.0);
 		
-		return scattering.rgb * scattering.a / scattering.r 
-			* (atmosphere.rayleigh_scattering.r / atmosphere.mie_scattering.r) 
-			* (atmosphere.mie_scattering / atmosphere.rayleigh_scattering);
+		return scattering.rgb * scattering.a / scattering.r
+			* (ATMOSPHERE.rayleigh_scattering.r / ATMOSPHERE.mie_scattering.r)
+			* (ATMOSPHERE.mie_scattering / ATMOSPHERE.rayleigh_scattering);
 	}
 #endif
 
-vec3 GetCombinedScattering(AtmosphereParameters atmosphere, sampler3D scattering_texture, sampler3D single_mie_scattering_texture, float r, float mu, float mu_s, float nu, bool ray_r_mu_intersects_ground, out vec3 single_mie_scattering) {
-	vec4 uvwz = GetScatteringTextureUvwzFromRMuMuSNu(atmosphere, r, mu, mu_s, nu, ray_r_mu_intersects_ground);
+vec3 GetCombinedScattering(float r, float mu, float mu_s, float nu, bool ray_r_mu_intersects_ground, out vec3 single_mie_scattering) {
+	vec4 uvwz = GetScatteringTextureUvwzFromRMuMuSNu(r, mu, mu_s, nu, ray_r_mu_intersects_ground);
 	
 	float tex_coord_x = uvwz.x * float(SCATTERING_TEXTURE_NU_SIZE - 1);
 	float tex_x = floor(tex_coord_x);
@@ -335,60 +369,57 @@ vec3 GetCombinedScattering(AtmosphereParameters atmosphere, sampler3D scattering
 	uvw1.z *= float(SCATTERING_TEXTURE_NU_SIZE) / float(SCATTERING_TEXTURE_NU_SIZE + 1.0);
 	
 	#ifdef COMBINED_SCATTERING_TEXTURES
-		vec4 combined_scattering = texture(scattering_texture, uvw0) * (1.0 - lerp) + texture(scattering_texture, uvw1) * lerp;
+		vec4 combined_scattering = texture(atmosphereSampler, uvw0) * (1.0 - lerp) + texture(atmosphereSampler, uvw1) * lerp;
 		
 		vec3 scattering = vec3(combined_scattering);
-		single_mie_scattering = GetExtrapolatedSingleMieScattering(atmosphere, combined_scattering);
+		single_mie_scattering = GetExtrapolatedSingleMieScattering(combined_scattering);
 	#else
 	vec3 scattering = vec3(
-		texture(scattering_texture, uvw0) * (1.0 - lerp) +
-		texture(scattering_texture, uvw1) * lerp);
+		texture(atmosphereSampler, uvw0) * (1.0 - lerp) +
+		texture(atmosphereSampler, uvw1) * lerp);
 
 	single_mie_scattering = vec3(
-		texture(single_mie_scattering_texture, uvw0) * (1.0 - lerp) +
-		texture(single_mie_scattering_texture, uvw1) * lerp);
+		texture(atmosphereSampler, uvw0) * (1.0 - lerp) +
+		texture(atmosphereSampler, uvw1) * lerp);
 	#endif
 	
 	return scattering;
 }
 
-vec2 GetIrradianceTextureUvFromRMuS(AtmosphereParameters atmosphere, float r, float mu_s) {
-	float x_r = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
+vec2 GetIrradianceTextureUvFromRMuS(float r, float mu_s) {
+	float x_r = (r - ATMOSPHERE.bottom_radius) / (ATMOSPHERE.top_radius - ATMOSPHERE.bottom_radius);
 	float x_mu_s = mu_s * 0.5 + 0.5;
 
 	return vec2(GetTextureCoordFromUnitRange(x_mu_s, IRRADIANCE_TEXTURE_WIDTH), GetTextureCoordFromUnitRange(x_r, IRRADIANCE_TEXTURE_HEIGHT));
 }
 
-vec3 GetIrradiance(AtmosphereParameters atmosphere, sampler2D irradiance_texture, float r, float mu_s) {
-	vec2 uv = GetIrradianceTextureUvFromRMuS(atmosphere, r, mu_s);
+vec3 GetIrradiance(float r, float mu_s) {
+	vec2 uv = GetIrradianceTextureUvFromRMuS(r, mu_s);
 
-	return texture(irradiance_texture, uv).rgb;
+	return irradianceLookup(atmosphereSampler, uv).rgb;
 }
 
-vec3 GetSkyRadiance(
-AtmosphereParameters atmosphere,
-sampler2D transmittance_texture,
-sampler3D scattering_texture,
-sampler3D single_mie_scattering_texture,
-vec3 camera, vec3 view_ray, float shadow_length,
-vec3 sun_direction, inout vec3 transmittance) {
+vec3 PrecomputedSky(
+	vec3 camera, vec3 view_ray, float shadow_length,
+	vec3 sun_direction, inout vec3 transmittance
+) {
 	// Compute the distance to the top atmosphere boundary along the view ray,
 	// assuming the viewer is in space (or NaN if the view ray does not intersect
 	// the atmosphere).
 	float r = length(camera);
 	float rmu = dot(camera, view_ray);
-	float distance_to_top_atmosphere_boundary = -rmu - sqrt(rmu * rmu - r * r + atmosphere.top_radius * atmosphere.top_radius);
+	float distance_to_top_atmosphere_boundary = -rmu - sqrt(rmu * rmu - r * r + ATMOSPHERE.top_radius * ATMOSPHERE.top_radius);
 	
-	vec3 oldAbsorb = transmittance;
+	vec3 inTransmittance = transmittance;
 	
-	// If the viewer is in space and the view ray intersects the atmosphere, move
+	// If the viewer is in space and the view ray intersects the move
 	// the viewer to the top atmosphere boundary (along the view ray):
 	if (distance_to_top_atmosphere_boundary > 0.0) {
 		camera = camera + view_ray * distance_to_top_atmosphere_boundary;
-		r = atmosphere.top_radius;
+		r = ATMOSPHERE.top_radius;
 		rmu += distance_to_top_atmosphere_boundary;
-	} else if (r > atmosphere.top_radius) {
-		// If the view ray does not intersect the atmosphere, simply return 0.
+	} else if (r > ATMOSPHERE.top_radius) {
+		// If the view ray does not intersect the simply return 0.
 		return vec3(0.0);
 	}
 
@@ -397,16 +428,15 @@ vec3 sun_direction, inout vec3 transmittance) {
 	float mu_s = dot(camera, sun_direction) / r;
 	float nu = dot(view_ray, sun_direction);
 
-	bool ray_r_mu_intersects_ground = RayIntersectsGround(atmosphere, r, mu);
-	transmittance = ray_r_mu_intersects_ground ? vec3(0.0) : GetTransmittanceToTopAtmosphereBoundary(atmosphere, transmittance_texture, r, mu);
-	transmittance *= transmittance * oldAbsorb;
+	bool ray_r_mu_intersects_ground = RayIntersectsGround(r, mu);
+	transmittance = ray_r_mu_intersects_ground ? vec3(0.0) : GetTransmittanceToTopAtmosphereBoundary(r, mu);
+	transmittance *= transmittance * inTransmittance;
 	
 	vec3 single_mie_scattering;
 	vec3 scattering;
 
 	if (shadow_length == 0.0) {
 		scattering = GetCombinedScattering(
-			atmosphere, scattering_texture, single_mie_scattering_texture,
 			r, mu, mu_s, nu, ray_r_mu_intersects_ground,
 			single_mie_scattering);
 	} else {
@@ -415,43 +445,46 @@ vec3 sun_direction, inout vec3 transmittance) {
 		// distance l, by implementing Eq. (18) of the paper (shadow_transmittance
 		// is the T(x,x_s) term, scattering is the S|x_s=x+lv term).
 		float d = shadow_length;
-		float r_p = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
+		float r_p = ClampRadius(sqrt(d * d + 2.0 * r * mu * d + r * r));
 
 		float mu_p = (r * mu + d) / r_p;
 		float mu_s_p = (r * mu_s + d * nu) / r_p;
 
-		scattering = GetCombinedScattering(atmosphere, scattering_texture, single_mie_scattering_texture, r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground, single_mie_scattering);
+		scattering = GetCombinedScattering(r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground, single_mie_scattering);
 
 		vec3 shadow_transmittance =
-			GetTransmittance(atmosphere, transmittance_texture, r, mu, shadow_length, ray_r_mu_intersects_ground);
+			GetTransmittance(r, mu, shadow_length, ray_r_mu_intersects_ground);
 
 		scattering = scattering * shadow_transmittance;
 		single_mie_scattering = single_mie_scattering * shadow_transmittance;
 	}
 	
-	return (scattering * RayleighPhaseFunction(nu) + single_mie_scattering * MiePhaseFunction(atmosphere.mie_phase_function_g, nu)) * oldAbsorb;
+	vec3 inScatter = (scattering * RayleighPhaseFunction(nu) + single_mie_scattering * MiePhaseFunction(ATMOSPHERE.mie_phase_function_g, nu)) * inTransmittance;
+	
+//	inScatter = SetSaturationLevel(inScatter, 1.5);
+	
+	return inScatter;
 }
 
-vec3 GetSkyRadianceToPoint(AtmosphereParameters atmosphere,
-sampler2D transmittance_texture,
-sampler3D scattering_texture,
-sampler3D single_mie_scattering_texture,
-vec3 camera, vec3 point, float shadow_length,
-vec3 sun_direction, inout vec3 transmittance) {
+vec3 PrecomputedSkyToPoint(
+	vec3 camera, vec3 point, float shadow_length,
+	vec3 sun_direction, inout vec3 transmittance
+) {
 	// Compute the distance to the top atmosphere boundary along the view ray,
 	// assuming the viewer is in space (or NaN if the view ray does not intersect
 	// the atmosphere).
 	vec3 view_ray = normalize(point - camera);
+	view_ray = normalize(view_ray + vec3(0,0.01,0) * float(abs(view_ray.y) < 0.01)*sign(view_ray.y) );
 //	vec3 view_ray = normalize(wDir);
 	float r = length(camera);
 	float rmu = dot(camera, view_ray);
-	float distance_to_top_atmosphere_boundary = -rmu - sqrt(rmu * rmu - r * r + atmosphere.top_radius * atmosphere.top_radius);
+	float distance_to_top_atmosphere_boundary = -rmu - sqrt(rmu * rmu - r * r + ATMOSPHERE.top_radius * ATMOSPHERE.top_radius);
 
-	// If the viewer is in space and the view ray intersects the atmosphere, move
+	// If the viewer is in space and the view ray intersects the move
 	// the viewer to the top atmosphere boundary (along the view ray):
 	if (distance_to_top_atmosphere_boundary > 0.0) {
 		camera = camera + view_ray * distance_to_top_atmosphere_boundary;
-		r = atmosphere.top_radius;
+		r = ATMOSPHERE.top_radius;
 		rmu += distance_to_top_atmosphere_boundary;
 	}
 
@@ -461,15 +494,14 @@ vec3 sun_direction, inout vec3 transmittance) {
 	float nu = dot(view_ray, sun_direction);
 	float d = length(point - camera);
 	
-	bool ray_r_mu_intersects_ground = RayIntersectsGround(atmosphere, r, mu);
+	bool ray_r_mu_intersects_ground = RayIntersectsGround(r, mu);
 	
-	vec3 oldAbsorb = transmittance;
-	transmittance = GetTransmittance(atmosphere, transmittance_texture, r, mu, d, ray_r_mu_intersects_ground);
-	transmittance *= transmittance * oldAbsorb;
+	vec3 inTransmittance = transmittance;
+	transmittance = GetTransmittance(r, mu, d, ray_r_mu_intersects_ground);
+	transmittance *= inTransmittance;
 
 	vec3 single_mie_scattering;
-	vec3 scattering = GetCombinedScattering(atmosphere, scattering_texture, single_mie_scattering_texture,
-		r, mu, mu_s, nu, ray_r_mu_intersects_ground, single_mie_scattering);
+	vec3 scattering = GetCombinedScattering(r, mu, mu_s, nu, ray_r_mu_intersects_ground, single_mie_scattering);
 
 	// Compute the r, mu, mu_s and nu parameters for the second texture lookup.
 	// If shadow_length is not 0 (case of light shafts), we want to ignore the
@@ -477,13 +509,12 @@ vec3 sun_direction, inout vec3 transmittance) {
 	// do by subtracting shadow_length from d (this way scattering_p is equal to
 	// the S|x_s=x_0-lv term in Eq. (17) of our paper).
 	d = max(d - shadow_length, 0.0);
-	float r_p = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
+	float r_p = ClampRadius(sqrt(d * d + 2.0 * r * mu * d + r * r));
 	float mu_p = (r * mu + d) / r_p;
 	float mu_s_p = (r * mu_s + d * nu) / r_p;
 
 	vec3 single_mie_scattering_p;
 	vec3 scattering_p = GetCombinedScattering(
-		atmosphere, scattering_texture, single_mie_scattering_texture,
 		r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
 		single_mie_scattering_p);
 	
@@ -491,36 +522,95 @@ vec3 sun_direction, inout vec3 transmittance) {
 	vec3 shadow_transmittance = transmittance;
 	if (shadow_length > 0.0) {
 		// This is the T(x,x_s) term in Eq. (17) of our paper, for light shafts.
-		shadow_transmittance = GetTransmittance(atmosphere, transmittance_texture, r, mu, d, ray_r_mu_intersects_ground);
+		shadow_transmittance = GetTransmittance(r, mu, d, ray_r_mu_intersects_ground);
 	}
 	
 	scattering = scattering - shadow_transmittance * scattering_p;
 	single_mie_scattering = single_mie_scattering - shadow_transmittance * single_mie_scattering_p;
 	
 	#ifdef COMBINED_SCATTERING_TEXTURES
-		single_mie_scattering = GetExtrapolatedSingleMieScattering(atmosphere, vec4(scattering, single_mie_scattering.r));
+		single_mie_scattering = GetExtrapolatedSingleMieScattering(vec4(scattering, single_mie_scattering.r));
 	#endif
 
 	// Hack to avoid rendering artifacts when the sun is below the horizon.
 	single_mie_scattering = single_mie_scattering * smoothstep(float(0.0), float(0.01), mu_s);
 	single_mie_scattering = max(vec3(0.0), single_mie_scattering);
 	
-	return (scattering * RayleighPhaseFunction(nu) + single_mie_scattering * MiePhaseFunction(atmosphere.mie_phase_function_g, nu)) * oldAbsorb;
+	vec3 inScatter = (scattering * RayleighPhaseFunction(nu) + single_mie_scattering * MiePhaseFunction(ATMOSPHERE.mie_phase_function_g, nu)) * inTransmittance;
+	
+//	inScatter = SetSaturationLevel(inScatter, 1.5);
+	
+	return inScatter;
 }
 
 vec3 GetSolarRadiance() {
   return ATMOSPHERE.solar_irradiance / (PI * ATMOSPHERE.sun_angular_radius * ATMOSPHERE.sun_angular_radius) * SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
 }
 
-vec3 GetSunAndSkyIrradiance(AtmosphereParameters atmosphere, sampler2D transmittance_texture, sampler2D irradiance_texture, vec3 point, vec3 normal, vec3 sun_direction, out vec3 sky_irradiance) {
+vec3 GetSunAndSkyIrradiance(vec3 point, vec3 normal, vec3 sun_direction, out vec3 sky_irradiance) {
 	float r = length(point);
 	float mu_s = dot(point, sun_direction) / r;
 
 	// Indirect irradiance (approximated if the surface is not horizontal).
-	sky_irradiance = GetIrradiance(atmosphere, irradiance_texture, r, mu_s) * (1.0 + dot(normal, point) / r) * 0.5;
+	sky_irradiance = GetIrradiance(r, mu_s) * (1.0 + dot(normal, point) / r) * 0.5;
 
 	// Direct irradiance.
-	return atmosphere.solar_irradiance * GetTransmittanceToSun(atmosphere, transmittance_texture, r, mu_s);
+	return ATMOSPHERE.solar_irradiance * GetTransmittanceToSun(r, mu_s);
+}
+
+vec3 CalculateNightSky(vec3 wDir, inout vec3 transmit) {
+	const vec3 nightSkyColor = vec3(0.04, 0.04, 0.1)*0.4;
+	
+	float value = (dot(wDir, -sunDir) * 0.5 + 0.5) + 0.5;
+	value *= 1.0 - timeDay;
+	float horizon = cubesmooth(pow(1.0 - abs(wDir.y), 4.0));
+	
+	return nightSkyColor * value * transmit;
+}
+
+uniform float far;
+
+#define FOG_ENABLED
+#define FOG_POWER 1.5 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0]
+#define FOG_START 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8]
+
+float CalculateFogfactor(vec3 position) {
+#ifndef FOG_ENABLED
+	return 0.0;
+#endif
+	
+	float fogfactor  = length(position) / far;
+		  fogfactor  = clamp(fogfactor - FOG_START, 0.0, 1.0) / (1.0 - FOG_START);
+		  fogfactor  = pow(fogfactor, FOG_POWER);
+		  fogfactor  = clamp(fogfactor, 0.0, 1.0);
+	
+	return fogfactor;
+}
+
+vec3 SkyAtmosphere(vec3 wDir, inout vec3 transmit) {
+	vec3 inScatter = vec3(0.0);
+//	inScatter += CalculateNightSky(wDir, transmit);
+	inScatter += PrecomputedSky(kCamera, wDir, 0.0, sunDir, transmit);
+	
+	return inScatter;
+}
+
+vec3 SkyAtmosphereToPoint(vec3 wPos0, vec3 wPos1, inout vec3 transmit) {
+	vec3 wDir = normalize(wPos1 - wPos0);
+	vec3 transmitIgnore = vec3(1.0);
+	vec3 inScatter = vec3(0.0);
+//	inScatter += CalculateNightSky(wDir, transmitIgnore);
+	inScatter += PrecomputedSky(kCamera, wDir, 0.0, sunDir, transmitIgnore);
+	
+	float fog0 = CalculateFogfactor(wPos0);
+	float fog1 = CalculateFogfactor(wPos1);
+	
+	float fog = fog1 - fog0;
+	
+	inScatter *= transmit * fog;
+	
+	transmit *= 1.0 - fog;
+	return inScatter;
 }
 
 #endif

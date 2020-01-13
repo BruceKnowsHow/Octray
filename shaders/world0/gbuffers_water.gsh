@@ -2,6 +2,6 @@
 #define ShaderStage -1
 #define world0
 #define gbuffers_water
-#define fsh
+#define gsh
 
 #include "/../shaders/gbuffers_opaque.glsl"
