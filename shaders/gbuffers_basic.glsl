@@ -1,7 +1,7 @@
 /***********************************************************************/
 #if defined vsh
 
-#include "/../shaders/lib/debug.glsl"
+#include "lib/debug.glsl"
 
 out vec3 vColor;
 
@@ -19,12 +19,12 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#include "/../shaders/lib/debug.glsl"
+#include "lib/debug.glsl"
 
 in vec3 vColor;
 
 /* DRAWBUFFERS:123 */
-#include "/../shaders/lib/exit.glsl"
+#include "lib/exit.glsl"
 
 void main() {
 	gl_FragData[0] = vec4(vColor, 1.0);

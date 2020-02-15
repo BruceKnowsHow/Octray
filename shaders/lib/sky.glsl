@@ -11,8 +11,7 @@ const float noiseResInverse = 1.0 / noiseTextureResolution;
 #endif
 
 
-#include "/../shaders/lib/PrecomputeSky.glsl"
-#include "/../shaders/lib/VolumetricClouds.glsl"
+#include "PrecomputeSky.glsl"
 
 float csmooth(float x) {
 	return x * x * (3.0 - 2.0 * x);
@@ -176,7 +175,7 @@ void CalculateStars(inout vec3 color, vec3 worldDir, float visibility, const boo
 
 
 vec3 ComputeFarSpace(vec3 wDir, vec3 transmit) {
-	return vec3(0.0);
+	// return vec3(0.0);
 	
 	vec2 coord = wDir.xz * (2.5 * STAR_SCALE * (2.0 - wDir.y));
 	
@@ -189,8 +188,10 @@ vec3 ComputeFarSpace(vec3 wDir, vec3 transmit) {
 }
 
 vec3 ComputeSunspot(vec3 wDir, inout vec3 transmit) {
-	float sunspot = float(dot(wDir, sunDir) > 0.9994 + 0*0.9999567766);
-	vec3 color = vec3(float(sunspot) * 100.0) * transmit;
+	float radius = 5.0;
+	
+	float sunspot = float(acos(dot(wDir, sunDir)) < radians(radius) + 0*0.9999567766);
+	vec3 color = vec3(float(sunspot) * 100000.0 / radius / radius) * transmit;
 	
 	transmit *= 1.0 - sunspot;
 	
@@ -209,30 +210,31 @@ vec3 ComputeBackSky(vec3 wDir, inout vec3 transmit) {
 	vec3 color  = vec3(0.0);
 	
 	
-	color += ComputeSunspot(wDir, transmit);
+	// color += ComputeSunspot(wDir, transmit);
 	color += ComputeFarSpace(wDir, transmit);
 	
 	return color;
 }
 
+
+vec3 CalculateNightSky(vec3 wDir) {
+	const vec3 nightSkyColor = vec3(0.04, 0.04, 0.1)*0.1;
+	
+	float value = pow((dot(wDir, -sunDir) * 0.5 + 0.5), 2.0)*2.0 + 0.5;
+	float horizon = (pow(1.0 - abs(wDir.y), 4.0));
+	horizon = horizon*horizon * (3.0 - 2.0 * horizon);
+	
+	return nightSkyColor * value;
+}
+
 vec3 ComputeTotalSky(vec3 wPos, vec3 wDir, inout vec3 transmit) {
-	vec3 color;
+	vec3 color = vec3(0.0);
 	
-	// Camera position in km relative to earth center
-	vec3 kCamera = vec3(0.0, (cameraPosition.y)/1000.0*0 + 8.0 + ATMOSPHERE.bottom_radius, 0.0) + wPos/1000.0*0 * 8000.0;
-	
-	vec2 planetSphere = rsi(vec3(0.0, kCamera.y*1000.0, 0.0), wDir, ATMOSPHERE.bottom_radius*1000.0);
-	
-	vec3 kPoint = kCamera + planetSphere.y / 1000.0 * wDir;
-	
-//	calculateVolumetricClouds(color, transmit, wPos, wDir, sunDir, vec2(0.0), 1.0, ATMOSPHERE.bottom_radius*1000.0, VC_QUALITY, VC_SUNLIGHT_QUALITY);
-	
-	if (false && planetSphere.y > 0.0)
-		{ color += PrecomputedSkyToPoint(kCamera, kPoint, 0.0, sunDir, transmit); }
-	else
-		{ color += PrecomputedSky(kCamera, wDir, 0.0, sunDir, transmit); }
-	
-	color += ComputeBackSky(wDir, transmit)*0;
+	// calculateVolumetricClouds(color, transmit, wPos, wDir, sunDir, vec2(0.0), 1.0, ATMOSPHERE.bottom_radius*1000.0, VC_QUALITY, VC_SUNLIGHT_QUALITY);
+	color += CalculateNightSky(wDir)*transmit;
+	// color += vec3(0.04, 0.04, 0.1)*0.01*transmit;
+	color += PrecomputedSky(kCamera, wDir, 0.0, sunDir, transmit);
+	color += ComputeBackSky(wDir, transmit);
 	
 	return color;
 }

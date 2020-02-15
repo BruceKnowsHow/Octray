@@ -11,3 +11,26 @@ value.DEBUG_VIEW.20=gbuffers_transparent
 value.DEBUG_VIEW.30=composite0
 value.DEBUG_VIEW.31=composite1
 value.DEBUG_VIEW.50=final
+
+option.AUTO_EXPOSURE=Auto Exposure
+option.OVERALL_BRIGHTNESS=Total Brightness
+option.SUNLIGHT_BRIGHTNESS=Sunlight Brightness
+option.SKY_BRIGHTNESS=Sky Brightness
+option.AMBIENT_BRIGHTNESS=Ambient Brightness
+option.VIBRANCE=Vibrance
+
+option.FRAME_ACCUMULATION_COUNTER=Frame Accumulation Counter
+option.SUNLIGHT_RAYS=Trace Sunlight Rays
+option.SPECULAR_RAYS=Trace Specular Rays
+option.AMBIENT_RAYS=Trace Ambient Rays
+option.MAX_RAY_DEPTH=Max Ray Bounces
+option.USE_RASTER_ENGINE=Use Rasterization
+option.USE_RASTER_ENGINE.comment=Faster, but not completely setup yet
+option.UNHANDLED_BLOCKS=Unhandled Blocks
+value.UNHANDLED_BLOCKS.0=Force render
+value.UNHANDLED_BLOCKS.1=Raster only
+value.UNHANDLED_BLOCKS.2=Totally ignore
+option.VOXELIZATION_DISTANCE=Max Trace Distance
+value.VOXELIZATION_DISTANCE.128=8 Normal
+value.VOXELIZATION_DISTANCE.256=16 Far
+option.VOXELIZATION_DISTANCE.comment=If playing at 8x render distance, setting this to 8x will be slightly faster.

@@ -3,17 +3,17 @@
 
 
 //#define DEBUG
-#define DEBUG_VIEW 30 // [-10 -1 30 50]
+#define DEBUG_VIEW 30 // [-10 -1 30 31 32 50]
 
-#if false && ShaderStage < 0 && defined vsh
-	out vec3 vDebug;
-	#define Debug vDebug
-#elif false && ShaderStage < 0 && defined fsh
-	in vec3 vDebug;
-	vec3 Debug = vDebug;
-#else
+// #if false && (ShaderStage < 0) && (defined vsh)
+	// out vec3 vDebug;
+	// #define Debug vDebug
+// #elif false && (ShaderStage < 0) && (defined fsh)
+	// in vec3 vDebug;
+	// vec3 Debug = vDebug;
+// #else
 	vec3 Debug = vec3(0.0);
-#endif
+// #endif
 
 void show( bool x) { Debug = vec3(float(x)); }
 void show(float x) { Debug = vec3(x); }

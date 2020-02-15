@@ -24,9 +24,9 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#include "/../shaders/lib/debug.glsl"
-#include "/../shaders/lib/utility.glsl"
-#include "/../shaders/lib/encoding.glsl"
+#include "lib/debug.glsl"
+#include "lib/utility.glsl"
+#include "lib/encoding.glsl"
 
 uniform sampler2D colortex0;
 const bool colortex0MipmapEnabled = true;
@@ -69,7 +69,7 @@ vec3 ComputeBloomTile(const float scale, vec2 offset) { // Computes a single blo
 			
 			vec2 offset = vec2(i, j) / viewSize;
 			
-			vec4 lookup = texture2DLod(colortex0, coord + offset, Lod);
+			vec4 lookup = textureLod(colortex0, coord + offset, Lod);
 			
 			bloom       += lookup.rgb * weight / lookup.a;
 			totalWeight += weight;
@@ -92,10 +92,9 @@ vec3 ComputeBloom() {
 }
 
 /* DRAWBUFFERS:1 */
-#include "/../shaders/lib/exit.glsl"
+#include "lib/exit.glsl"
 
 void main() {
-	gl_FragData[0] = vec4(1.0);
 	gl_FragData[0] = vec4(ComputeBloom(), 1.0);
 	exit();
 }

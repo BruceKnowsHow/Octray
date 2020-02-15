@@ -1,30 +1,108 @@
 #if !defined VOXELMARCH_GLSL
 #define VOXELMARCH_GLSL
 
-#include "/../shaders/lib/settings/shadows.glsl"
-#include "/../shaders/lib/raytracing/WorldToVoxelCoord.glsl"
+#include "../settings/shadows.glsl"
+#include "WorldToVoxelCoord.glsl"
 
-float Lookup(vec3 position, int LOD) {
-	return texelFetch(shadowtex0, VoxelToTextureSpace(position, LOD), 0).x;
+// Return structure for the VoxelMarch function
+struct VoxelMarchOut {
+	bool  hit  ;
+	vec3  vPos ;
+	vec3  plane;
+	ivec2 vCoord;
+};
+
+struct RayQueueStruct {
+	vec3 vPos;
+	vec3 rayDir;
+	vec3 priorTransmission;
+	uint rayInfo;
+};
+
+const uint  PRIMARY_RAY_TYPE = (1 <<  8);
+const uint SUNLIGHT_RAY_TYPE = (1 <<  9);
+const uint  AMBIENT_RAY_TYPE = (1 << 10);
+const uint SPECULAR_RAY_TYPE = (1 << 11);
+
+const uint INTERIOR_RAY_ATTR = (1 << 16);
+
+const uint RAY_DEPTH_MASK = (1 << 8) - 1;
+const uint RAY_TYPE_MASK  = ((1 << 16) - 1) & (~RAY_DEPTH_MASK);
+const uint RAY_ATTR_MASK  = ((1 << 24) - 1) & (~RAY_DEPTH_MASK) & (~RAY_TYPE_MASK);
+
+#define RayPush(x, y) RayPushBack(x, y)
+#define RayPop() RayPopBack()
+
+#define MAX_RAYS 64
+#define MAX_RAY_DEPTH 3 // [1 2 3 4 5 6 7 8 9 10]
+#define RAYMARCH_QUEUE_BANDWIDTH (MAX_RAY_DEPTH + 1)
+const int rayQueueCapacity = RAYMARCH_QUEUE_BANDWIDTH;
+RayQueueStruct[rayQueueCapacity] voxelMarchQueue;
+
+int  rayQueueFront   = rayQueueCapacity*100; // Index of the occupied front of the queue
+int  rayQueueBack    = rayQueueFront; // Index of the unnoccupied back of the queue
+int  rayQueueSize    = 0;
+bool queueOutOfSpace = false;
+
+bool IsQueueFull()  { return rayQueueSize == rayQueueCapacity; }
+bool IsQueueEmpty() { return rayQueueSize == 0; }
+
+#include "../Tonemap.glsl"
+
+uint PackRayInfo(uint rayDepth, const uint RAY_TYPE) {
+	return rayDepth | RAY_TYPE;
 }
 
-vec4 Lookup(sampler2D samplr, vec3 position, int LOD) {
-	return texelFetch(samplr, VoxelToTextureSpace(position, LOD), 0);
+uint PackRayInfo(uint rayDepth, const uint RAY_TYPE, uint RAY_ATTR) {
+	return rayDepth | RAY_TYPE | RAY_ATTR;
 }
 
-vec3 fMin(vec3 a) {
-	// Returns a unit vec3 denoting the minimum element of the parameter.
-	// Example:
-	// fMin( vec3(1.0, -2.0, 3.0) ) = vec3(0.0, 1.0, 0.0)
-	// fMin( vec3(0.0,  0.0, 0.0) ) = vec3(0.0, 0.0, 1.0) <- defaults to Z
+uint GetRayType(uint rayInfo) {
+	return rayInfo & RAY_TYPE_MASK;
+}
+
+bool IsRayType(uint rayInfo, const uint RAY_TYPE) {
+	return (rayInfo & RAY_TYPE) != 0;
+}
+
+uint GetRayAttr(uint rayInfo) {
+	return rayInfo & RAY_ATTR_MASK;
+}
+
+bool HasRayAttr(uint rayInfo, const uint RAY_ATTR) {
+	return (rayInfo & RAY_ATTR) != 0;
+}
+
+uint GetRayDepth(uint rayInfo) {
+	return rayInfo & RAY_DEPTH_MASK;
+}
+
+void RayPushBack(RayQueueStruct elem, vec3 totalColor) {
+	if (GetRayDepth(elem.rayInfo) > MAX_RAY_DEPTH) return;
+	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
+	if (queueOutOfSpace) return;
+	if (!EnoughLightToBePerceptable(elem.priorTransmission*brightestThing, totalColor)) return;
 	
-	vec2 b = clamp(clamp((a.yz - a.xy), 0.0, 1.0) * (a.zx - a.xy) * 1e35, 0.0, 1.0);
-	return vec3(b.x, b.y, 1.0 - b.x - b.y);
-	
-	// Alternate version
-	// Note: this handles the situation where they're all equal differently
-	// return vec3(lessThan(a.xyz, a.yzx) && lessThan(a.xyz, a.zxy));
+	voxelMarchQueue[rayQueueBack % rayQueueCapacity] = elem;
+	++rayQueueBack;
+	++rayQueueSize;
+	return;
 }
+
+RayQueueStruct RayPopFront() {
+	RayQueueStruct res = voxelMarchQueue[rayQueueFront % rayQueueCapacity];
+	++rayQueueFront;
+	--rayQueueSize;
+	return res;
+}
+
+RayQueueStruct RayPopBack() {
+	--rayQueueBack;
+	RayQueueStruct res = voxelMarchQueue[rayQueueBack % rayQueueCapacity];
+	--rayQueueSize;
+	return res;
+}
+
 
 float fMin(vec3 a, out vec3 val) {
 	float ret = min(a.x, min(a.y, a.z));
@@ -33,36 +111,22 @@ float fMin(vec3 a, out vec3 val) {
 	return ret;
 }
 
-float VoxelMarch(inout vec3 pos, vec3 rayDir, out vec3 plane) {
-	pos += abs(pos) * rayDir / 1024.0;
+int idot(ivec3 a, ivec3 b) {
+	return (a.x & b.x) | (a.y & b.y) | (a.z & b.z);
+}
+
+float fMin(vec3 a, out ivec3 val) {
+	ivec3 ia = floatBitsToInt(a);
+	val.xy = ((ia.xy - ia.yx) & (ia.xy - ia.zz)) >> 31;
+	val.z = (-1) ^ val.x ^ val.y;
 	
-	vec3 pos0 = WorldToVoxelSpace(pos);
-	pos  = pos0;
-	
-	vec3 stepDir = sign(rayDir);
-	vec3 tDelta  = 1.0 / abs(rayDir);
-	
-	vec3 tMax0 = ((stepDir * 0.5 + 0.5) - mod(pos0, 1.0)) / rayDir;
-	vec3 tMax  = tMax0;
-	
-	vec3 muls = vec3(0.0);
-	
-	float t = 0.0;
-	
-	// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep1&type=pdf
-	while (t++ < 128 && all(lessThan(abs(pos.xyz - vec3(shadowRadius, 128, shadowRadius)), vec3(shadowRadius, 128.0, shadowRadius)))) {
-		float lookup = Lookup(pos, 0);
-		
-		if (lookup < 1.0) { pos = pos0+dot(plane,tMax)*rayDir; return lookup; }
-		
-		plane = fMin(tMax);
-		muls = muls + plane;
-		
-		tMax = tMax0 + tDelta * muls;
-		pos = pos0 + stepDir * muls;
-	}
-	
-	return -1e35;
+	return intBitsToFloat(idot(ia, val));
+}
+
+vec3 fMin(vec3 a) {
+	vec3 val;
+	fMin(a, val);
+	return val;
 }
 
 vec3 StepThroughVoxel(vec3 vPos, vec3 rayDir, out vec3 plane) {
@@ -72,191 +136,170 @@ vec3 StepThroughVoxel(vec3 vPos, vec3 rayDir, out vec3 plane) {
 
 	vec3 tMax = (floor(vPos) - vPos + dirPositive)*tDelta;
 	float L = fMin(tMax, plane);
+	
 	return vPos + rayDir * L;
 }
 
-bool DataIsHit(float data) {
-	return data < 1.0;
-}
-
-bool OutOfBounds(vec3 point, const vec3 bound0, const vec3 bound2) {
-	const vec3 mid =    (bound0 + bound2) / 2.0; // middle of bounds
-	const vec3 rad = abs(bound2 - bound0) / 2.0; // radius of bounds
-	
-	vec3 distanceFromCenter = abs(point - mid);
-	
-	return any(greaterThan(distanceFromCenter, rad));
-}
-
-struct VoxelMarchIn {
-	vec3  wPos;
-	vec3  rayDir;
-	float LOD;
-};
-
-// Return structure for the VoxelMarch function
-struct VoxelMarchOut {
-	bool  hit  ;
-	vec3  wPos ;
-	vec3  vPos ;
-	vec3  plane;
-	float data ; // Data actually stored at that point in the shadow map.
-	int   steps;
-};
-
-const int globalMaxSteps = 1024;
-int voxelMarchGlobalSteps = 0;
-
-VoxelMarchOut VoxelMarch(VoxelMarchIn VMI) {
-	vec3 pos = VMI.wPos;
-	vec3 rayDir = VMI.rayDir;
-	float LOD = VMI.LOD;
+VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir) {
+	int LOD = 0;
 	
 	VoxelMarchOut VMO;
 	
-	if (voxelMarchGlobalSteps >= globalMaxSteps) {
-		VMO.hit = false;
-		return VMO;
-	}
+	VMO.vPos = vPos;
 	
-	VMO.steps = 0;
-	
-	VMO.wPos = VMI.wPos;
-//	VMO.wPos += (abs(VMO.wPos) + 1.0) * sign(rayDir) / 4096.0; // Slightly perturb pos along rayDir. This prevents erroneous hit detection when starting on a voxel's surface and marching away from it.
-	
-	VMO.vPos = WorldToVoxelSpace(VMO.wPos);
-	
-	while (LOD > 0) { // March the LOD down until there is not a hit, or the LOD is 0
-		VMO.data = Lookup(VMO.vPos, int(LOD));
-		if (!DataIsHit(VMO.data)) break;
-		--LOD;
-	}
-	
-	if (LOD == 0) { // If we just marched down to LOD=0, check if we still hit something. If so, the ray originates from inside geometry and we return.
-		VMO.data = Lookup(VMO.vPos, int(LOD));
-		if (DataIsHit(VMO.data)) {
-			VMO.hit = true;
-			VMO.wPos = VoxelToWorldSpace(VMO.vPos);
-			VMO.plane = vec3(0.0);
-			return VMO;
-		}
-	}
-	
-	vec3 stepDir = sign(rayDir);
+	vec3 stepDir = sign(wDir);
+	ivec3 istepDir = ivec3(stepDir);
 	vec3 dirPositive = (stepDir * 0.5 + 0.5); // +1.0 when going in a positive direction, 0.0 otherwise.
-	vec3 tDelta  = 1.0 / rayDir;
-	tDelta = intBitsToFloat(floatBitsToInt(tDelta) | int(5));
+	ivec3 idirPositive = ivec3(dirPositive);
+	vec3 tDelta  = 1.0 / wDir;
 	
-	vec3 bound = exp2(LOD) * floor(VMO.vPos * exp2(-LOD) + dirPositive);
+	vec3 pos0 = -VMO.vPos*tDelta;
+	vec3 pos00 = VMO.vPos;
+	vec3 P0 = VMO.vPos + stepDir / exp2(15)*0;
 	
-	vec3 pos0 = VMO.vPos;
-	vec3 P0 = intBitsToFloat(floatBitsToInt(VMO.vPos) + ivec3(mix(vec3(-2), vec3(2), dirPositive)));
+	// ivec3 bound = (((ivec3(VMO.vPos) >> LOD) ) << LOD) + idirPositive;
+	ivec3 bound = ((ivec3(VMO.vPos) >> LOD) + idirPositive) << LOD;
 	
-	vec3 plane = vec3(0.0); // Example: If taking a step in the Y direction, plane will be = vec3(0.0, 1.0, 0.0).
+	int t = 0;
+	
+	int offset = 0;
+	int oldLOD = LOD;
+	int up = 0;
+	int down = 0;
+	
+	ivec3 ivPos = ivec3(VMO.vPos);
+	ivec3 iplane = ivec3(0);
 	
 	// Based on: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep1&type=pdf
-	// LOD accelerated (makes large-volume queries to make big steps through empty space)
-	while (++VMO.steps <= globalMaxSteps && ++voxelMarchGlobalSteps < globalMaxSteps) { // This is where the majority of work happens, so it's a bit optimized and difficult to understand.
-		vec3 tMax = (bound - pos0)*tDelta;
-		float L = fMin(tMax, plane);
-		float oldPos = dot(VMO.vPos, plane);
-		VMO.vPos = P0 + rayDir * L;
-	//	if (VMO.steps % 30 == frameCounter % 30) show(VoxelToWorldSpace(VMO.vPos) / 100.0)
-		if (any(greaterThan(abs(VMO.vPos - vec2(128, shadowRadius).yxy), vec2(128, shadowRadius).yxy))) { break; }
+	while (++t < 256 && LOD >= 0) {
+		vec3 tMax = (bound*tDelta + pos0);
+		float L = fMin(tMax, iplane);
+		int oldPos = idot(ivPos, iplane);
+		VMO.vPos = P0 + wDir * L;
+		VMO.vPos = intBitsToFloat(((floatBitsToInt(VMO.vPos)+idirPositive-1) & (~iplane)) | ((floatBitsToInt(bound)+idirPositive-1) & iplane));
+		ivPos = ivec3(VMO.vPos);
+		int newPos = idot(ivPos, iplane);
+		// Debug += 1.0 / 100.0;
+		if (OutOfVoxelBounds(VMO.vPos)) { break; }
 		
-		LOD += abs(int(dot(VMO.vPos,plane)*exp2(-LOD-1)) - int(oldPos*exp2(-LOD-1)));
-		LOD  = min(LOD, 7);
+		up = abs((newPos >> (LOD+1)) - (oldPos >> (LOD+1)));
+		LOD = min(LOD + up, 7);
+		offset += (shadowVolume>>((LOD+down-1)*3))*(up-down);
+		oldLOD = LOD;
+		VMO.vCoord = VoxelToTextureSpace(ivPos, LOD, offset);
+		// int miss = int(texture2D(shadowcolor0, (vec2(VMO.vCoord)+ 0.5)/shadowMapResolution, 0).x);
+		int miss = int(texelFetch(shadowcolor0, VMO.vCoord, 0).x);
+		down = 1-miss;
+		LOD -= down;
 		
-		VMO.data = Lookup(floor(VMO.vPos), int(LOD));
-		float hit = clamp(1e35 - VMO.data*1e35, 0.0, 1.0);
+		ivec3 a = ((ivPos >> LOD) + idirPositive) << LOD;
+		ivec3 b = bound + istepDir * (miss << LOD);
 		
-		LOD -= (hit);
-		if (LOD < 0) break;
-		
-		vec3 a = exp2(LOD) * floor(VMO.vPos*exp2(-LOD)+dirPositive);
-		vec3 b = bound + stepDir * ((1.0 - hit) * exp2(LOD));
-		vec3 oldBound = bound;
-		bound = mix(a, b, plane);
+		bound = (a & (~iplane)) | (b & iplane);
 	}
 	
-	if (LOD < 0) {
-		VMO.hit = true;
-		VMO.wPos = VoxelToWorldSpace(VMO.vPos);
-		VMO.plane = plane * sign(-rayDir);
-		return VMO;
-	} else {
-		VMO.hit = false;
-		VMO.wPos = VoxelToWorldSpace(VMO.vPos);
-		VMO.plane = plane * sign(-rayDir);
-		VMO.data = -1e35;
-		return VMO;
+	VMO.hit = LOD < 0;
+	
+	VMO.plane = vec3(-iplane) * sign(-wDir);
+	
+	if (!VMO.hit) {
+		vec3 shadowVolume = vec2(shadowDiameter, 256).xyx * dirPositive;
+		
+		vec3 pllane = fMin((shadowVolume - P0)*tDelta);
+		VMO.vPos = P0 + wDir * dot(tDelta, pllane) * dot(shadowVolume-P0, pllane);
+		// VMO.plane = pllane * sign(-wDir);
 	}
+	
+	return VMO;
 }
 
-struct RayQueueStruct {
-    VoxelMarchIn VMI;
-	vec3 priorTransmission;
-	uint rayType;
+struct SurfaceStruct {
+	mat3 tbn;
+	vec4 diffuse;
+	
+	vec3 normal;
+	vec4 normals;
+	float emissive;
+	
+	vec4 specular;
+	float roughness;
+	float F0;
+	float metal;
+	float porosity;
+	float SSS;
+	
+	float isWater;
 };
 
-const uint  PRIMARY_RAY_TYPE = (1 << 0);
-const uint SUNLIGHT_RAY_TYPE = (1 << 1);
-const uint  AMBIENT_RAY_TYPE = (1 << 2);
-const uint SPECULAR_RAY_TYPE = (1 << 3);
-
-#define RAYMARCH_QUEUE_BANDWIDTH 4 // [1 2 4 8 16]
-#define MAX_RAYMARCH_BOUNCES 4 // [0 1 2 3 4 5 6 7 8 9 10 16]
-const int rayQueueCapacity = max(min(RAYMARCH_QUEUE_BANDWIDTH, MAX_RAYMARCH_BOUNCES), 1);
-RayQueueStruct[rayQueueCapacity] voxelMarchQueue;
-
-int  rayQueueStart   = 0; // Index of the occupied front of the queue
-int  rayQueueEnd     = 0; // Index of the unnoccupied back of the queue
-int  rayQueueSize    = 0;
-bool queueOutOfSpace = false;
-
-bool IsQueueFull()  { return rayQueueSize == rayQueueCapacity; }
-bool IsQueueEmpty() { return rayQueueSize == 0; }
-
-float sum3(vec3 a) { return a.x + a.y + a.z; }
-
-#include "/../shaders/lib/Tonemap.glsl"
-
-
-#define EXPOSURE 0.00 // [-3.00 -2.66 -2.33 -2.00 -1.66 -1.33 -1.00 -0.66 -0.33 0.00 0.33 0.66 1.00 1.33 1.66 2.00 2.33 2.66 3.00]
-#define SUN_BRIGHTNESS 1.000 // [0.000 0.100 0.125 0.250 0.375 0.500 0.625 0.750 0.875 1.000 1.125 2.500 3.75 5.000 6.250 7.500 8.750 10.00 100.0]
-
-const float exposure = exp2(EXPOSURE);
-const vec3 skyBrightness = vec3(0.4) * exposure;
-const vec3 sunBrightness = vec3(1.0) * exposure * exp2(SUN_BRIGHTNESS - 1.0);
-const vec3 emissiveSphereBrightness = vec3(0.0, 0.0, 1.0) * exposure;
-const vec3 emissiveBrightness = vec3(4.0) * exposure;
-const vec3 specularBrightess = vec3(1.0) * exposure;
-const vec3 brightestThing = max(max(max(max(skyBrightness*40.0, sunBrightness), emissiveSphereBrightness), emissiveBrightness), specularBrightess);
-
-bool EnoughLightToBePerceptable(vec3 possibleAdditionalColor, vec3 currentColor) {
-	const vec3 lum = vec3(0.2125, 0.7154, 0.0721)*0+1; // luminance coefficient
+vec2 GetTexCoord(vec2 coord, float depth, vec2 spriteSize) {
+	vec2 cornerTexCoord = unpackTexcoord(depth); // Coordinate of texture's starting corner in [0, 1] texture space
+	vec2 coordInSprite = coord.xy * spriteSize / atlasSize; // Fragment's position within sprite space
 	
-//	return any(greaterThan(possibleAdditionalColor, vec3(1.0 / 255.0) / lum));
-	
-	vec3 delC = Tonemap(possibleAdditionalColor + currentColor) - Tonemap(currentColor);
-	return any(greaterThan(delC, (1.0 / 255.0) / lum));
+	return cornerTexCoord + coordInSprite;
 }
 
-void RayQueuePushBack(RayQueueStruct elem, vec3 totalColor) {
-	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
-	if (queueOutOfSpace) return;
-	if (!EnoughLightToBePerceptable(elem.priorTransmission*brightestThing, totalColor)) return;
-	voxelMarchQueue[rayQueueEnd % rayQueueCapacity] = elem;
-	++rayQueueEnd;
-	++rayQueueSize;
-	return;
+mat3 GenerateTBN(vec3 plane) {
+	mat3 tbn;
+	
+	vec3 plane3 = abs(plane);
+	
+	tbn[0].z = -plane.x;
+	tbn[0].y = 0.0;
+	tbn[0].x = plane3.y + plane.z;
+	
+	tbn[1].x = 0.0;
+	tbn[1].y = -plane3.x - plane3.z;
+	tbn[1].z = plane3.y;
+	
+	tbn[2] = plane;
+	
+	return tbn;
 }
 
-RayQueueStruct RayQueuePopFront() {
-	RayQueueStruct res = voxelMarchQueue[rayQueueStart % rayQueueCapacity];
-	++rayQueueStart;
-	--rayQueueSize;
-	return res;
+#include "../TerrainParallax.fsh"
+
+#include "../ComputeWaveNormals.fsh"
+
+SurfaceStruct ReconstructSurface(RayQueueStruct curr, VoxelMarchOut VMO) {
+	SurfaceStruct surface;
+	surface.tbn = GenerateTBN(VMO.plane);
+	
+	vec2 spriteSize = exp2(round(texelFetch(shadowcolor0, VMO.vCoord, 0).xx * 255.0));
+	
+	vec2 coord = ((fract(VMO.vPos) * 2.0 ) * mat2x3(surface.tbn) - vec3(1)*mat2x3(surface.tbn)) * 0.5 + 0.5;
+	float depth = texelFetch(shadowtex0, VMO.vCoord, 0).x;
+	vec2 tCoord = GetTexCoord(coord.xy, depth, spriteSize);
+	
+	vec2 parCoord = ComputeParallaxCoordinate(tCoord, curr.rayDir, surface.tbn, spriteSize, NORMAL_SAMPLER);
+	
+	surface.diffuse  = texture2D(TEX_SAMPLER, parCoord, 0);
+	surface.normals  = texture2D(NORMAL_SAMPLER, parCoord, 0);
+	surface.specular = texture2D(SPECULAR_SAMPLER, parCoord, 0);
+	
+	surface.diffuse.rgb *= texelFetch(shadowcolor1, VMO.vCoord, 0).rgb;
+	surface.diffuse.rgb = pow(surface.diffuse.rgb, vec3(2.2));
+	
+	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
+//	surface.normal = surface.tbn * vec3(surface.normals.xy, sqrt(max(1.0 - dot(surface.normals.xy, surface.normals.xy), 0.0)));
+	surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
+	
+	if (texelFetch(shadowcolor0, VMO.vCoord, 0).g*255.0 > 0.5)
+		surface.emissive = 1.0;
+	
+	// surface.roughness = 1 - surface.specular.r;
+	// surface.F0 = surface.specular.g * surface.specular.g;
+	// surface.metal = float(surface.specular.g > (229.0 / 255.0));
+	// surface.porosity = surface.specular.b * 255.0 / 64.0 * float(surface.specular.b <= 64.0 / 255.0);
+	// surface.SSS = (surface.specular.b - 64.0 / 255.0) * (255.0 / (255.0 - 64.0)) * float(64.0 / 255.0 < surface.specular.b);
+	//
+	if (int(texelFetch(shadowcolor1, VMO.vCoord, 0).a*255)==20) {
+		surface.normal = surface.tbn * ComputeWaveNormals(VoxelToWorldSpace(VMO.vPos), curr.rayDir, surface.tbn[2]);
+		surface.roughness = 0.01;
+		surface.F0 = 0.01;
+		surface.diffuse.rgb = vec3(0);
+	}
+	
+	return surface;
 }
 
 #endif

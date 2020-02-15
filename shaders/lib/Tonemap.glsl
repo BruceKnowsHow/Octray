@@ -1,6 +1,32 @@
 #if !defined TONEMAP_GLSL
 #define TONEMAP_GLSL
 
+#define AUTO_EXPOSURE
+
+#define OVERALL_BRIGHTNESS          1.0 // [0.0 1/16 2/16 3/16 1/4 2/4 3/4 1.0 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0]
+#define SUNLIGHT_BRIGHTNESS         1.0 // [0.0 1/16 2/16 3/16 1/4 2/4 3/4 1.0 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0]
+#define SKY_BRIGHTNESS              1.0 // [0.0 1/16 2/16 3/16 1/4 2/4 3/4 1.0 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0]
+#define AMBIENT_BRIGHTNESS          1.0 // [0.0 1/16 2/16 3/16 1/4 2/4 3/4 1.0 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0]
+#define VIBRANCE                    1.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
+
+#if defined world0
+const float dimensionMultiplyer = 1.0;
+#else
+const float dimensionMultiplyer = 0.0; // Nether
+#endif
+
+const float exposure = 3.5 * OVERALL_BRIGHTNESS;
+
+const vec3 sunBrightness = vec3(1.0) * dimensionMultiplyer * SUNLIGHT_BRIGHTNESS;
+const vec3 skyBrightness = vec3(0.2) * dimensionMultiplyer / 3.14 * SKY_BRIGHTNESS;
+const vec3 ambientBrightness = vec3(3.14) * AMBIENT_BRIGHTNESS;
+
+const vec3 emissiveBrightness = vec3(0.4);
+const vec3 specularBrightness = vec3(1.0);
+const vec3 brightestThing = max(max(skyBrightness, sunBrightness), emissiveBrightness);
+
+#include "utility.glsl"
+
 #define Tonemap(x) ACESFitted(x)
 
 vec3 ReinhardTonemap(vec3 color) {
@@ -44,13 +70,28 @@ vec3 RRTAndODTFit(vec3 v) {
 }
 
 vec3 ACESFitted(vec3 color) {
+	color = color * exposure;
 	color = color * ACESInputMat;
 	color = RRTAndODTFit(color); // Apply RRT and ODT
 	color = color * ACESOutputMat;
 	color = pow(color, vec3(1.0 / 2.2));
 	color = clamp(color, 0.0, 1.0);
+	color = hsv(color);
+	// color.g = pow(color.g, 0.8);
+	color.g *= VIBRANCE;
+	color = rgb(color);
+	color = clamp(color, 0.0, 1.0);
 	
 	return color;
+}
+
+bool EnoughLightToBePerceptable(vec3 possibleAdditionalColor, vec3 currentColor) {
+	const vec3 lum = vec3(0.2125, 0.7154, 0.0721)*0+1; // luminance coefficient
+	
+//	return any(greaterThan(possibleAdditionalColor, vec3(1.0 / 255.0) / lum));
+	
+	vec3 delC = Tonemap(possibleAdditionalColor + currentColor) - Tonemap(currentColor);
+	return any(greaterThan(delC, (1.0 / 255.0) / lum));
 }
 
 #endif

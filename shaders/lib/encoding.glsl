@@ -1,7 +1,7 @@
 #if !defined ENCODING_GLSL
 #define ENCODING_GLSL
 
-#include "/../shaders/lib/utility.glsl"
+#include "utility.glsl"
 
 vec2 EncodeNormal(vec3 normal) {
     return vec2(normal.xy * inversesqrt(normal.z * 8.0 + 8.0) + 0.5);
@@ -14,6 +14,17 @@ vec3 DecodeNormal(vec2 encodedNormal) {
 	return vec3(encodedNormal * g, 1.0 - f * 0.5);
 }
 
+vec4 PackGBuffers(vec4 diffuse, vec4 normal, vec4 spec) {
+	uvec3 a = uvec3(packUnorm4x8(diffuse), packUnorm4x8(normal), packUnorm4x8(spec));
+	return vec4(uintBitsToFloat(a), 1.0);
+}
+
+void UnpackGBuffers(vec3 a, out vec4 diffuse, out vec4 normal, out vec4 spec) {
+	uvec3 b = floatBitsToUint(a);
+	diffuse = unpackUnorm4x8(b.x);
+	normal = unpackUnorm4x8(b.y);
+	spec = unpackUnorm4x8(b.z);
+}
 
 // Packing functions for sending midTexCoord through the shadow depth buffer
 // Outputs a float in the range (-1.0, 1.0), which is what gl_Position.z takes in
@@ -48,33 +59,6 @@ vec2 unpackTexcoord(float enc) {
 	return coord * (exp2(-B.gb));
 }
 
-// Packing functions for sending vertex color through the shadow depth buffer
-// Same constrains as mentioned above.
-const vec3 vColorBits = vec3(8.0, 8.0, 7.0);
-float packVertColor(vec3 color) {
-	color = hsv(color);
-	vec3 c = floor(color * (exp2(vColorBits) - 1.0));
-	
-	c.r += c.g * exp2(vColorBits.r);
-	c.r += c.b * exp2(vColorBits.r + vColorBits.g);
-	
-	c.r = c.r * exp2(-vColorBits.r - vColorBits.g - vColorBits.b + 1.0) - 1.0;
-	return c.r;
-}
-
-vec3 unpackVertColor(float enc) {
-	vec3 c;
-	
-	c.r = enc * exp2(vColorBits.r + vColorBits.g + vColorBits.b);
-	
-	c.b = floor(c.r / exp2(vColorBits.r + vColorBits.g));
-	c.g = floor(mod(c.r, exp2(vColorBits.r + vColorBits.g)) / exp2(vColorBits.r));
-	c.r = mod(c.r, exp2(vColorBits.r));
-	
-	c /= exp2(vColorBits) - 1.0;
-	return rgb(c);
-}
-
 float EncodeTBNU(mat3 tbnMatrix) {
 	vec3 tangent = tbnMatrix[0];
 	vec3 normal = tbnMatrix[2];
@@ -107,7 +91,7 @@ float EncodeTBNU(mat3 tbnMatrix) {
 	
 	enc.z = uint(angle) << 21;
 	
-	return uintBitsToFloat(enc.x + enc.y + enc.z); // X occupies first 12 bits, Y occupies next 11 bits
+	return uintBitsToFloat(enc.x | enc.y | enc.z); // X occupies first 12 bits, Y occupies next 11 bits
 }
 
 mat3 DecodeTBNU(float enc) {
@@ -194,7 +178,7 @@ float pack4x8(vec4 v) {
 }
 
 vec4 unpack4x8(float e) {
-	uvec4 u = floatBitsToUint(e) >> uvec4(0, 8, 16, 24);
+	uvec4 u = uvec4(floatBitsToUint(e)) >> uvec4(0, 8, 16, 24);
 	return vec4(u % 256) / 255.0;
 }
 

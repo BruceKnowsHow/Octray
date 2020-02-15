@@ -16,34 +16,27 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#include "/../shaders/lib/debug.glsl"
-#include "/../shaders/lib/utility.glsl"
-#include "/../shaders/lib/encoding.glsl"
-#include "/../shaders/lib/settings/buffers.glsl"
-#include "/../shaders/lib/settings/shadows.glsl"
-
 uniform sampler2D colortex0;
-uniform sampler2D colortex1;
 uniform sampler2D colortex2;
-uniform sampler2D colortex3;
-uniform sampler3D colortex4;
+uniform sampler2D colortex4;
+uniform sampler2D colortex5;
 uniform sampler2D depthtex0;
-uniform sampler2D depthtex1;
 uniform sampler2D shadowtex0;
 uniform sampler2D shadowcolor0;
+uniform sampler2D shadowcolor1;
 uniform sampler2D noisetex;
 
 // Do these weird declarations so that optifine doesn't create extra buffers
-#define CUSTOM5 colortex5
-#define CUSTOM6 colortex6
-#define CUSTOM7 colortex7
+#define SKY_SAMPLER colortex7
+#define TEX_SAMPLER depthtex1
+#define NORMAL_SAMPLER depthtex2
+#define SPECULAR_SAMPLER shadowtex1
 
-uniform sampler2D CUSTOM5;
-uniform sampler2D CUSTOM6;
-uniform sampler2D CUSTOM7;
+uniform sampler3D SKY_SAMPLER;
+uniform sampler2D TEX_SAMPLER;
+uniform sampler2D NORMAL_SAMPLER;
+uniform sampler2D SPECULAR_SAMPLER;
 
-uniform mat4 shadowProjection;
-uniform mat4 shadowProjectionInverse;
 uniform mat4 gbufferModelViewInverse;
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferModelView;
@@ -51,7 +44,6 @@ uniform mat4 gbufferPreviousModelView;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferPreviousProjection;
 
-uniform vec3 shadowLightPosition;
 uniform vec3 sunPosition;
 
 uniform ivec2 atlasSize;
@@ -60,39 +52,39 @@ uniform vec3 cameraPosition;
 uniform vec3 previousCameraPosition;
 
 uniform int heldBlockLightValue;
-
-vec3 sunDir = normalize(mat3(gbufferModelViewInverse) * sunPosition);
+uniform int heldBlockLightValue2;
 
 uniform vec2 viewSize;
+
+uniform float far;
 
 uniform float frameTimeCounter;
 uniform int frameCounter;
 
 uniform int isEyeInWater;
 
+uniform bool accum;
+
 noperspective in vec2 texcoord;
+
+#include "lib/debug.glsl"
+#include "lib/utility.glsl"
+#include "lib/encoding.glsl"
+#include "lib/settings/buffers.glsl"
+#include "lib/settings/shadows.glsl"
+
 ivec2 itexcoord = ivec2(texcoord * viewSize);
 
-uint WangHash(uint seed) {
-	seed = (seed ^ 61) ^ (seed >> 16);
-	seed *= 9;
-	seed = seed ^ (seed >> 4);
-	seed *= 0x27d4eb2d;
-	seed = seed ^ (seed >> 15);
-	return seed;
+vec3 sunDir = normalize(mat3(gbufferModelViewInverse) * sunPosition);
+
+#include "lib/WangHash.glsl"
+
+vec2 TAAHash() {
+	return (WangHash(uvec2(frameCounter*2, frameCounter*2 + 1)) - 0.5) / viewSize;
 }
 
-uvec2 WangHash(uvec2 seed) {
-	seed = (seed ^ 61) ^ (seed >> 16);
-	seed *= 9;
-	seed = seed ^ (seed >> 4);
-	seed *= 0x27d4eb2d;
-	seed = seed ^ (seed >> 15);
-	return seed;
-}
-
-vec2 tc = texcoord + vec2(WangHash(uvec2(gl_FragCoord.xy) * (frameCounter + 1))) / 4294967296.0 / viewSize;
-vec2 dith = vec2(WangHash(uvec2(gl_FragCoord.xy) * (frameCounter + 1))) / 4294967296.0;
+// vec2 tc = texcoord + vec2(WangHash(uvec2(gl_FragCoord.xy) * (frameCounter + 1))) / viewSize;
+vec2 tc = texcoord - TAAHash()*float(accum);
 
 vec3 GetWorldSpacePosition(vec2 coord, float depth) {
 	vec4 pos = vec4(vec3(coord, depth) * 2.0 - 1.0, 1.0);
@@ -103,337 +95,361 @@ vec3 GetWorldSpacePosition(vec2 coord, float depth) {
 	return pos.xyz;
 }
 
-#include "/../shaders/lib/Tonemap.glsl"
-#include "/../shaders/lib/raytracing/VoxelMarch.glsl"
+#include "lib/PBR.glsl"
 
-#include "/../shaders/lib/sky.glsl"
-#include "/../shaders/lib/WaterFog.glsl"
-#include "/../shaders/lib/Tonemap.glsl"
-#include "/../shaders/lib/sky.glsl"
-#include "/../shaders/lib/PrecomputeSky.glsl"
-#include "/../shaders/lib/WaterFog.glsl"
+#include "lib/sky.glsl"
+#include "lib/PrecomputeSky.glsl"
 
-struct SurfaceStruct {
-	mat3 tbn;
-	vec4 diffuse;
-	vec3 normal;
-	vec4 normals;
-	vec4 specular;
-	float emissive;
-};
+#include "lib/Tonemap.glsl"
+#include "lib/raytracing/VoxelMarch.glsl"
 
-vec2 GetTexCoord(vec2 coord, float lookup, vec3 vPos) {
-	coord = coord * 0.5 + 0.5;
-	
-//	coord = clamp(coord, 2.0 / atlasSize*16.0, 1.0 - 2.0/atlasSize*16.0);
-	
-	vec2 T = Lookup(shadowcolor0, vPos, 0).xy;
-	vec2 spriteSize = (exp2(round(T * 255.0))) / atlasSize;
-	
-	vec2 cornerTexCoord = unpackTexcoord(lookup); // Coordinate of texture's starting corner in [0, 1] texture space
-	vec2 coordInSprite = coord.xy * spriteSize; // Fragment's position within sprite space
-	vec2 tCoord = cornerTexCoord + coordInSprite;
-	
-	return tCoord;
-}
-
-mat3 GenerateTBN(vec3 normal) {
-	mat3 tbn;
-	tbn[2] = normal;
-	     if (tbn[2].x >  0.5) tbn[0] = vec3( 0, 0,-1);
-	else if (tbn[2].x < -0.5) tbn[0] = vec3( 0, 0, 1);
-	else if (tbn[2].y >  0.5) tbn[0] = vec3( 1, 0, 0);
-	else if (tbn[2].y < -0.5) tbn[0] = vec3( 1, 0, 0);
-	else if (tbn[2].z >  0.5) tbn[0] = vec3( 1, 0, 0);
-	else if (tbn[2].z < -0.5) tbn[0] = vec3(-1, 0, 0);
-	tbn[1] = normalize(cross(tbn[0], tbn[2]));
-	
-	return tbn;
-}
-
-#define TERRAIN_PARALLAX
-#define TERRAIN_PARALLAX_QUALITY 1.0
-#define TEXTURE_PACK_RESOLUTION 16
-#define TERRAIN_PARALLAX_INTENSITY 1.0
-#define TERRAIN_PARALLAX_DISTANCE 16.0
-
-vec2 ComputeParallaxCoordinate(vec2 coord, vec3 position, mat3 tbn, sampler2D heightmap) {
-#if !defined TERRAIN_PARALLAX
-// #if !defined TERRAIN_PARALLAX || !defined gbuffers_terrain
-	return coord;
-#endif
-	
-//	LOD = textureQueryLod(tex, coord).x;
-//	atlasSize
-	const float parallaxDist = TERRAIN_PARALLAX_DISTANCE;
-	const float distFade     = parallaxDist / 3.0;
-	const float MinQuality   = 0.5;
-	const float maxQuality   = 1.5;
-	
-	float intensity = clamp((parallaxDist - length(position) * 90.0 / 90.0) / distFade, 0.0, 1.0) * 0.85 * TERRAIN_PARALLAX_INTENSITY;
-	intensity = TERRAIN_PARALLAX_INTENSITY;
-	// float intensity = clamp((parallaxDist - length(position) * FOV / 90.0) / distFade) * 0.85 * TERRAIN_PARALLAX_INTENSITY;
-	
-	if (intensity < 0.01) { return coord; }
-	
-//	float quality = clamp(radians(180.0 - FOV) / max1(pow(length(position), 0.25)), MinQuality, maxQuality, 0.0, 1.0) * TERRAIN_PARALLAX_QUALITY;
-//	float quality = clamp(radians(180.0 - 90.0) / max(pow(length(position), 0.25), 1.0), MinQuality, maxQuality) * TERRAIN_PARALLAX_QUALITY;
-	float quality = TERRAIN_PARALLAX_QUALITY;
-	
-	vec3 tangentRay = normalize(position) * tbn;
-
-	vec2 textureRes = vec2(TEXTURE_PACK_RESOLUTION);
-	
-	if (atlasSize.x != atlasSize.y) {
-		tangentRay.x *= 0.5;
-		textureRes.y *= 2.0;
-	}
-	
-	vec4 tileScale   = vec4(atlasSize.x / textureRes, textureRes / atlasSize.x);
-	vec2 tileCoord   = fract(coord * tileScale.xy);
-	vec2 atlasCorner = floor(coord * tileScale.xy) * tileScale.zw;
-	
-	float stepCoeff = -tangentRay.z * 100.0 * clamp(intensity, 0.0, 1.0);
-	
-	vec3 step    = tangentRay * vec3(0.01, 0.01, 1.0 / intensity) / quality * 0.03;
-	// vec3 step    = tangentRay * vec3(0.01, 0.01, 1.0 / intensity) / quality * 0.03 * sqrt(length(position));
-	     step.z *= stepCoeff;
-	
-	vec3  sampleRay    = vec3(0.0, 0.0, stepCoeff);
-	float sampleHeight = textureLod(heightmap, coord, 0).a * stepCoeff;
-	
-	if (sampleRay.z <= sampleHeight) return coord;
-	
-	for (uint i = 0; sampleRay.z > sampleHeight && i < 150; i++) {
-		sampleRay.xy += step.xy * clamp(sampleRay.z - sampleHeight, 0.0, 1.0);
-		sampleRay.z += step.z;
-		
-		sampleHeight = texture(heightmap, fract(sampleRay.xy * tileScale.xy + tileCoord) * tileScale.zw + atlasCorner, 0).a * stepCoeff;
-	}
-	
-	return fract(sampleRay.xy * tileScale.xy + tileCoord) * tileScale.zw + atlasCorner;
-}
+#include "lib/Volumetrics.fsh"
 
 
-SurfaceStruct ReconstructSurface(VoxelMarchOut VMO, VoxelMarchIn VMI) {
-	SurfaceStruct surface;
-	surface.tbn = GenerateTBN(VMO.plane);
-	
-	vec2 coord = (fract(VMO.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn);
-	vec2 tCoord = GetTexCoord(coord.xy, VMO.data, VMO.vPos);
-	
-	vec2 parCoord = ComputeParallaxCoordinate(tCoord, VMI.rayDir, surface.tbn, colortex6);
-	
-	surface.diffuse  = texture(colortex5, parCoord, 0);
-	surface.normals  = texture(colortex6, parCoord, 0);
-	surface.specular = texture(colortex7, parCoord, 0);
-	
-	// surface.diffuse  = textureLod(colortex5, tCoord, 0);
-	// surface.normals  = textureLod(colortex6, tCoord, 0);
-	// surface.specular = textureLod(colortex7, tCoord, 0);
-	
-	surface.diffuse.rgb *= unpackVertColor(Lookup(VMO.vPos, 1));
-	surface.diffuse.rgb = pow(surface.diffuse.rgb, vec3(2.2));
-	
-	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
-//	surface.normal = surface.tbn * vec3(surface.normals.xy, sqrt(max(1.0 - dot(surface.normals.xy, surface.normals.xy), 0.0)));
-	
-	surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
-	
-	return surface;
-}
-
-vec3 CalculateConeVector(const float i, const float angularRadius, const int steps) {
-	float x = i * 2.0 - 1.0;
-	float y = i * float(steps) * 1.618 * 256.0;
-	
-	float angle = acos(x) * angularRadius / PI;
-	float s = sin(angle);
-
-	return vec3(cos(y) * s, sin(y) * s, cos(angle));
-}
-
-vec3 CosineSampleHemisphere(vec2 Xi) {
+vec3 CosineSampleHemisphere(vec2 Xi, out float pdf) {
 	float r = sqrt(Xi.x);
-	float theta = PI * 2.0 * Xi.y;
+	float theta = Xi.y * PI * 2.0;
 
 	float x = r * cos(theta);
 	float y = r * sin(theta);
 
-	return vec3(x, y, sqrt(max(0.0, 1.0 - Xi.x)));
+	pdf = sqrt(max(1.0 - Xi.x, 0));
+
+	return vec3(x, y, pdf);
 }
 
-vec3 hemisphereSample_cos(vec2 uv) {
-    float phi = uv.y * 2.0 * PI;
-    float cosTheta = sqrt(1.0 - uv.x);
-    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-    return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
-}
-
-vec2 rsi2(vec3 r0, vec3 rd, float sr) {
-    // ray-sphere intersection that assumes
-    // the sphere is centered at the origin.
-    // No intersection when result.x > result.y
-    float a = dot(rd, rd);
-    float b = 2.0 * dot(rd, r0);
-    float c = dot(r0, r0) - (sr * sr);
-    float d = (b*b) - 4.0*a*c;
-    if (d < 0.0) return vec2(1e5,-1e5);
-    return vec2(
-        (-b - sqrt(d))/(2.0*a),
-        (-b + sqrt(d))/(2.0*a)
-    );
-}
-
-float rsi3(vec3 a, vec3 b) {
-	const vec3 worldPoint = vec3(0.0, 70.0 + (sin(frameTimeCounter) + 1.0) * 50.0*0, 0.0);
+float DistributionGGX(vec3 N, vec3 H, float a) {
+	float a2     = a*a;
+	float NdotH  = max(dot(N, H), 0.0);
+	float NdotH2 = NdotH*NdotH;
 	
-	vec2 points = rsi2(a + cameraPosition - worldPoint, normalize(b - a), 1.0);
-	if (points.x > points.y) return 0;
-	float od = max(0.0, points.y - max(0.0, points.x));
-	if (points.x < 0.0 && distance(a,b) < points.y) return distance(a,b);
-	if (points.x < 0.0) return od;
-	if (distance(a,b) > length(points.y)) return od;
-	if (points.x < distance(a,b) && distance(a,b) < points.y) return distance(a,b) - points.x;
-	if (distance(a,b) < length(points.x)) return 0;
+	float nom    = a2;
+	float denom  = (NdotH2 * (a2 - 1.0) + 1.0);
+	denom        = PI * denom * denom;
 	
-	return od;
+	return nom / denom;
 }
 
-float OrenNayarDiffuse(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float roughness, float albedo) {
-	float LdotV = dot(lightDirection, viewDirection);
-	float NdotL = dot(lightDirection, surfaceNormal);
-	float NdotV = dot(surfaceNormal, viewDirection);
-
-	float s = LdotV - NdotL * NdotV;
-	float t = mix(1.0, max(NdotL, NdotV), step(0.0, s));
-
-	float sigma2 = roughness * roughness;
-	float A = 1.0 + sigma2 * (albedo / (sigma2 + 0.13) + 0.5 / (sigma2 + 0.33));
-	float B = 0.45 * sigma2 / (sigma2 + 0.09);
-
-	return albedo * max(0.0, NdotL) * (A + B * s / t) / PI;
+float GeometrySchlickGGX(float NdotV, float k) {
+	float nom   = NdotV;
+	float denom = NdotV * (1.0 - k) + k;
+	
+	return nom / denom;
+}
+  
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float k) {
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float ggx1 = GeometrySchlickGGX(NdotV, k);
+	float ggx2 = GeometrySchlickGGX(NdotL, k);
+	
+	return ggx1 * ggx2;
 }
 
-/* DRAWBUFFERS:0 */
-#include "/../shaders/lib/exit.glsl"
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+float CalculateSpecularComponent() {
+	return 0.0;
+}
+
+mat3 ArbitraryTBN(vec3 normal) {
+	mat3 ret;
+	ret[2] = normal;
+	ret[0] = normalize(vec3(sqrt(2), sqrt(3), sqrt(5)));
+	ret[1] = normalize(cross(ret[0], ret[2]));
+	ret[0] = cross(ret[1], ret[2]);
+	
+	return ret;
+}
+
+vec2 fCoord = vec2((ivec2(gl_FragCoord.xy) >> 6) << 6) + 1;
+
+int screnline = (int(gl_FragCoord.x+111) >> 6)*4000 *  (int(gl_FragCoord.y+100) >> 6);
+// int hashSeed = screnline;
+// int hashSeed = int(pow(fCoord.x + (frameCounter % 8), 1.4) * (fCoord.y + frameCounter / 8));
+int hashSeed = int(pow(gl_FragCoord.x, 1.4) * gl_FragCoord.y);
+// int hashSeed = int(texture2D(noisetex, texcoord).r*255.0);
+
+float PointLineDistance(vec3 point, vec3 linePoint, vec3 lineDir) {
+	vec3 P = point - linePoint;
+	return sqrt(dot(P,P)-dot(lineDir,P)*dot(lineDir,P));
+}
+
+#define SUNLIGHT_RAYS
+//#define SPECULAR_RAYS
+#define AMBIENT_RAYS
+
+void ConstructRays(RayQueueStruct curr, VoxelMarchOut VMO, SurfaceStruct surface, vec3 totalColor, int i, bool interior) {
+	vec3 inScatter = vec3(0.0), outScatter = vec3(1.0);
+	
+	VMO.vPos += VMO.plane * exp2(-14);
+	
+#ifdef AMBIENT_RAYS
+	RayQueueStruct ambientray = curr;
+	ambientray.rayInfo = PackRayInfo(GetRayDepth(curr.rayInfo) + 1, AMBIENT_RAY_TYPE, GetRayAttr(curr.rayInfo));
+	ambientray.vPos = VMO.vPos;
+	ambientray.rayDir = ArbitraryTBN(surface.normal) * CalculateConeVector(WangHash(hashSeed * (frameCounter + i*10+1 + 1)), radians(90.0), 32);
+	ambientray.priorTransmission *= surface.diffuse.rgb * float(dot(ambientray.rayDir, VMO.plane) > 0.0);
+	RayPush(ambientray, totalColor);
+#endif
+	
+#ifdef SPECULAR_RAYS
+	RayQueueStruct specular;
+	specular.rayInfo = PackRayInfo(GetRayDepth(curr.rayInfo) + 1, SPECULAR_RAY_TYPE, GetRayAttr(curr.rayInfo));
+	specular.vPos = VMO.vPos;
+	specular.rayDir = reflect(curr.rayDir, surface.normal);
+	float cosTheta = dot(specular.rayDir, surface.normal);
+	vec3 H = normalize(surface.normal + specular.rayDir);
+	float k = pow(surface.roughness + 1, 2) / 1.0;
+	float D = DistributionGGX(surface.normal, H, surface.roughness);
+	float G = GeometrySmith(surface.normal, -curr.rayDir, specular.rayDir, k);
+	vec3 F = fresnelSchlick(cosTheta, vec3(surface.F0));
+	specular.priorTransmission = curr.priorTransmission * F;
+	RayPush(specular, totalColor);
+#endif
+	
+#ifdef SUNLIGHT_RAYS
+	vec3 randSunDir = ArbitraryTBN(sunDir)*CalculateConeVector(WangHash(hashSeed * (frameCounter + 1)), radians(0.54), 32);
+	
+	RayQueueStruct sunray = curr;
+	sunray.rayInfo = PackRayInfo(GetRayDepth(curr.rayInfo) + 1, SUNLIGHT_RAY_TYPE, GetRayAttr(curr.rayInfo));
+	sunray.vPos = VMO.vPos;
+	sunray.rayDir = randSunDir;
+	vec3 myvec;
+	float sunlight = OrenNayarDiffuse(sunDir, curr.rayDir, surface.normal, 0.5, 1.0);
+	// sunray.priorTransmission *= surface.diffuse.rgb * sunlight;
+	sunray.priorTransmission = curr.priorTransmission * surface.diffuse.rgb * sunlight * GetSunAndSkyIrradiance(kPoint(VoxelToWorldSpace(VMO.vPos)), surface.normal, sunDir, myvec);
+	RayPush(sunray, totalColor);
+#endif
+}
+
+// #define USE_RASTER_ENGINE
+
+/* DRAWBUFFERS:03 */
+#include "lib/exit.glsl"
 
 void main() {
 	float depth = texelFetch(depthtex0, ivec2(tc * viewSize), 0).x;
-	vec3 wPos = GetWorldSpacePosition(tc, depth);
-	vec3 wDir = normalize(wPos);
-	
-	uint tbnIndex = uint(texelFetch(colortex1, ivec2(tc * viewSize), 0).z);
-	
-	bool accum = true;
-	accum = accum && all(equal(cameraPosition, previousCameraPosition));
-	accum = accum && all(equal(gbufferPreviousModelView[0], gbufferModelView[0]));
-	accum = accum && all(equal(gbufferPreviousModelView[3], gbufferModelView[3]));
-	accum = accum && all(equal(gbufferProjection[0], gbufferPreviousProjection[0]));
 	
 	vec4 prevCol = max(texture(colortex0, texcoord).rgba, 0) * float(accum);
 	
+	vec3 wPos = GetWorldSpacePosition(tc, depth);
+	vec3 wDir = normalize(wPos);
+	
 	vec3 totalColor = vec3(0.0);
 	
+#ifdef USE_RASTER_ENGINE
+	{
+		vec3 randSunDir = ArbitraryTBN(sunDir)*CalculateConeVector(WangHash(hashSeed * (frameCounter + 1)), radians(0.54), 32);
+		vec3 inScatter = vec3(0.0), outScatter = vec3(1.0);
+		// VOLUMETRICS(vec3(0), wPos, inScatter, outScatter, randSunDir);
+	
+		vec3 priorTransmission = outScatter;
+	
+		totalColor += inScatter;
+	
+		if (depth >= 1.0) {
+			vec3 transmit = vec3(1.0);
+			vec3 SKYY = ComputeTotalSky(vec3(0.0), wDir, transmit) * skyBrightness;
+			totalColor += SKYY;
+			gl_FragData[0] = vec4(totalColor, 1.0) + prevCol;
+			exit();
+			return;
+		}
+	
+		vec4 diffuse, normal, spec;
+		UnpackGBuffers(texelFetch(colortex2, ivec2(texcoord*viewSize), 0).xyz, diffuse, normal, spec);
+	
+		mat3 tbn = DecodeTBNU(texelFetch(colortex2, ivec2(texcoord*viewSize), 0).a);
+		tbn[2] = texelFetch(colortex5, ivec2(texcoord*viewSize), 0).rgb;
+		
+		SurfaceStruct surface;
+		surface.diffuse  = diffuse;
+		surface.normals  = normal;
+		surface.specular = spec;
+	
+		surface.tbn = tbn;
+	
+		surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
+		
+		surface.diffuse.rgb = pow(surface.diffuse.rgb, vec3(2.2));
+	
+		surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
+	
+		if (texelFetch(colortex4, ivec2(texcoord*viewSize), 0).r > 0.5)
+			surface.emissive = 1.0;
+	
+		surface.roughness = 1 - surface.specular.r;
+		surface.F0 = surface.specular.g * surface.specular.g;
+	
+		totalColor += (surface.diffuse.rgb * surface.emissive * priorTransmission * emissiveBrightness);
+	
+		RayQueueStruct curr;
+		curr.vPos = WorldToVoxelSpace(vec3(0.0));
+		curr.rayDir = wDir;
+		curr.priorTransmission = vec3(1.0);
+		curr.rayInfo = PackRayInfo(1, PRIMARY_RAY_TYPE);
+	
+		VoxelMarchOut VMO;
+		VMO.hit = true;
+		VMO.plane = tbn[2];
+		VMO.vPos = WorldToVoxelSpace(wPos) +0* VMO.plane / 4096.0;
+		
+		
+		ConstructRays(curr, VMO, surface, totalColor, 0, false);
+	}
+	
+	vec4 diffuse, normal, spec;
+	UnpackGBuffers(texelFetch(colortex2, ivec2(texcoord*viewSize), 0).xyz, diffuse, normal, spec);
+	
+	mat3 tbn = DecodeTBNU(texelFetch(colortex2, ivec2(texcoord*viewSize), 0).a);
+	gl_FragData[1] = vec4(tbn * normal.xyz, length(wPos.xyz));
+#else
 	RayQueueStruct primary;
 	primary.priorTransmission = vec3(1.0);
-	primary.rayType = PRIMARY_RAY_TYPE;
-	primary.VMI.wPos = (wPos - wDir* 2.0 * float(length(wPos) > 1.0))*0;
-	if (cameraPosition.y + gbufferModelViewInverse[3].y*1.0 > 256.0 && wDir.y < 0.0) {
-	//	primary.VMI.wPos += wDir / wDir.y * -(cameraPosition.y + gbufferModelViewInverse[3].y*1.0 - 256.1);
-	}
+	primary.rayInfo = PackRayInfo(1, PRIMARY_RAY_TYPE);
+	primary.vPos = WorldToVoxelSpace(vec3(0));
+	// if (cameraPosition.y + gbufferModelViewInverse[3].y*1.0 > 256.0 && wDir.y < 0.0) {
+	// 	primary.wPos += wDir / wDir.y * -(cameraPosition.y + gbufferModelViewInverse[3].y*1.0 - 255.9);
+	// }
 	
-	primary.VMI.rayDir = wDir;
-	primary.VMI.LOD = 0;
-	RayQueuePushBack(primary, totalColor);
+	primary.rayDir = wDir;
+	RayPush(primary, totalColor);
+#endif
 	
 	int i;
-	for (i = 0; i < MAX_RAYMARCH_BOUNCES; ++i) {
+	for (i = 1; i < MAX_RAYS; ++i) {
+	// for (i = 0; i < (prevCol.a <= 2 ? 2 : MAX_RAYS); ++i) {
 		if (IsQueueEmpty()) break;
 		
-		RayQueueStruct curr = RayQueuePopFront();
-		VoxelMarchOut VMO = VoxelMarch(curr.VMI);
+		RayQueueStruct curr = RayPop();
 		
-		float od = rsi3(curr.VMI.wPos, VMO.wPos);
-		vec3 out_scatter = vec3(exp(-od / 0.10));
-		vec3 in_scatter = 1.0 - out_scatter;
+		if (HasRayAttr(curr.rayInfo, INTERIOR_RAY_ATTR)) {
+			ivec2 vCoord = VoxelToTextureSpace(ivec3(curr.vPos), 0, 0);
+			float depth = texelFetch(shadowtex0, vCoord, 0).x;
+			
+			vec2 spriteSize = exp2(round(texelFetch(shadowcolor0, vCoord, 0).xx * 255.0));
+			vec3 plane;
+			vec3 vPos = curr.vPos;
+			vPos = StepThroughVoxel(vPos, curr.rayDir, plane);
+			plane *= sign(-curr.rayDir);
+			mat3 tbn = GenerateTBN(plane);
+			vec2 coord = (fract(vPos) * 2.0 - 1.0) * mat2x3(tbn) * 0.5 + 0.5;
+			vec2 tCoord = GetTexCoord(coord.xy, depth, spriteSize);
+			vec4 diffuse = texture2D(TEX_SAMPLER, tCoord, 0);
+			
+			if (diffuse.a > 0)  { // interior hit
+				if (IsRayType(curr.rayInfo, SUNLIGHT_RAY_TYPE)) continue;
+				vPos += plane / 4096.0;
+				
+				VoxelMarchOut VMO;
+				VMO.vPos = vPos;
+				VMO.plane = plane;
+				VMO.vCoord = vCoord;
+				VMO.hit = true;
+				
+				SurfaceStruct surface = ReconstructSurface(curr, VMO);
+				
+				ConstructRays(curr, VMO, surface, totalColor, i, true);
+				continue;
+			}
+			
+			curr.rayInfo &= ~INTERIOR_RAY_ATTR;
+		}
 		
-		if (curr.rayType == SUNLIGHT_RAY_TYPE) {
-			totalColor += float(!VMO.hit) * out_scatter * sunBrightness * curr.priorTransmission;
+		VoxelMarchOut VMO = VoxelMarch(curr.vPos, curr.rayDir);
+		
+		vec3 randSunDir = ArbitraryTBN(sunDir)*CalculateConeVector(WangHash(hashSeed * (frameCounter + 1 + i*7)), radians(0.54), 32);
+		
+		vec3 inScatter = vec3(0.0), outScatter = vec3(1.0);
+		// VOLUMETRICS(curr.wPos, VMO.wPos, inScatter, outScatter, randSunDir);
+		
+		int ID = int(texelFetch(shadowcolor1, VMO.vCoord, 0).a*255);
+		
+		if (VMO.hit && (ID==2||ID==3)) {
+			int j = 0;
+			vec2 spriteSize = exp2(round(texelFetch(shadowcolor0, VMO.vCoord, 0).xx * 255.0));
+			float depth = texelFetch(shadowtex0, VMO.vCoord, 0).x;
+			mat3 tbn = GenerateTBN(VMO.plane);
+			vec2 coord = (fract(VMO.vPos) * 2.0 - 1.0) * mat2x3(tbn) * 0.5 + 0.5;
+			vec2 tCoord = GetTexCoord(coord.xy, depth, spriteSize);
+			vec4 diffuse = texture2D(TEX_SAMPLER, tCoord, 0);
+			
+			if (diffuse.a <= 0) { // exterior miss
+				// Interior face
+				VMO.vPos = StepThroughVoxel(VMO.vPos, curr.rayDir, VMO.plane);
+				VMO.plane *= sign(-curr.rayDir);
+				tbn = GenerateTBN(VMO.plane);
+				coord = (fract(VMO.vPos) * 2.0 - 1.0) * mat2x3(tbn) * 0.5 + 0.5;
+				tCoord = GetTexCoord(coord.xy, depth, spriteSize);
+				diffuse = texture2D(TEX_SAMPLER, tCoord, 0);
+				
+				if (diffuse.a > 0)  { // interior hit
+					VMO.vPos += VMO.plane / 4096.0;
+					SurfaceStruct surface = ReconstructSurface(curr, VMO);
+					curr.rayInfo |= INTERIOR_RAY_ATTR;
+					
+					if (IsRayType(curr.rayInfo, SUNLIGHT_RAY_TYPE)) {
+						continue;
+					}
+					
+					if (IsRayType(curr.rayInfo, PRIMARY_RAY_TYPE))
+					ConstructRays(curr, VMO, surface, totalColor, i, true);
+					
+					continue;
+				}
+				
+				curr.vPos = VMO.vPos + VMO.plane / 4096.0 ;
+				RayPush(curr, totalColor);
+				continue;
+			}
+		}
+		
+		if (IsRayType(curr.rayInfo, SUNLIGHT_RAY_TYPE)) {
+			vec3 sunlight = float(!VMO.hit) * curr.priorTransmission;
+			
+			sunlight *= sunBrightness;
+			
+			totalColor += sunlight;
 			continue;
 		}
 		
-		totalColor += in_scatter * curr.priorTransmission * emissiveSphereBrightness;
-		curr.priorTransmission *= out_scatter;
+		totalColor += inScatter * curr.priorTransmission;
+		curr.priorTransmission *= outScatter;
+		
+		if (IsRayType(curr.rayInfo, AMBIENT_RAY_TYPE))  {
+			vec3 P = WorldToVoxelSpace(vec3(0));
+			vec3 A = normalize(P - curr.vPos);
+			vec3 B = normalize(P - VMO.vPos);
+			
+			// totalColor += vec3(255, 200, 100) / 255.0 * (heldBlockLightValue + heldBlockLightValue2) / 16.0 * curr.priorTransmission * float(rsi3(curr.vPos,VMO.vPos ) > 0);
+		}
 		
 		if (!VMO.hit) {
-			vec3 SKYY = vec3(1.5, 1.8, 2.0)*0+vec3(1,0,0)*0+skyBrightness;
+			vec3 sky = ComputeTotalSky(VoxelToWorldSpace(VMO.vPos), curr.rayDir, curr.priorTransmission) * skyBrightness;
 			
-			SKYY = ComputeTotalSky(VMO.wPos, curr.VMI.rayDir, curr.priorTransmission) * skyBrightness;
-			if (curr.rayType == PRIMARY_RAY_TYPE) SKYY *= 0.1;
-			totalColor += SKYY;
+			if (IsRayType(curr.rayInfo, AMBIENT_RAY_TYPE)) sky *= ambientBrightness;
+			
+			totalColor += sky;
 			continue;
 		}
 		
-		if (curr.rayType == PRIMARY_RAY_TYPE) {
-			out_scatter = curr.priorTransmission;
-			in_scatter = SkyAtmosphereToPoint(curr.VMI.wPos, VMO.wPos, out_scatter);
-			if (curr.rayType == PRIMARY_RAY_TYPE) in_scatter *= 0.4;
-			totalColor += in_scatter * curr.priorTransmission * skyBrightness;
-			curr.priorTransmission = out_scatter;
+		SurfaceStruct surface = ReconstructSurface(curr, VMO);
+		
+		if (IsRayType(curr.rayInfo, AMBIENT_RAY_TYPE))  {
+			surface.emissive *= ambientBrightness.r;
 		}
 		
-		SurfaceStruct surface = ReconstructSurface(VMO, curr.VMI);
-		
-		// vec3 P = VMO.vPos;
-		// vec3 outplane;
-		// show(VoxelToWorldSpace(StepThroughVoxel(VMO.vPos, curr.VMI.rayDir, outplane))/10.0)
-		
-		RayQueueStruct sunray;
-		float sunlight = clamp(dot(surface.normal, sunDir), 0.0, 1.0);
-		sunray.rayType = SUNLIGHT_RAY_TYPE;
-		sunray.VMI.wPos = VMO.wPos + VMO.plane / 4096.0;
-		sunray.VMI.rayDir = sunDir;
-		sunray.VMI.LOD = 0;
-		sunlight = OrenNayarDiffuse(sunDir, curr.VMI.rayDir, surface.normal, 0.5, 1.0);
-		sunray.priorTransmission = curr.priorTransmission * surface.diffuse.rgb * sunlight * sunBrightness;
-		RayQueuePushBack(sunray, totalColor);
-		
-		int hashOffset = int(pow(gl_FragCoord.x, 1.4) * gl_FragCoord.y) * (frameCounter + 1 + i);
-		vec2 uv = vec2(vec2(WangHash(hashOffset), WangHash(hashOffset * 2)) / 4294967296.0);
-	//	uv.x = texture(noisetex, texcoord * viewSize / textureSize(noisetex, 0) + uv.x).x;
-		// show(texture(noisetex, tc * viewSize / textureSize(noisetex, 0)   ).x)
-	//	uv.x = texture(noisetex, texcoord * viewSize / textureSize(noisetex, 0)   ).x;
-		
-		vec3 irrationals = vec3(sqrt(1.0 / 5.0), sqrt(2.0), 1.61803398) * 1.0;
-	//	uv.x = mod(uv.x + irrationals.x * mod(frameCounter*(i*3.15+1), 1024.0f), 1.0);
-		// show(uv.x)
-		vec3 norm = CalculateConeVector(uv.x, radians(90.0), 32);
-		
-		RayQueueStruct ambientray;
-		ambientray.priorTransmission = curr.priorTransmission * (surface.diffuse.rgb);
-		ambientray.rayType = AMBIENT_RAY_TYPE;
-		ambientray.VMI.wPos = VMO.wPos + surface.tbn[2] / 4096.0;
-		ambientray.VMI.rayDir = surface.tbn * norm;
-	//	ambientray.priorTransmission *= clamp(dot(ambientray.VMI.rayDir, surface.normal), 0.0, 1.0);
-		ambientray.priorTransmission *= OrenNayarDiffuse(ambientray.VMI.rayDir, curr.VMI.rayDir, surface.normal, 1.0, 1.0);
-		ambientray.VMI.LOD = 0;
-		RayQueuePushBack(ambientray, totalColor);
-		
-	//	totalColor += (surface.diffuse.rgb * curr.priorTransmission);
 		totalColor += (surface.diffuse.rgb * surface.emissive * curr.priorTransmission * emissiveBrightness);
-	//	totalColor += surface.diffuse.rgb * (1 / pow(distance(VMO.wPos, vec3(0,1.6,0)) , 2.0))*1000.0 * heldBlockLightValue * vec3(1.0, 0.5, 0.0) * curr.priorTransmission;
 		
-		RayQueueStruct specular;
-		specular.priorTransmission = curr.priorTransmission * surface.diffuse.rgb * surface.specular.g * specularBrightess;
-		specular.rayType = SPECULAR_RAY_TYPE;
-		specular.VMI.wPos = VMO.wPos + surface.tbn[2] / 4096.0;
-		specular.VMI.rayDir = reflect(curr.VMI.rayDir, surface.normal);
-		specular.VMI.LOD = 0;
-		RayQueuePushBack(specular, totalColor);
+		ConstructRays(curr, VMO, surface, totalColor, i, false);
 	}
 	
-	gl_FragData[0] = max(vec4(totalColor, 1.0) + prevCol, 0.0);
+	totalColor = max(totalColor, vec3(0.0));
+	
+	gl_FragData[0] = vec4(totalColor, 1.0) + prevCol;
 	
 	exit();
 }

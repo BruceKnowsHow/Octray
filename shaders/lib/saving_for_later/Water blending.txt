@@ -1,3 +1,0 @@
-gl_FragData[0] = vec4(diffuse.rgb * (1.0 - diffuse.a), diffuse.a / (1.0 - diffuse.a));
-
-blend.gbuffers_water=SRC_ALPHA SRC_COLOR SRC_ALPHA ONE_MINUS_SRC_ALPHA

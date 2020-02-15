@@ -142,7 +142,7 @@ const vec3 skybright = 0.2 * SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SKY_SPECTRAL_R
 // const vec3 skybright = 1.0 * (SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE) /  (SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE).b;
 
 const float atmosphereScale = 5.0;
-vec3 kCamera = vec3(0.0, 5.0 + cameraPosition.y/1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+vec3 kCamera = vec3(0.0, 1.0 + cameraPosition.y/1000.0 + ATMOSPHERE.bottom_radius, 0.0);
 
 #define timeDay 1.0
 #define cubesmooth(x) ((x) * (x) * (3.0 - 2.0 * (x)))
@@ -151,11 +151,7 @@ vec3 kPoint(vec3 wPos) {
 	return kCamera + wPos / 1000.0 * atmosphereScale;
 }
 
-#if ShaderStage > 0
-	#define atmosphereSampler colortex4
-#else
-	#define atmosphereSampler gaux1
-#endif
+#define atmosphereSampler SKY_SAMPLER
 
 /*
 * Use these textures as if you were just doing a texture lookup
@@ -281,7 +277,8 @@ vec4 GetScatteringTextureUvwzFromRMuMuSNu(float r, float mu, float mu_s, float n
 	float discriminant = r_mu * r_mu - r * r + ATMOSPHERE.bottom_radius * ATMOSPHERE.bottom_radius;
 
 	float u_mu;
-	if (false && ray_r_mu_intersects_ground) {
+	// if (false && ray_r_mu_intersects_ground) {
+	if (ray_r_mu_intersects_ground) {
 		// Distance to the ground for the ray (r,mu), and its minimum and maximum
 		// values over all mu - obtained for (r,-1) and (r,mu_horizon).
 		float d = -r_mu - SafeSqrt(discriminant);
@@ -316,7 +313,7 @@ vec4 GetScatteringTextureUvwzFromRMuMuSNu(float r, float mu, float mu_s, float n
 		float u_mu2 = 0.5 + 0.5 * GetTextureCoordFromUnitRange((d2 - d_min2) / (d_max2 - d_min2), SCATTERING_TEXTURE_MU_SIZE / 2);
 		
 		
-		u_mu = mix(u_mu, u_mu2, 0.0);
+		// u_mu = mix(u_mu, u_mu2, 0.0);
 	//	u_mu = mix(u_mu, 1.0, pow(1-abs(sunDir.y), 4.0));
 	}
 
@@ -345,7 +342,7 @@ vec4 GetScatteringTextureUvwzFromRMuMuSNu(float r, float mu, float mu_s, float n
 }
 
 
-#ifdef COMBINED_SCATTERING_TEXTURES
+#if (defined COMBINED_SCATTERING_TEXTURES)
 	vec3 GetExtrapolatedSingleMieScattering(vec4 scattering) {
 		if (scattering.r == 0.0) return vec3(0.0);
 		
@@ -368,7 +365,7 @@ vec3 GetCombinedScattering(float r, float mu, float mu_s, float nu, bool ray_r_m
 	uvw0.z *= float(SCATTERING_TEXTURE_NU_SIZE) / float(SCATTERING_TEXTURE_NU_SIZE + 1.0);
 	uvw1.z *= float(SCATTERING_TEXTURE_NU_SIZE) / float(SCATTERING_TEXTURE_NU_SIZE + 1.0);
 	
-	#ifdef COMBINED_SCATTERING_TEXTURES
+	#if (defined COMBINED_SCATTERING_TEXTURES)
 		vec4 combined_scattering = texture(atmosphereSampler, uvw0) * (1.0 - lerp) + texture(atmosphereSampler, uvw1) * lerp;
 		
 		vec3 scattering = vec3(combined_scattering);
@@ -429,6 +426,7 @@ vec3 PrecomputedSky(
 	float nu = dot(view_ray, sun_direction);
 
 	bool ray_r_mu_intersects_ground = RayIntersectsGround(r, mu);
+	
 	transmittance = ray_r_mu_intersects_ground ? vec3(0.0) : GetTransmittanceToTopAtmosphereBoundary(r, mu);
 	transmittance *= transmittance * inTransmittance;
 	
@@ -459,7 +457,7 @@ vec3 PrecomputedSky(
 		single_mie_scattering = single_mie_scattering * shadow_transmittance;
 	}
 	
-	vec3 inScatter = (scattering * RayleighPhaseFunction(nu) + single_mie_scattering * MiePhaseFunction(ATMOSPHERE.mie_phase_function_g, nu)) * inTransmittance;
+	vec3 inScatter = (scattering * RayleighPhaseFunction(nu) + single_mie_scattering * MiePhaseFunction(ATMOSPHERE.mie_phase_function_g, nu)) * inTransmittance / 3.14;
 	
 //	inScatter = SetSaturationLevel(inScatter, 1.5);
 	
@@ -528,7 +526,7 @@ vec3 PrecomputedSkyToPoint(
 	scattering = scattering - shadow_transmittance * scattering_p;
 	single_mie_scattering = single_mie_scattering - shadow_transmittance * single_mie_scattering_p;
 	
-	#ifdef COMBINED_SCATTERING_TEXTURES
+	#if (defined COMBINED_SCATTERING_TEXTURES)
 		single_mie_scattering = GetExtrapolatedSingleMieScattering(vec4(scattering, single_mie_scattering.r));
 	#endif
 
@@ -553,7 +551,7 @@ vec3 GetSunAndSkyIrradiance(vec3 point, vec3 normal, vec3 sun_direction, out vec
 
 	// Indirect irradiance (approximated if the surface is not horizontal).
 	sky_irradiance = GetIrradiance(r, mu_s) * (1.0 + dot(normal, point) / r) * 0.5;
-
+	
 	// Direct irradiance.
 	return ATMOSPHERE.solar_irradiance * GetTransmittanceToSun(r, mu_s);
 }
@@ -567,8 +565,6 @@ vec3 CalculateNightSky(vec3 wDir, inout vec3 transmit) {
 	
 	return nightSkyColor * value * transmit;
 }
-
-uniform float far;
 
 #define FOG_ENABLED
 #define FOG_POWER 1.5 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0]
