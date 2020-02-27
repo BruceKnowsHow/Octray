@@ -31,7 +31,7 @@ float SharpenWave(float wave) {
 const vec4 heights = vec4(29.0, 15.0, 17.0, 4.0);
 const vec4 height = heights * WAVE_MULT / (heights.r + heights.g + heights.b + heights.a);
 
-const vec2[4] scale = vec2[4](
+const vec2 scale[4] = vec2[4](
 	vec2(0.0065, 0.0052  ) * noiseRes * noiseScale,
 	vec2(0.013 , 0.00975 ) * noiseRes * noiseScale,
 	vec2(0.0195, 0.014625) * noiseRes * noiseScale,

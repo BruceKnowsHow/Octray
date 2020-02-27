@@ -6,7 +6,7 @@
 #define CLOUD_COVERAGE_2D 0.5  // [0.3 0.4 0.5 0.6 0.7]
 #define CLOUD_SPEED_2D    1.00 // [0.25 0.50 1.00 2.00 4.00]
 
-#ifndef gbuffers_water
+#if (!defined gbuffers_water)
 const float noiseResInverse = 1.0 / noiseTextureResolution;
 #endif
 
@@ -17,14 +17,14 @@ float csmooth(float x) {
 	return x * x * (3.0 - 2.0 * x);
 }
 
-vec2 csmooth(vec2 x) {
+vec2 csmooth2(vec2 x) {
 	return x * x * (3.0 - 2.0 * x);
 }
 
 float GetNoise(vec2 coord) {
 	const vec2 madd = vec2(0.5 * noiseResInverse);
 	vec2 whole = floor(coord);
-	coord = whole + csmooth(coord - whole);
+	coord = whole + csmooth2(coord - whole);
 	
 	return texture2D(noisetex, coord * noiseResInverse + madd).x;
 }
@@ -32,7 +32,7 @@ float GetNoise(vec2 coord) {
 vec2 GetNoise2D(vec2 coord) {
 	const vec2 madd = vec2(0.5 * noiseResInverse);
 	vec2 whole = floor(coord);
-	coord = whole + csmooth(coord - whole);
+	coord = whole + csmooth2(coord - whole);
 	
 	return texture2D(noisetex, coord * noiseResInverse + madd).xy;
 }
@@ -75,10 +75,6 @@ vec3 sunlightColor = vec3(1.0, 1.0, 1.0);
 vec3 skylightColor = vec3(0.6, 0.8, 1.0);
 
 vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 transmit, float sunglow) {
-#ifndef CLOUDS_2D
-	return vec3(0.0);
-#endif
-	
 	const float cloudHeight = CLOUD_HEIGHT_2D;
 	
 	wPos += cameraPosition;
@@ -119,17 +115,10 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 transmit, float sunglo
 	
 	vec3 ambientColor = mix(skylightColor, directColor, 0.15) * 0.1;
 	
-#if ShaderStage >= 30
 	vec3 trans;
 	directColor = 0.5*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDir, 0.0, sunDir, trans);
 	
 	ambientColor = 0.2*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans);
-#else
-	vec3 trans;
-	directColor = 0.5*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDir, 0.0, sunDir, trans);
-	
-	ambientColor = 0.2*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDir, trans);
-#endif
 	
 	vec3 cloud = mix(ambientColor, directColor, sunlight) * 2.0;
 	
@@ -137,6 +126,9 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 transmit, float sunglo
 	
 	return cloud * cloudAlpha * oldTransmit * 5.0;
 }
+#ifndef CLOUDS_2D
+	#define Compute2DCloudPlane(wPos, wDir, transmit, sunglow) vec3(0.0)
+#endif
 
 #define STARS true // [true false]
 #define REFLECT_STARS false // [true false]
@@ -174,7 +166,7 @@ void CalculateStars(inout vec3 color, vec3 worldDir, float visibility, const boo
 }
 
 
-vec3 ComputeFarSpace(vec3 wDir, vec3 transmit) {
+vec3 ComputeFarSpace(vec3 wDir, vec3 transmit, const bool primary) {
 	// return vec3(0.0);
 	
 	vec2 coord = wDir.xz * (2.5 * STAR_SCALE * (2.0 - wDir.y));
@@ -188,10 +180,10 @@ vec3 ComputeFarSpace(vec3 wDir, vec3 transmit) {
 }
 
 vec3 ComputeSunspot(vec3 wDir, inout vec3 transmit) {
-	float radius = 5.0;
+	float radius = 0.54;
 	
 	float sunspot = float(acos(dot(wDir, sunDir)) < radians(radius) + 0*0.9999567766);
-	vec3 color = vec3(float(sunspot) * 100000.0 / radius / radius) * transmit;
+	vec3 color = vec3(float(sunspot) * 1.0 / radius / radius) * transmit;
 	
 	transmit *= 1.0 - sunspot;
 	
@@ -206,12 +198,12 @@ vec3 ComputeClouds(vec3 wPos, vec3 wDir, inout vec3 transmit) {
 	return color;
 }
 
-vec3 ComputeBackSky(vec3 wDir, inout vec3 transmit) {
-	vec3 color  = vec3(0.0);
+vec3 ComputeBackSky(vec3 wPos, vec3 wDir, inout vec3 transmit, const bool primary) {
+	vec3 color = vec3(0.0);
 	
-	
-	// color += ComputeSunspot(wDir, transmit);
-	color += ComputeFarSpace(wDir, transmit);
+	vec3 myvec;
+	color += ComputeSunspot(wDir, transmit) * float(primary) * GetSunAndSkyIrradiance(kPoint(wPos), wDir, sunDir, myvec)*1000.0;
+	color += ComputeFarSpace(wDir, transmit, primary);
 	
 	return color;
 }
@@ -227,14 +219,14 @@ vec3 CalculateNightSky(vec3 wDir) {
 	return nightSkyColor * value;
 }
 
-vec3 ComputeTotalSky(vec3 wPos, vec3 wDir, inout vec3 transmit) {
+vec3 ComputeTotalSky(vec3 wPos, vec3 wDir, inout vec3 transmit, const bool primary) {
 	vec3 color = vec3(0.0);
 	
 	// calculateVolumetricClouds(color, transmit, wPos, wDir, sunDir, vec2(0.0), 1.0, ATMOSPHERE.bottom_radius*1000.0, VC_QUALITY, VC_SUNLIGHT_QUALITY);
 	color += CalculateNightSky(wDir)*transmit;
 	// color += vec3(0.04, 0.04, 0.1)*0.01*transmit;
 	color += PrecomputedSky(kCamera, wDir, 0.0, sunDir, transmit);
-	color += ComputeBackSky(wDir, transmit);
+	color += ComputeBackSky(wPos, wDir, transmit, primary);
 	
 	return color;
 }

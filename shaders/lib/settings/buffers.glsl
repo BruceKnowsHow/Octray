@@ -3,10 +3,10 @@
 
 /*
 const int colortex0Format = RGBA32F;
-const int colortex1Format = RGB32F;
+const int colortex1Format = R8;
 const int colortex2Format = RGBA32F;
-const int colortex3Format = RGBA32F;
-const int colortex5Format = RGBA32F;
+const int colortex3Format = RGB32F;
+const int colortex4Format = RGBA32F;
 
 const bool colortex0Clear = false;
 const bool colortex1Clear = false;

@@ -1,26 +1,25 @@
 #if !defined TEXT_GLSL
 #define TEXT_GLSL
 
-#define _f float
-const _f
-	CH_A    = _f(0x69f99), CH_B    = _f(0x79797), CH_C    = _f(0xe111e),
-	CH_D    = _f(0x79997), CH_E    = _f(0xf171f), CH_F    = _f(0xf1711),
-	CH_G    = _f(0xe1d96), CH_H    = _f(0x99f99), CH_I    = _f(0xf444f),
-	CH_J    = _f(0x88996), CH_K    = _f(0x95159), CH_L    = _f(0x1111f),
-	CH_M    = _f(0x9f999), CH_N    = _f(0x9bd99), CH_O    = _f(0x69996),
-	CH_P    = _f(0x79971), CH_Q    = _f(0x69b5a), CH_R    = _f(0x79759),
-	CH_S    = _f(0xe1687), CH_T    = _f(0xf4444), CH_U    = _f(0x99996),
-	CH_V    = _f(0x999a4), CH_W    = _f(0x999f9), CH_X    = _f(0x99699),
-	CH_Y    = _f(0x99e8e), CH_Z    = _f(0xf843f), CH_0    = _f(0x6bd96),
-	CH_1    = _f(0x46444), CH_2    = _f(0x6942f), CH_3    = _f(0x69496),
-	CH_4    = _f(0x99f88), CH_5    = _f(0xf1687), CH_6    = _f(0x61796),
-	CH_7    = _f(0xf8421), CH_8    = _f(0x69696), CH_9    = _f(0x69e84),
-	CH_APST = _f(0x66400), CH_PI   = _f(0x0faa9), CH_UNDS = _f(0x0000f),
-	CH_HYPH = _f(0x00600), CH_TILD = _f(0x0a500), CH_PLUS = _f(0x02720),
-	CH_EQUL = _f(0x0f0f0), CH_SLSH = _f(0x08421), CH_EXCL = _f(0x33303),
-	CH_QUES = _f(0x69404), CH_COMM = _f(0x00032), CH_FSTP = _f(0x00002),
-	CH_QUOT = _f(0x55000), CH_BLNK = _f(0x00000), CH_COLN = _f(0x00202),
-	CH_LPAR = _f(0x42224), CH_RPAR = _f(0x24442);
+const float
+	CH_A    = float(0x69f99), CH_B    = float(0x79797), CH_C    = float(0xe111e),
+	CH_D    = float(0x79997), CH_E    = float(0xf171f), CH_F    = float(0xf1711),
+	CH_G    = float(0xe1d96), CH_H    = float(0x99f99), CH_I    = float(0xf444f),
+	CH_J    = float(0x88996), CH_K    = float(0x95159), CH_L    = float(0x1111f),
+	CH_M    = float(0x9f999), CH_N    = float(0x9bd99), CH_O    = float(0x69996),
+	CH_P    = float(0x79971), CH_Q    = float(0x69b5a), CH_R    = float(0x79759),
+	CH_S    = float(0xe1687), CH_T    = float(0xf4444), CH_U    = float(0x99996),
+	CH_V    = float(0x999a4), CH_W    = float(0x999f9), CH_X    = float(0x99699),
+	CH_Y    = float(0x99e8e), CH_Z    = float(0xf843f), CH_0    = float(0x6bd96),
+	CH_1    = float(0x46444), CH_2    = float(0x6942f), CH_3    = float(0x69496),
+	CH_4    = float(0x99f88), CH_5    = float(0xf1687), CH_6    = float(0x61796),
+	CH_7    = float(0xf8421), CH_8    = float(0x69696), CH_9    = float(0x69e84),
+	CH_APST = float(0x66400), CH_PI   = float(0x0faa9), CH_UNDS = float(0x0000f),
+	CH_HYPH = float(0x00600), CH_TILD = float(0x0a500), CH_PLUS = float(0x02720),
+	CH_EQUL = float(0x0f0f0), CH_SLSH = float(0x08421), CH_EXCL = float(0x33303),
+	CH_QUES = float(0x69404), CH_COMM = float(0x00032), CH_FSTP = float(0x00002),
+	CH_QUOT = float(0x55000), CH_BLNK = float(0x00000), CH_COLN = float(0x00202),
+	CH_LPAR = float(0x42224), CH_RPAR = float(0x24442);
 const vec2 MAP_SIZE = vec2(4,5);
 
 float getBit(float map, float index) {

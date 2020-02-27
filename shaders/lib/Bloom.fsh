@@ -41,30 +41,29 @@ vec3 BicubicTexture(sampler2D tex, vec2 coord) {
 	return mix(mix(sample3, sample2, sx), mix(sample1, sample0, sx), sy);
 }
 
-vec3 GetBloomTile(const int scale, vec2 offset) {
+vec3 GetBloomTile(sampler2D tex, const int scale, vec2 offset) {
 	vec2 coord  = texcoord;
 	     coord /= scale;
 	     coord += offset + 0.75/viewSize;
 	
-	return BicubicTexture(colortex1, coord);
-	
-	// return texture2D(colortex1, coord).rgb;
+	return BicubicTexture(tex, coord);
 }
 
+#define BLOOM
 #define BLOOM_AMOUNT 0.15
 #define BLOOM_CURVE 1.0
 
-vec3 GetBloom(vec3 color) {
-	vec3[8] bloom;
+vec3 GetBloom(sampler2D tex, vec3 color) {
+	vec3 bloom[8];
 	
 	// These arguments should be identical to those in composite2.fsh
-	bloom[1] = GetBloomTile(  4, vec2(0.0                         ,                          0.0));
-	bloom[2] = GetBloomTile(  8, vec2(0.0                         , 0.25     + 1/viewSize.y * 2.0));
-	bloom[3] = GetBloomTile( 16, vec2(0.125    + 1/viewSize.x * 2.0, 0.25     + 1/viewSize.y * 2.0));
-	bloom[4] = GetBloomTile( 32, vec2(0.1875   + 1/viewSize.x * 4.0, 0.25     + 1/viewSize.y * 2.0));
-	bloom[5] = GetBloomTile( 64, vec2(0.125    + 1/viewSize.x * 2.0, 0.3125   + 1/viewSize.y * 4.0));
-	bloom[6] = GetBloomTile(128, vec2(0.140625 + 1/viewSize.x * 4.0, 0.3125   + 1/viewSize.y * 4.0));
-	bloom[7] = GetBloomTile(256, vec2(0.125    + 1/viewSize.x * 2.0, 0.328125 + 1/viewSize.y * 6.0));
+	bloom[1] = GetBloomTile(tex,   4, vec2(0.0                         ,                          0.0));
+	bloom[2] = GetBloomTile(tex,   8, vec2(0.0                         , 0.25     + 1/viewSize.y * 2.0));
+	bloom[3] = GetBloomTile(tex,  16, vec2(0.125    + 1/viewSize.x * 2.0, 0.25     + 1/viewSize.y * 2.0));
+	bloom[4] = GetBloomTile(tex,  32, vec2(0.1875   + 1/viewSize.x * 4.0, 0.25     + 1/viewSize.y * 2.0));
+	bloom[5] = GetBloomTile(tex,  64, vec2(0.125    + 1/viewSize.x * 2.0, 0.3125   + 1/viewSize.y * 4.0));
+	bloom[6] = GetBloomTile(tex, 128, vec2(0.140625 + 1/viewSize.x * 4.0, 0.3125   + 1/viewSize.y * 4.0));
+	bloom[7] = GetBloomTile(tex, 256, vec2(0.125    + 1/viewSize.x * 2.0, 0.328125 + 1/viewSize.y * 6.0));
 	
 	bloom[0] = vec3(0.0);
 	
@@ -75,5 +74,8 @@ vec3 GetBloom(vec3 color) {
 	
 	return mix(color, min(pow(bloom[0], vec3(BLOOM_CURVE)), bloom[0]), BLOOM_AMOUNT);
 }
+#ifndef BLOOM
+	#define GetBloom(tex, color) (color)
+#endif
 
 #endif

@@ -1,7 +1,7 @@
-#version 450 compatibility
+#include "../version.glsl"
 #define ShaderStage 31
 #include "worldID.glsl"
-#define composite1
+#define bloom8
 #define fsh
 
-#include "../composite1.glsl"
+#include "../bloom8.glsl"

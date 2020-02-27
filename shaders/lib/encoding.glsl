@@ -73,8 +73,8 @@ float EncodeTBNU(mat3 tbnMatrix) {
 	normal.xy = vec2(atan(normal.x, normal.z), acos(normal.y)) / PI; // Range vec2([-1.0, 1.0], [0.0, 1.0])
 	normal.x += 1.0; // Range [0.0, 2.0]
 	normal.xy = round(normal.xy * 1024.0); // Range vec2([0.0, 2048.0], [0.0, 1024.0])
-//	normal.y = min(normal.y, 1023.0); // Range [0.0, 1024.0)
-	normal.y = mod(normal.y, 1024.0); // Range [0.0, 1024.0)
+	normal.y = min(normal.y, 1023.0); // Range [0.0, 1024.0)
+	// normal.y = mod(normal.y, 1024.0); // Range [0.0, 1024.0)
 	
 	uvec3 enc;
 	enc.xy = uvec2(normal.xy);
@@ -86,8 +86,8 @@ float EncodeTBNU(mat3 tbnMatrix) {
 	angle /= PI;
 	angle += 1.0;
 	angle = round(angle * 1024.0);
-//	angle = min(angle, 2047.0);
-	angle = mod(angle, 2048.0);
+	angle = min(angle, 2047.0);
+	// angle = mod(angle, 2048.0);
 	
 	enc.z = uint(angle) << 21;
 	

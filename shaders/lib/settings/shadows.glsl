@@ -17,8 +17,4 @@ const float shadowIntervalSize       =    0.000001;
 const float sunPathRotation          =   40.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 const bool  shadowHardwareFiltering0 = false;
 
-const int shadowRadius   = int(min(shadowDistance, far));
-const int shadowDiameter = 2 * shadowRadius;
-const ivec3 shadowDimensions = ivec3(shadowDiameter, 256, shadowDiameter);
-
 #endif

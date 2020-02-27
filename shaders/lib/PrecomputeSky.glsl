@@ -326,31 +326,18 @@ vec4 GetScatteringTextureUvwzFromRMuMuSNu(float r, float mu, float mu_s, float n
 	
 	float u_nu = (nu + 1.0) / 2.0;
 	
-	#if defined fsh
-	// if (u_mu > 0.9 && u_mu < 1.1) u_mu = smoothstep(0.9, 1.1, u_mu) * 0.2 + 0.9;
-	if (u_mu > 0.95 && u_mu < 1.05) {
-		// u_nu -= 0.1;
-		// u_mu_s -= 0.1;
-		// u_r -= 0.1;
-		// u_mu = 0.1;
-//		discard;
-	}
-	
-	#endif
 	//u_mu -= 0.1;
 	return vec4(u_nu, u_mu_s, u_mu, u_r);
 }
 
 
-#if (defined COMBINED_SCATTERING_TEXTURES)
-	vec3 GetExtrapolatedSingleMieScattering(vec4 scattering) {
-		if (scattering.r == 0.0) return vec3(0.0);
-		
-		return scattering.rgb * scattering.a / scattering.r
-			* (ATMOSPHERE.rayleigh_scattering.r / ATMOSPHERE.mie_scattering.r)
-			* (ATMOSPHERE.mie_scattering / ATMOSPHERE.rayleigh_scattering);
-	}
-#endif
+vec3 GetExtrapolatedSingleMieScattering(vec4 scattering) {
+	if (scattering.r == 0.0) return vec3(0.0);
+	
+	return scattering.rgb * scattering.a / scattering.r
+		* (ATMOSPHERE.rayleigh_scattering.r / ATMOSPHERE.mie_scattering.r)
+		* (ATMOSPHERE.mie_scattering / ATMOSPHERE.rayleigh_scattering);
+}
 
 vec3 GetCombinedScattering(float r, float mu, float mu_s, float nu, bool ray_r_mu_intersects_ground, out vec3 single_mie_scattering) {
 	vec4 uvwz = GetScatteringTextureUvwzFromRMuMuSNu(r, mu, mu_s, nu, ray_r_mu_intersects_ground);
@@ -365,20 +352,11 @@ vec3 GetCombinedScattering(float r, float mu, float mu_s, float nu, bool ray_r_m
 	uvw0.z *= float(SCATTERING_TEXTURE_NU_SIZE) / float(SCATTERING_TEXTURE_NU_SIZE + 1.0);
 	uvw1.z *= float(SCATTERING_TEXTURE_NU_SIZE) / float(SCATTERING_TEXTURE_NU_SIZE + 1.0);
 	
-	#if (defined COMBINED_SCATTERING_TEXTURES)
-		vec4 combined_scattering = texture(atmosphereSampler, uvw0) * (1.0 - lerp) + texture(atmosphereSampler, uvw1) * lerp;
-		
-		vec3 scattering = vec3(combined_scattering);
-		single_mie_scattering = GetExtrapolatedSingleMieScattering(combined_scattering);
-	#else
-	vec3 scattering = vec3(
-		texture(atmosphereSampler, uvw0) * (1.0 - lerp) +
-		texture(atmosphereSampler, uvw1) * lerp);
-
-	single_mie_scattering = vec3(
-		texture(atmosphereSampler, uvw0) * (1.0 - lerp) +
-		texture(atmosphereSampler, uvw1) * lerp);
-	#endif
+	vec4 combined_scattering = texture(atmosphereSampler, uvw0) * (1.0 - lerp) + texture(atmosphereSampler, uvw1) * lerp;
+	
+	vec3 scattering = vec3(combined_scattering);
+	single_mie_scattering = GetExtrapolatedSingleMieScattering(combined_scattering);
+	
 	
 	return scattering;
 }
@@ -526,9 +504,7 @@ vec3 PrecomputedSkyToPoint(
 	scattering = scattering - shadow_transmittance * scattering_p;
 	single_mie_scattering = single_mie_scattering - shadow_transmittance * single_mie_scattering_p;
 	
-	#if (defined COMBINED_SCATTERING_TEXTURES)
-		single_mie_scattering = GetExtrapolatedSingleMieScattering(vec4(scattering, single_mie_scattering.r));
-	#endif
+	single_mie_scattering = GetExtrapolatedSingleMieScattering(vec4(scattering, single_mie_scattering.r));
 
 	// Hack to avoid rendering artifacts when the sun is below the horizon.
 	single_mie_scattering = single_mie_scattering * smoothstep(float(0.0), float(0.01), mu_s);
@@ -571,10 +547,6 @@ vec3 CalculateNightSky(vec3 wDir, inout vec3 transmit) {
 #define FOG_START 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8]
 
 float CalculateFogfactor(vec3 position) {
-#ifndef FOG_ENABLED
-	return 0.0;
-#endif
-	
 	float fogfactor  = length(position) / far;
 		  fogfactor  = clamp(fogfactor - FOG_START, 0.0, 1.0) / (1.0 - FOG_START);
 		  fogfactor  = pow(fogfactor, FOG_POWER);
@@ -582,6 +554,9 @@ float CalculateFogfactor(vec3 position) {
 	
 	return fogfactor;
 }
+#ifndef FOG_ENABLED
+	#define CalculateFogfactor(position) 0.0
+#endif
 
 vec3 SkyAtmosphere(vec3 wDir, inout vec3 transmit) {
 	vec3 inScatter = vec3(0.0);

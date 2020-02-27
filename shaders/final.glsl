@@ -15,17 +15,41 @@ void main() {
 
 /***********************************************************************/
 #if defined fsh
+/*
+const int colortex0Format = RGBA32F;
+const int colortex1Format = R8;
+const int colortex2Format = RGBA32F;
+const int colortex3Format = RGB32F;
+const int colortex4Format = RGBA32F;
 
+const bool colortex0Clear = false;
+const bool colortex1Clear = false;
+const bool colortex2Clear = false;
+const bool colortex3Clear = false;
+const bool colortex4Clear = false;
+const bool colortex5Clear = false;
+const bool colortex6Clear = false;
+const bool colortex7Clear = false;
+*/
 #include "lib/debug.glsl"
-uniform sampler2D colortex0;
-uniform sampler2D colortex1;
 uniform sampler2D colortex2;
+uniform sampler2D colortex3;
+uniform sampler2D depthtex0;
 uniform sampler2D shadowtex0;
 
-const bool colortex0MipmapEnabled = true;
-const bool colortex1MipmapEnabled = true;
+const bool colortex2MipmapEnabled = true;
+const bool colortex3MipmapEnabled = true;
+
+uniform mat4 gbufferPreviousProjection;
+uniform mat4 gbufferProjectionInverse;
+uniform mat4 gbufferModelViewInverse;
+uniform mat4 gbufferPreviousModelView;
+
+uniform vec3 cameraPosition;
+uniform vec3 previousCameraPosition;
 
 uniform float frameTimeCounter;
+uniform int frameCounter;
 uniform vec2 viewSize;
 uniform int hideGUI;
 
@@ -38,39 +62,97 @@ noperspective in vec2 texcoord;
 #include "lib/Text.glsl"
 
 #include "lib/Bloom.fsh"
+#include "lib/WangHash.glsl"
 
-//#define FRAME_ACCUMULATION_COUNTER
+#define MOTION_BLUR
+
+#define MOTION_BLUR_INTENSITY 1.0
+#define MAX_MOTION_BLUR_AMOUNT 1.0
+
+#define VARIABLE_MOTION_BLUR_SAMPLES 1
+#define VARIABLE_MOTION_BLUR_SAMPLE_COEFFICIENT 50.0
+#define MAX_MOTION_BLUR_SAMPLE_COUNT 50
+#define CONSTANT_MOTION_BLUR_SAMPLE_COUNT 2
+
+vec3 MotionBlur(vec3 color) {
+	float depth = texture(depthtex0, texcoord).x;
+	
+	vec4 pene;
+	pene = vec4(vec3(texcoord, depth) * 2.0 - 1.0, 1.0);
+	
+	vec4 position = pene;
+	
+	pene = gbufferProjectionInverse * pene;
+	pene = pene / pene.w;
+	pene = gbufferModelViewInverse * pene;
+	
+	pene.xyz = pene.xyz + (cameraPosition - previousCameraPosition) * clamp(length(pene.xyz - gbufferModelViewInverse[3].xyz) / 2.0 - 1.0, 0.0, 1.0);
+	pene = gbufferPreviousModelView * pene;
+	pene = gbufferPreviousProjection * pene;
+	pene = pene / pene.w;
+	
+	float intensity = MOTION_BLUR_INTENSITY * 0.5;
+	float maxVelocity = MAX_MOTION_BLUR_AMOUNT * 0.1;
+	
+	vec2 velocity = (position.st - pene.st) * intensity; // Screen-space motion vector
+	     velocity = clamp(velocity, vec2(-maxVelocity), vec2(maxVelocity));
+	
+	float sampleCount = length(velocity / viewSize) * VARIABLE_MOTION_BLUR_SAMPLE_COEFFICIENT; // There should be exactly 1 sample for every pixel when the sample coefficient is 1.0
+	      sampleCount = floor(clamp(sampleCount, 1, MAX_MOTION_BLUR_SAMPLE_COUNT));
+	sampleCount = 50.0;
+	vec2 sampleStep = velocity / sampleCount;
+	int hashSeed = int(pow(gl_FragCoord.x, 1.4) * gl_FragCoord.y);
+	vec2 offset = sampleStep * WangHash(hashSeed)*0;
+	
+	for(float i = 1.0; i <= sampleCount; i++) {
+		vec2 coord = texcoord + sampleStep * i - offset;
+		
+		color += texture2D(colortex2, coord).rgb;
+		// color += texture2D(colortex3, clampScreen(coord, pixelSize)).rgb;
+	}
+	
+	return color / max(sampleCount + 1.0, 1.0);
+}
+#ifndef MOTION_BLUR
+	#define MotionBlur(color) (color)
+#endif
+
+#define FRAME_ACCUMULATION_COUNTER Off // [On Off]
+#define AUTO_EXPOSURE On // [On Off]
 
 void main() {
-	vec4 lookup = texture(colortex0, texcoord);
+	vec4 lookup = texture(colortex2, texcoord);
 	beni = lookup.a;
-	vec3 color = lookup.rgb / lookup.a;
-	vec3 avgCol = texture(colortex0, texcoord, 16).rgb / texture(colortex0, texcoord, 16).a;
+	vec3 color = lookup.rgb;
+	// vec3 color = lookup.rgb;
+	vec3 avgCol = textureLod(colortex2, vec2(0.5), 16).rgb / textureLod(colortex2, vec2(0.5), 16).a;
+	// vec3 avgCol = textureLod(colortex2, vec2(0.5), 16).rgb / textureLod(colortex2, texcoord, 0).a;
 	float expo = 1.0 / dot(avgCol, vec3(0.2125, 0.7154, 0.0721));
 	expo = 1.0;
-#ifdef AUTO_EXPOSURE
-	expo = pow(1.0 / dot(avgCol, vec3(3.0)), 0.7);
+	if (AUTO_EXPOSURE) {
+		expo = pow(1.0 / dot(avgCol, vec3(3.0)), 0.7);
+	}
 	
-#endif
-	
-	color = GetBloom(color);
+	color = MotionBlur(color);
+	color = color / lookup.a;
+	color = GetBloom(colortex3, color);
 	color *= min(expo, 1000.0);
 	
 	color = Tonemap(color);
 	
 	gl_FragColor.rgb = color;
 	
-#ifdef FRAME_ACCUMULATION_COUNTER
-	if (hideGUI == 0) {
-		vec2 textcoord = texcoord;
-		textcoord.x *= viewSize.x / viewSize.y;
-		
-		vec3 whiteText = vec3(text(textcoord));
-		if (texcoord.x < 0.61 && texcoord.y > 0.94) gl_FragColor.rgb *= 0.5;
-		gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
+	if (FRAME_ACCUMULATION_COUNTER) {
+		if (hideGUI == 0) {
+			vec2 textcoord = texcoord;
+			textcoord.x *= viewSize.x / viewSize.y;
+			
+			vec3 whiteText = vec3(text(textcoord));
+			if (texcoord.x < 0.61 && texcoord.y > 0.94) gl_FragColor.rgb *= 0.5;
+			gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
+		}
 	}
-#endif
-	
+
 	exit();
 }
 

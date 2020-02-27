@@ -24,12 +24,10 @@ void main() {
 in vec3 vColor;
 
 /* DRAWBUFFERS:123 */
-#include "lib/exit.glsl"
+uniform bool DRAWBUFFERS_123;
 
 void main() {
 	gl_FragData[0] = vec4(vColor, 1.0);
-	
-	exit();
 }
 
 #endif

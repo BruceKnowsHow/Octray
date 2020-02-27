@@ -28,8 +28,9 @@ void main() {
 #include "lib/utility.glsl"
 #include "lib/encoding.glsl"
 
-uniform sampler2D colortex0;
-const bool colortex0MipmapEnabled = true;
+#define COMPOSITE0_COLOR_OUT colortex2
+uniform sampler2D COMPOSITE0_COLOR_OUT;
+const bool colortex2MipmapEnabled = true;
 
 
 uniform vec2 viewSize;
@@ -69,7 +70,7 @@ vec3 ComputeBloomTile(const float scale, vec2 offset) { // Computes a single blo
 			
 			vec2 offset = vec2(i, j) / viewSize;
 			
-			vec4 lookup = textureLod(colortex0, coord + offset, Lod);
+			vec4 lookup = textureLod(COMPOSITE0_COLOR_OUT, coord + offset, Lod);
 			
 			bloom       += lookup.rgb * weight / lookup.a;
 			totalWeight += weight;
@@ -91,11 +92,13 @@ vec3 ComputeBloom() {
 	return max(bloom, vec3(0.0));
 }
 
-/* DRAWBUFFERS:1 */
+/* DRAWBUFFERS:3 */
+uniform bool DRAWBUFFERS_3;
 #include "lib/exit.glsl"
 
 void main() {
 	gl_FragData[0] = vec4(ComputeBloom(), 1.0);
+	#define OBF_FIX
 	exit();
 }
 

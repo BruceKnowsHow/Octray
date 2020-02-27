@@ -1,4 +1,4 @@
-#include "version.glsl"
+#include "../version.glsl"
 #define ShaderStage -1
 #include "worldID.glsl"
 #define gbuffers_water

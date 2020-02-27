@@ -8,11 +8,6 @@
 #define TERRAIN_PARALLAX_DISTANCE 16.0
 
 vec2 ComputeParallaxCoordinate(vec2 coord, vec3 position, mat3 tbn, vec2 spriteSize, sampler2D heightmap) {
-#if !defined TERRAIN_PARALLAX
-// #if !defined TERRAIN_PARALLAX || !defined gbuffers_terrain
-	return coord;
-#endif
-	
 //	LOD = textureQueryLod(tex, coord).x;
 //	atlasSize
 	const float parallaxDist = TERRAIN_PARALLAX_DISTANCE;
@@ -59,5 +54,8 @@ vec2 ComputeParallaxCoordinate(vec2 coord, vec3 position, mat3 tbn, vec2 spriteS
 	
 	return fract(sampleRay.xy * tileScale.xy + tileCoord) * tileScale.zw + atlasCorner;
 }
+#if !defined TERRAIN_PARALLAX
+	#define ComputeParallaxCoordinate(coord, position, tbn, spriteSize, heightmap) (coord)
+#endif
 
 #endif

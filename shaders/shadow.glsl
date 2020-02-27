@@ -62,7 +62,6 @@ layout(points, max_vertices = 8) out;
 layout(triangle_strip, max_vertices = 3) out;
 #endif
 
-
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform mat4 gbufferModelViewInverse;
@@ -110,16 +109,14 @@ void main() {
 	
 	
 	
-	int offset = 0;
-	
-	vec2 coord = VoxelToTextureSpace(ivec3(vPos), 0, offset) + 0.5;
+	vec2 coord = VoxelToTextureSpace(uvec3(vPos), 0, 0) + 0.5;
 	coord /= shadowMapResolution;
 	
 	vec2 spriteSize = abs(midTexCoord[0] - texcoord[0]) * 2.0 * atlasSize;
 	vec2 cornerTexCoord = midTexCoord[0] - abs(midTexCoord[0] - texcoord[0]);
 	
-	data0 = vec4(log2(spriteSize.x) / 255.0, float(isEmissive(blockID[0])), 0.0, 0.0);
-	data1 = vec4(vColor[0].rgb, float(blockID[0]%64)/255.0);
+	data0 = vec4(log2(spriteSize.x) / 255.0, blockID[0] / 255.0, 0.0, 0.0);
+	data1 = vec4(vColor[0].rgb, 0.0);
 	
 	// Can pass an unsigned integer range [0, 2^23 - 1]
 	float depth = packTexcoord(cornerTexCoord);
@@ -127,9 +124,11 @@ void main() {
 	
 	EmitVertex();
 	
+	int lodOffset = shadowVolume;
+	
 	for (int LOD = 1; LOD <= 7; ++LOD) {
-		offset += (shadowVolume>>((LOD-1)*3));
-		coord = VoxelToTextureSpace(ivec3(vPos), LOD, offset) + 0.5;
+		coord = VoxelToTextureSpace(uvec3(vPos), LOD, lodOffset) + 0.5;
+		lodOffset += shadowVolume >> (LOD * 3);
 		coord /= shadowMapResolution;
 		
 		depth = -1.0;
@@ -147,7 +146,7 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-layout(early_fragment_tests) in;
+// layout(early_fragment_tests) in;
 
 flat in vec4 data0;
 flat in vec4 data1;
@@ -155,7 +154,6 @@ flat in vec4 data1;
 #include "block.properties"
 
 void main() {
-	gl_FragDepth = gl_FragCoord.z;
 	gl_FragData[0] = data0;
 	gl_FragData[1] = data1;
 }

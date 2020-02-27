@@ -1,4 +1,4 @@
-#version 410 compatibility
+#include "../version.glsl"
 #include "worldID.glsl"
 #define gbuffers_basic
 #define vsh

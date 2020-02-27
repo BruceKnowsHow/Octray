@@ -34,32 +34,32 @@ float rsi3(vec3 a, vec3 b) {
 	return od*100;
 }
 
-// void VOLUMETRICS(vec3 a, vec3 b, out vec3 inScatter, out vec3 outScatter, vec3 sunDir) {
-// 	float od = rsi3(a, b);
-//     od = distance(a,b);
-//     outScatter = vec3(1);
-//
-//     od = clamp(1-exp(-distance(a,b)/10.0), 0.0, 1.0);
-//
-//     vec2 hash = vec2(WangHash(69155*(frameCounter + 1)*int(gl_FragCoord.x*gl_FragCoord.y)), WangHash(13*(frameCounter + 1)));
-//
-//     vec3 c = mix(a, b, hash.x) / 50.0;
-//
-//     VoxelMarchOut VMO = VoxelMarch(b * hash.x, sunDir);
-//
-//     vec3 clou = (c * vec3(1.0,2.0,1.0)+cameraPosition/100.0*hash.x);
-//
-//     od *= float(!VMO.hit) * distance(a,b) / 10000.0;
-//     // od *= float(!VMO.hit) * pow(calculateCloudShape(clou, vec3(0), 4), 4.0) * clamp((140.0 - clou.y) / 20.0, 0.0, 1.0);
-//
-//     vec3 pene;
-//
-//     // inScatter = vec3(1.0,0.8,0.6) * od * 200.0;
-//     inScatter = od * GetSunAndSkyIrradiance(kPoint(c), -normalize(a-b), sunDir, pene) * calculateCloudPhase(dot(normalize(b-a), sunDir))*50.0;
-//     // inScatter = vec3(18, 34, 59)/255.0 * od * 100.0;
-//     // inScatter = vec3(1,0.8,0.6) * od;
-//     outScatter = vec3(1)*(1-od);
-//     // outScatter = outScatter;
-// }
+void VOLUMETRICS(vec3 a, vec3 b, inout vec3 inScatter, inout vec3 outScatter, vec3 sunDir, bool transmit) {
+	// float od = rsi3(a, b);
+    // od = distance(a,b);
+    // outScatter = vec3(1);
+    //
+    // od = clamp(1-exp(-distance(a,b)/10.0), 0.0, 1.0);
+    //
+    // vec2 hash = vec2(WangHash(69155*(frameCounter + 1)*int(gl_FragCoord.x*gl_FragCoord.y)), WangHash(13*(frameCounter + 1)));
+    //
+    // vec3 c = mix(a, b, hash.x) / 50.0;
+    //
+    // VoxelMarchOut VMO = VoxelMarch(b * hash.x, sunDir);
+    //
+    // vec3 clou = (c * vec3(1.0,2.0,1.0)+cameraPosition/100.0*hash.x);
+    //
+    // od *= float(!VMO.hit) * distance(a,b) / 10000.0;
+    // // od *= float(!VMO.hit) * pow(calculateCloudShape(clou, vec3(0), 4), 4.0) * clamp((140.0 - clou.y) / 20.0, 0.0, 1.0);
+    //
+    // vec3 pene;
+    //
+    // inScatter = vec3(1.0,0.8,0.6) * od * 200.0;
+    // inScatter = od * GetSunAndSkyIrradiance(kPoint(c), -normalize(a-b), sunDir, pene) * calculateCloudPhase(dot(normalize(b-a), sunDir))*50.0;
+    // inScatter = vec3(18, 34, 59)/255.0 * od * 100.0;
+    // inScatter = vec3(1,0.8,0.6) * od;
+    // outScatter = vec3(1)*(1-od);
+    // outScatter = outScatter;
+}
 
 #endif

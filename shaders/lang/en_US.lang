@@ -1,16 +1,24 @@
 screen.Setup=Setup
 
 option.DEBUG=Debug
-option.DEBUG_VIEW=Debug View
+option.DEBUG_PROGRAM=Debug Program
 option.CRASH_DANGLING_SHOW=Crash Dangling Show()
 option.CRASH_DANGLING_SHOW.comment=Cause the shader to crash if there are any show() leftover in the code when Debug is turned off
-value.DEBUG_VIEW.-10=gbuffers_shadow
-value.DEBUG_VIEW.-1=gbuffers_opaque
-value.DEBUG_VIEW.0=deferred0
-value.DEBUG_VIEW.20=gbuffers_transparent
-value.DEBUG_VIEW.30=composite0
-value.DEBUG_VIEW.31=composite1
-value.DEBUG_VIEW.50=final
+value.DEBUG_PROGRAM.-10=gbuffers_shadow
+value.DEBUG_PROGRAM.-1=gbuffers_opaque
+value.DEBUG_PROGRAM.0=deferred0
+value.DEBUG_PROGRAM.20=gbuffers_transparent
+value.DEBUG_PROGRAM.30=composite0
+value.DEBUG_PROGRAM.31=composite1
+value.DEBUG_PROGRAM.50=final
+
+option.DEBUG_PRESET=Debug Preset
+value.DEBUG_PRESET.NONE=None
+value.DEBUG_PRESET.VM_STEPS_BW=Ray steps
+value.DEBUG_PRESET.VM_STEPS_LOD=Ray steps + LOD
+value.DEBUG_PRESET.VM_DIFFUSE=VoxelMarch Diffuse
+
+option.DEBUG_BRIGHTNESS=Debug Brightness
 
 option.AUTO_EXPOSURE=Auto Exposure
 option.OVERALL_BRIGHTNESS=Total Brightness
@@ -22,10 +30,13 @@ option.VIBRANCE=Vibrance
 option.FRAME_ACCUMULATION_COUNTER=Frame Accumulation Counter
 option.SUNLIGHT_RAYS=Trace Sunlight Rays
 option.SPECULAR_RAYS=Trace Specular Rays
+option.SPECULAR_RAYS.comment=Specular reflections aren't really setup yet
 option.AMBIENT_RAYS=Trace Ambient Rays
-option.MAX_RAY_DEPTH=Max Ray Bounces
+option.MAX_RAY_BOUNCES=Max Ray Bounces
 option.USE_RASTER_ENGINE=Use Rasterization
 option.USE_RASTER_ENGINE.comment=Faster, but not completely setup yet
+option.COMPRESS_RAY_QUEUE=Compress Ray Queue
+option.COMPRESS_RAY_QUEUE.comment=Significantly increases FPS when ray bounces > 8
 option.UNHANDLED_BLOCKS=Unhandled Blocks
 value.UNHANDLED_BLOCKS.0=Force render
 value.UNHANDLED_BLOCKS.1=Raster only

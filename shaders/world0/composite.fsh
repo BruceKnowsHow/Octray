@@ -1,4 +1,4 @@
-#version 450 compatibility
+#include "../version.glsl"
 #define ShaderStage 30
 #include "worldID.glsl"
 #define composite0
