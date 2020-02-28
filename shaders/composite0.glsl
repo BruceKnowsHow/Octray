@@ -102,7 +102,7 @@ vec2 TAAHash() {
 	return (WangHash(uvec2(frameCounter*2, frameCounter*2 + 1)) - 0.5) / viewSize;
 }
 #ifndef TAA_JITTER
-	#define TAAHash() vec2(0.0);
+	#define TAAHash() vec2(0.0)
 #endif
 
 // vec2 tc = texcoord + vec2(WangHash(uvec2(gl_FragCoord.xy) * (frameCounter + 1))) / viewSize;
@@ -281,8 +281,8 @@ void ConstructRays(RayStruct curr, VoxelMarchOut VMO, SurfaceStruct surface, vec
 		uv1 = mod(uv1 + floor(WangHash(frameCounter)*256)/256.0, vec2(1));
 		ambientray.rayDir = ArbitraryTBN(surface.normal) * hemisphereSample_cos(uv1);
 		// ambientray.rayDir = ArbitraryTBN(surface.normal) * CalculateConeVector(mod(0.5+linenumm*a1, 1.0), radians(90.0), 32);
-		ambientray.rayDir = ArbitraryTBN(surface.normal) * CalculateConeVector(WangHash(hashSeed * (frameCounter + i*10+1 + 1)), radians(90.0), 32);
 		ambientray.priorTransmission *= surface.diffuse.rgb * float(dot(ambientray.rayDir, VMO.plane) > 0.0);
+		ambientray.rayDir = ArbitraryTBN(surface.normal) * CalculateConeVector(WangHash(hashSeed * (frameCounter + i*10+1 + 1)), radians(90.0), 32);
 		RayPushBack(ambientray, totalColor);
 	}
 	
@@ -348,8 +348,8 @@ void ConstructRays(RayStruct curr, VoxelMarchOut VMO, SurfaceStruct surface, vec
 
 #define USE_RASTER_ENGINE
 
-/* DRAWBUFFERS:012 */
-uniform bool DRAWBUFFERS_012;
+/* DRAWBUFFERS:201 */
+uniform bool DRAWBUFFERS_2;
 #include "lib/exit.glsl"
 
 vec3 BackProject(vec3 wPos) {
@@ -375,14 +375,6 @@ void main() {
 	
 #ifdef USE_RASTER_ENGINE
 	for (int i = 0; i < 1; ++i) {
-		// gl_FragData[0].rgb = vec3(texture2D(colortex4, texcoord).rgb / 10.0);
-		// // gl_FragData[0].rgb = vec3(BackProject(wPos) / 10.0);
-		// gl_FragData[0].rgb = vec3(abs(BackProject(wPos) - texture2D(colortex4, texcoord).rgb));
-		// gl_FragData[0].rgb = vec3(accumulate);
-		// gl_FragData[2].rgb = wPos;
-		// exit();
-		// return;
-		
 		if (depth >= 1.0) {
 			vec3 transmit = vec3(1.0);
 			vec3 SKYY = ComputeTotalSky(vec3(0.0), wDir, transmit, true) * skyBrightness;
@@ -418,7 +410,7 @@ void main() {
 		
 		if (isEmissive(blockID))
 			surface.emissive = 1.0;
-	
+			
 		totalColor += (surface.diffuse.rgb * surface.emissive * emissiveBrightness);
 		
 		RayStruct curr;
@@ -450,14 +442,18 @@ void main() {
 				}
 				
 				RayPushBack(through, totalColor);
-				
+				continue;
 				if (diffuse.a <= 0) continue;
 			}
 		}
 		
 		totalColor += surface.diffuse.rgb * vec3(255, 200, 100) / 255.0 * 1.0 * (heldBlockLightValue + heldBlockLightValue2) / 16.0 / (dot(wPos,wPos) + 0.5) * dot(surface.normal, -curr.rayDir);
 		VMO.vPos += VMO.plane * exp2(-14);
+		
 		ConstructRays(curr, VMO, surface, totalColor, 0, blockID);
+		
+		gl_FragData[1].rgb = surface.normal;
+		gl_FragData[2].rgb = wPos;
 	}
 	
 #else
@@ -495,7 +491,7 @@ void main() {
 			curr.prevVolume = 1.0;
 			float d = distance(curr.vPos, VMO.vPos);
 			
-			curr.priorTransmission /= exp(d / exp(1) / curr.transmission);
+			curr.priorTransmission /= exp(d / exp(1.5) / curr.transmission);
 			curr.vPos = VMO.vPos + VMO.plane / 4096.0;
 			RayPushBack(curr, totalColor);
 			continue;
@@ -526,7 +522,7 @@ void main() {
 				}
 				
 				RayPushBack(through, totalColor);
-				
+				continue;
 				if (diffuse.a <= 0) continue;
 			}
 		}

@@ -22,9 +22,15 @@ void show( vec2 x) { Debug = vec3(x, 0.0); }
 void show( vec3 x) { Debug = x; }
 void show( vec4 x) { Debug = x.rgb; }
 
+void inc( bool x) { Debug += vec3(float(x)); }
+void inc(float x) { Debug += vec3(x); }
+void inc( vec2 x) { Debug += vec3(x, 0.0); }
+void inc( vec3 x) { Debug += x; }
+void inc( vec4 x) { Debug += x.rgb; }
+
 
 #ifndef DEBUG
-//	#define CRASH_DANGLING_SHOW
+//#define CRASH_DANGLING_SHOW
 #endif
 
 #ifdef CRASH_DANGLING_SHOW

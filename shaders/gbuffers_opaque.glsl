@@ -46,7 +46,7 @@ vec2 TAAHash() {
 	return (WangHash(uvec2(frameCounter*2, frameCounter*2 + 1)) - 0.5) / viewSize;
 }
 #ifndef TAA_JITTER
-	#define TAAHash() vec2(0.0);
+	#define TAAHash() vec2(0.0)
 #endif
 
 void main() {

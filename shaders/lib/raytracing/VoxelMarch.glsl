@@ -262,27 +262,35 @@ vec3 StepThroughVoxel(vec3 vPos, vec3 rayDir, out vec3 plane) {
 
 #define DEBUG_PRESET NONE // [NONE VM_STEPS_BW VM_STEPS_LOD VM_DIFFUSE VM_WPOS]
 
-#define DEBUG_VM_ACCUM
-#define DEBUG_DIFFUSE_SHOW
-#define DEBUG_WPOS_SHOW
 
-#if (DEBUG_PRESET == VM_STEPS_BW)
-	#undef DEBUG_VM_ACCUM
-	#define DEBUG_VM_ACCUM Debug += 1.0 / 64.0;
-#elif (DEBUG_PRESET == VM_STEPS_LOD)
-	#undef DEBUG_VM_ACCUM
-	#define DEBUG_VM_ACCUM Debug += rgb(vec3(float(LOD)/8.0, 1, 1)) / 64.0;
+void DEBUG_VM_ACCUM() {
+	inc(1.0 / 64.0);
+}
+#if !(DEBUG_PRESET == VM_STEPS_BW)
+	#define DEBUG_VM_ACCUM()
 #endif
 
-#if (DEBUG_PRESET == VM_DIFFUSE)
-	#undef DEBUG_DIFFUSE_SHOW
-	#define DEBUG_DIFFUSE_SHOW show(surface.diffuse.rgb);
+void DEBUG_VM_ACCUM_LOD(int LOD) {
+	inc(rgb(vec3(float(LOD)/8.0, 1, 1)) / 40.0);
+}
+#if !(DEBUG_PRESET == VM_STEPS_LOD)
+	#define DEBUG_VM_ACCUM_LOD(x)
 #endif
 
-#if (DEBUG_PRESET == VM_WPOS)
-	#undef DEBUG_WPOS_SHOW
-	#define DEBUG_WPOS_SHOW show(VoxelToWorldSpace(VMO.vPos))
+void DEBUG_DIFFUSE_SHOW(vec3 color) {
+	show(color);
+}
+#if !(DEBUG_PRESET == VM_DIFFUSE)
+	#define DEBUG_DIFFUSE_SHOW(x)
 #endif
+
+void DEBUG_WPOS_SHOW(vec3 vPos) {
+	show(vPos);
+}
+#if !(DEBUG_PRESET == VM_WPOS)
+	#define DEBUG_WPOS_SHOW(x)
+#endif
+
 
 int VM_steps = 0;
 
@@ -338,7 +346,8 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float prevVolume) {
 		uint oldPos = GetMinComp(uvPos, uplane);
 		uvPos = UnsortMinComp(newPos, uplane);
 		
-		DEBUG_VM_ACCUM;
+		DEBUG_VM_ACCUM();
+		DEBUG_VM_ACCUM_LOD(int(LOD));
 		
 		uint shouldStepUp = uint((newPos.z >> (LOD+1)) != (oldPos >> (LOD+1)));
 		LOD = (LOD + shouldStepUp) & 7;
@@ -435,8 +444,8 @@ SurfaceStruct ReconstructSurface(RayStruct curr, VoxelMarchOut VMO, int blockID)
 	surface.normals  = GetNormals(parCoord);
 	surface.specular = GetSpecular(parCoord);
 	
-	DEBUG_DIFFUSE_SHOW;
-	DEBUG_WPOS_SHOW;
+	DEBUG_DIFFUSE_SHOW(surface.diffuse.rgb);
+	DEBUG_WPOS_SHOW(VoxelToWorldSpace(VMO.vPos));
 	
 	surface.diffuse.rgb *= texelFetch(shadowcolor1, VMO.vCoord, 0).rgb;
 	surface.diffuse.rgb = pow(surface.diffuse.rgb, vec3(2.2));

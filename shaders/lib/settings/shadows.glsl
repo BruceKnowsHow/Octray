@@ -14,7 +14,7 @@ const float shadowDistanceRenderMul  =     1.0;
 #endif
 
 const float shadowIntervalSize       =    0.000001;
-const float sunPathRotation          =   40.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
+const float sunPathRotation          =  -40.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 const bool  shadowHardwareFiltering0 = false;
 
 #endif

@@ -15,25 +15,13 @@ void main() {
 
 /***********************************************************************/
 #if defined fsh
-/*
-const int colortex0Format = RGBA32F;
-const int colortex1Format = R8;
-const int colortex2Format = RGBA32F;
-const int colortex3Format = RGB32F;
-const int colortex4Format = RGBA32F;
 
-const bool colortex0Clear = false;
-const bool colortex1Clear = false;
-const bool colortex2Clear = false;
-const bool colortex3Clear = false;
-const bool colortex4Clear = false;
-const bool colortex5Clear = false;
-const bool colortex6Clear = false;
-const bool colortex7Clear = false;
-*/
 #include "lib/debug.glsl"
+uniform sampler2D colortex0;
+uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex3;
+uniform sampler2D colortex5;
 uniform sampler2D depthtex0;
 uniform sampler2D shadowtex0;
 
@@ -123,8 +111,8 @@ vec3 MotionBlur(vec3 color) {
 void main() {
 	vec4 lookup = texture(colortex2, texcoord);
 	beni = lookup.a;
+	// vec3 color = texture(colortex5, texcoord).rgb;
 	vec3 color = lookup.rgb;
-	// vec3 color = lookup.rgb;
 	vec3 avgCol = textureLod(colortex2, vec2(0.5), 16).rgb / textureLod(colortex2, vec2(0.5), 16).a;
 	// vec3 avgCol = textureLod(colortex2, vec2(0.5), 16).rgb / textureLod(colortex2, texcoord, 0).a;
 	float expo = 1.0 / dot(avgCol, vec3(0.2125, 0.7154, 0.0721));
@@ -152,7 +140,9 @@ void main() {
 			gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
 		}
 	}
-
+	
+	// show(Tonemap(texture(colortex5, texcoord).rgb*min(expo, 1000.0)))
+	
 	exit();
 }
 
