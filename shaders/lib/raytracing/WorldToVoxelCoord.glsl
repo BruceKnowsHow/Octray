@@ -23,14 +23,12 @@ bool OutOfVoxelBounds(uvec3 point) {
 
 bool OutOfVoxelBounds(uint point, uvec3 uplane) {
 	uint comp = (uvec3(shadowDimensions2).x & uplane.x) | (uvec3(shadowDimensions2).y & uplane.y) | (uvec3(shadowDimensions2).z & uplane.z);
-	return point > comp;
+	return point >= comp;
 }
 
 #if (defined gbuffers_shadow)
 vec3 WtoV = vec2(0.0, floor(cameraPosition.y)).xyx + vec2(0.0, shadowRadius2).yxy;
-#endif
-
-#if (!defined gbuffers_shadow)
+#else
 vec3 WtoV = vec2(0.0, floor(cameraPosition.y)).xyx + vec2(0.0, shadowRadius2).yxy + gbufferModelViewInverse[3].xyz + fract(cameraPosition);
 #endif
 
@@ -51,6 +49,7 @@ const int shadowVolume = shadowDimensions.y * shadowArea;
 const int shadowArea2 = shadowDimensions2.x * shadowDimensions2.z;
 const int shadowVolume2 = shadowDimensions2.y * shadowArea2;
 
+
 uint GetVoxelID(uvec3 vPos, uint LOD, uint offset) {
 	vPos = vPos >> LOD;
 	vPos.x = vPos.x << (8 - LOD);
@@ -59,27 +58,14 @@ uint GetVoxelID(uvec3 vPos, uint LOD, uint offset) {
 	return vPos.x + vPos.y + vPos.z + offset;
 }
 
-uint GetVoxelID1(uvec3 vPos, uint LOD, uint offset) {
-	vPos = vPos & (-((1 << LOD)));
-	vPos.x = vPos.x << (8 - LOD);
-	vPos.z = vPos.z << (8 + uint(log2(shadowDimensions.x)) - (LOD + LOD));
-	
-	return ((vPos.x + vPos.y + vPos.z) >> LOD) + offset;
-}
-
-uint GetVoxelID2(uvec3 vPos, uint LOD, uint offset) {
-	
-	vPos = vPos & (-((1 << LOD)));
-	vPos.z = vPos.z << (uint(log2(shadowDimensions.x)) - LOD);
-	vPos.y = vPos.y << (uint(log2(shadowDimensions.x))*2 - LOD*2);
-	
-	return ((vPos.x + vPos.y + vPos.z) >> LOD) + offset;
-}
-
 ivec2 VoxelToTextureSpace(uvec3 vPos, uint LOD, uint offset) {
 	uint voxelID = GetVoxelID(vPos, LOD, offset);
 	
 	return ivec2(voxelID % shadowMapResolution, voxelID / shadowMapResolution);
+}
+
+ivec2 VoxelToTextureSpace(uvec3 vPos) {
+	return VoxelToTextureSpace(vPos, 0, 0);
 }
 
 #endif

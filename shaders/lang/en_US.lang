@@ -1,5 +1,7 @@
 screen.Setup=Setup
 
+#§
+
 option.DEBUG=Debug
 option.DEBUG_PROGRAM=Debug Program
 option.CRASH_DANGLING_SHOW=Crash Dangling Show()

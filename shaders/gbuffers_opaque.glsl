@@ -16,6 +16,7 @@ uniform vec3 cameraPosition;
 
 uniform float frameTimeCounter;
 uniform int frameCounter;
+uniform ivec2 atlasSize;
 uniform vec2 viewSize;
 
 uniform bool accum;
@@ -38,16 +39,7 @@ mat3 CalculateTBN() {
 
 #include "block.properties"
 
-#include "lib/WangHash.glsl"
-
-#define TAA_JITTER
-
-vec2 TAAHash() {
-	return (WangHash(uvec2(frameCounter*2, frameCounter*2 + 1)) - 0.5) / viewSize;
-}
-#ifndef TAA_JITTER
-	#define TAAHash() vec2(0.0)
-#endif
+#include "lib/Random.glsl"
 
 void main() {
 	blockID = BackPortID(int(mc_Entity.x));
@@ -62,7 +54,17 @@ void main() {
 	if (isTallGrass(blockID)) tbnMatrix[0] = normalize(tbnMatrix[0] + normalize(vec3(-1.5,0.5,1.25153))*0.01);
 	
 	if (isBackFaceType(blockID)) position.xyz -= tbnMatrix[2] * exp2(-12);
-	// position.xyz -= (tbnMatrix * vec3(sign(texcoord - mc_midTexCoord)*vec2(1,sign(at_tangent.w)),0)) / 2.0 * (sin(frameTimeCounter)*0.5+0.5);
+	
+	
+	const vec2 offset[4] = vec2[4](vec2(-1,-1),vec2(-1,1),vec2(1,1),vec2(1,-1));
+	
+	vec2 texDirection = sign(texcoord - mc_midTexCoord)*vec2(1,sign(at_tangent.w));
+	vec2 spriteSize = abs(midTexCoord - texcoord) * 2.0 * ( atlasSize);
+	
+	vec3 center = position.xyz - (tbnMatrix * vec3(texDirection * spriteSize / atlasSize * 16.0,0.5));
+	
+	// position.xyz = center;
+	// position.xz += offset[(gl_VertexID) % 4] * 0.25;
 	wPosition = position.xyz;
 	
 	discardflag = 0.0;
@@ -164,7 +166,7 @@ uniform vec2 viewSize;
 uniform ivec2 atlasSize;
 uniform int frameCounter;
 
-#define GSH_ACTIVE
+//#define GSH_ACTIVE
 #if (defined GSH_ACTIVE)
 	#define discardflag _discardflag
 	#define texcoord _texcoord
@@ -196,9 +198,9 @@ void main() {
 	vec4 spec = texture(specular, texcoord);
 	
 #if !defined gbuffers_water
-	if (diffuse.a <= 0.1) discard;
+	if (diffuse.a <= 0.1 && !isGlassType(blockID)) discard;
 #else
-	if (diffuse.a <= 0) discard;
+	if (diffuse.a <= 0 && !isGlassType(blockID)) discard;
 #endif
 	
 	mat3 tbn = tbnMatrix;

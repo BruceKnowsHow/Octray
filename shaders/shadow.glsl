@@ -109,7 +109,7 @@ void main() {
 	
 	
 	
-	vec2 coord = VoxelToTextureSpace(uvec3(vPos), 0, 0) + 0.5;
+	vec2 coord = VoxelToTextureSpace(uvec3(vPos)) + 0.5;
 	coord /= shadowMapResolution;
 	
 	vec2 spriteSize = abs(midTexCoord[0] - texcoord[0]) * 2.0 * atlasSize;
@@ -150,8 +150,6 @@ void main() {
 
 flat in vec4 data0;
 flat in vec4 data1;
-
-#include "block.properties"
 
 void main() {
 	gl_FragData[0] = data0;

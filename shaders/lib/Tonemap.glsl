@@ -83,13 +83,4 @@ vec3 ACESFitted(vec3 color) {
 	return color;
 }
 
-bool EnoughLightToBePerceptable(vec3 possibleAdditionalColor, vec3 currentColor) {
-	const vec3 lum = vec3(0.2125, 0.7154, 0.0721)*0+1; // luminance coefficient
-	
-//	return any(greaterThan(possibleAdditionalColor, vec3(1.0 / 255.0) / lum));
-	
-	vec3 delC = Tonemap(possibleAdditionalColor + currentColor) - Tonemap(currentColor);
-	return any(greaterThan(delC, (1.0 / 255.0) / lum));
-}
-
 #endif

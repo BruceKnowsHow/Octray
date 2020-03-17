@@ -35,8 +35,10 @@ void inc( vec4 x) { Debug += x.rgb; }
 
 #ifdef CRASH_DANGLING_SHOW
 	#define show(x) DANGLING_SHOW
+	#define inc(x) DANGLING_SHOW
 #else
 	#define show(x) show(x);
+	#define inc(x) inc(x);
 #endif
 
 

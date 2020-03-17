@@ -48,7 +48,7 @@ void main() {
 		return;
 	}
 	
-	vec3 col = vec3(0);
+	vec4 col = vec4(0);
 	
 	int kernal = 1 << ATROUS_INDEX;
 	float weights = 0.0;
@@ -71,20 +71,20 @@ void main() {
 			
 			float weight = 1.0;
 			weight *= pow(length(16 - vec2(i,j)) / 16.0, 2.0);
-			weight *= max(dot(normal, samplenormal)*256-255, 0.0);
-			weight *= 1.0 / exp(color0.a);
+			weight *= max(dot(normal, samplenormal)*16-15, 0.0);
+			// weight *= 1.0 / exp(color0.a);
 			// weight *= float(distance(wPos,samplewPos) < 1.0);
 			weight *= max(1.0-distance(wPos, samplewPos), 0.0);
 			weight = weight + 0.000001;
 			
-			col += (color.rgb / color.a) * weight;
+			col += color * weight;
 			weights += weight;
 		}
 	}
 	
 	col /= weights;
 	
-	gl_FragData[0] = vec4(col, 1.0);
+	gl_FragData[0] = vec4(col);
 	
 	exit();
 }

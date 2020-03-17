@@ -21,12 +21,14 @@ uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex3;
+uniform sampler2D colortex4;
 uniform sampler2D colortex5;
 uniform sampler2D depthtex0;
 uniform sampler2D shadowtex0;
 
 const bool colortex2MipmapEnabled = true;
 const bool colortex3MipmapEnabled = true;
+const bool colortex4MipmapEnabled = true;
 
 uniform mat4 gbufferPreviousProjection;
 uniform mat4 gbufferProjectionInverse;
@@ -50,7 +52,7 @@ noperspective in vec2 texcoord;
 #include "lib/Text.glsl"
 
 #include "lib/Bloom.fsh"
-#include "lib/WangHash.glsl"
+#include "lib/Random.glsl"
 
 #define MOTION_BLUR
 
@@ -114,7 +116,6 @@ void main() {
 	// vec3 color = texture(colortex5, texcoord).rgb;
 	vec3 color = lookup.rgb;
 	vec3 avgCol = textureLod(colortex2, vec2(0.5), 16).rgb / textureLod(colortex2, vec2(0.5), 16).a;
-	// vec3 avgCol = textureLod(colortex2, vec2(0.5), 16).rgb / textureLod(colortex2, texcoord, 0).a;
 	float expo = 1.0 / dot(avgCol, vec3(0.2125, 0.7154, 0.0721));
 	expo = 1.0;
 	if (AUTO_EXPOSURE) {
@@ -122,11 +123,12 @@ void main() {
 	}
 	
 	color = MotionBlur(color);
-	color = color / lookup.a;
 	color = GetBloom(colortex3, color);
+	color = color / lookup.a;
 	color *= min(expo, 1000.0);
 	
 	color = Tonemap(color);
+	
 	
 	gl_FragColor.rgb = color;
 	
@@ -140,8 +142,6 @@ void main() {
 			gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
 		}
 	}
-	
-	// show(Tonemap(texture(colortex5, texcoord).rgb*min(expo, 1000.0)))
 	
 	exit();
 }

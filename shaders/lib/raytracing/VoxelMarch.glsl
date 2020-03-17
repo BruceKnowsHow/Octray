@@ -1,6 +1,11 @@
 #if !defined VOXELMARCH_GLSL
 #define VOXELMARCH_GLSL
 
+#define VOXEL_INTERSECTION_TEX shadowtex0
+#define VOXEL_ALBEDO_TEX depthtex1
+#define VOXEL_NORMALS_TEX depthtex2
+#define VOXEL_SPECULAR_TEX shadowtex1
+
 #include "../settings/shadows.glsl"
 #include "WorldToVoxelCoord.glsl"
 
@@ -14,11 +19,12 @@ struct VoxelMarchOut {
 
 struct RayStruct {
 	vec3 vPos;
-	vec3 rayDir;
-	vec3 priorTransmission;
-	uint rayInfo;
+	vec3 wDir;
+	vec3 absorb;
+	uint info;
 	float prevVolume;
-	vec3 transmission;
+	vec3 volumeColor;
+	vec3 entryPos;
 };
 
 //#define COMPRESS_RAY_QUEUE
@@ -26,9 +32,10 @@ struct RayStruct {
 #ifdef COMPRESS_RAY_QUEUE
 	struct RayQueueStruct {
 		vec4 vPos;
-		vec4 rayDir;
+		vec4 wDir;
 		float prevVolume;
-		vec3 transmission;
+		vec3 volumeColor;
+		vec3 entryPos;
 	};
 #else
 	#define RayQueueStruct RayStruct
@@ -97,8 +104,6 @@ const uint SUNLIGHT_RAY_TYPE = (1 <<  9);
 const uint  AMBIENT_RAY_TYPE = (1 << 10);
 const uint SPECULAR_RAY_TYPE = (1 << 11);
 
-const uint INTERIOR_RAY_ATTR = (1 << 16);
-
 const uint RAY_DEPTH_MASK = (1 << 8) - 1;
 const uint RAY_TYPE_MASK  = ((1 << 16) - 1) & (~RAY_DEPTH_MASK);
 const uint RAY_ATTR_MASK  = ((1 << 24) - 1) & (~RAY_DEPTH_MASK) & (~RAY_TYPE_MASK);
@@ -108,7 +113,6 @@ const uint RAY_ATTR_MASK  = ((1 << 24) - 1) & (~RAY_DEPTH_MASK) & (~RAY_TYPE_MAS
 #define RAYMARCH_QUEUE_BANDWIDTH (MAX_RAY_BOUNCES + 2)
 
 RayQueueStruct voxelMarchQueue[RAYMARCH_QUEUE_BANDWIDTH];
-
 
 int  rayQueueFront   = RAYMARCH_QUEUE_BANDWIDTH*256; // Index of the occupied front of the queue
 int  rayQueueBack    = rayQueueFront; // Index of the unnoccupied back of the queue
@@ -128,48 +132,51 @@ uint PackRayInfo(uint rayDepth, const uint RAY_TYPE, uint RAY_ATTR) {
 	return rayDepth | RAY_TYPE | RAY_ATTR;
 }
 
-uint GetRayType(uint rayInfo) {
-	return rayInfo & RAY_TYPE_MASK;
+uint GetRayType(uint info) {
+	return info & RAY_TYPE_MASK;
 }
 
-bool IsRayType(uint rayInfo, const uint RAY_TYPE) {
-	return (rayInfo & RAY_TYPE) != 0;
+#define IsAmbientRay(ray) ((ray.info & AMBIENT_RAY_TYPE) != 0)
+#define IsSunlightRay(ray) ((ray.info & SUNLIGHT_RAY_TYPE) != 0)
+#define IsPrimaryRay(ray) ((ray.info & PRIMARY_RAY_TYPE) != 0)
+#define IsSpecularRay(ray) ((ray.info & SPECULAR_RAY_TYPE) != 0)
+
+uint GetRayAttr(uint info) {
+	return info & RAY_ATTR_MASK;
 }
 
-uint GetRayAttr(uint rayInfo) {
-	return rayInfo & RAY_ATTR_MASK;
+bool HasRayAttr(uint info, const uint RAY_ATTR) {
+	return (info & RAY_ATTR) != 0;
 }
 
-bool HasRayAttr(uint rayInfo, const uint RAY_ATTR) {
-	return (rayInfo & RAY_ATTR) != 0;
-}
-
-uint GetRayDepth(uint rayInfo) {
-	return rayInfo & RAY_DEPTH_MASK;
+uint GetRayDepth(uint info) {
+	return info & RAY_DEPTH_MASK;
 }
 
 #if defined COMPRESS_RAY_QUEUE
 	RayQueueStruct PackRay(RayStruct ray) {
 		RayQueueStruct ret;
-		vec2 col = packColor(ray.priorTransmission);
+		vec2 col = packColor(ray.absorb);
 		ret.vPos.xyz = ray.vPos;
 		ret.vPos.w = col.r;
-		ret.rayDir.xy = EncodeNormalSnorm(ray.rayDir);
-		ret.rayDir.z = uintBitsToFloat(ray.rayInfo);
-		ret.rayDir.w = col.g;
+		ret.wDir.xy = EncodeNormalSnorm(ray.wDir);
+		ret.wDir.z = uintBitsToFloat(ray.info);
+		ret.wDir.w = col.g;
 		ret.prevVolume = ray.prevVolume;
-		ret.transmission = ray.transmission;
+		ret.volumeColor = ray.volumeColor;
+		ret.entryPos = ray.entryPos;
 		return ret;
 	}
 
 	RayStruct UnpackRay(RayQueueStruct ray) {
 		RayStruct ret;
 		ret.vPos = ray.vPos.xyz;
-		ret.rayDir = DecodeNormalSnorm(ray.rayDir.xy);
-		ret.rayInfo = floatBitsToUint(ray.rayDir.z);
-		ret.priorTransmission = unpackColor(vec2(ray.vPos.w, ray.rayDir.w));
+		ret.wDir = DecodeNormalSnorm(ray.wDir.xy);
+		ret.info = floatBitsToUint(ray.wDir.z);
+		ret.absorb = unpackColor(vec2(ray.vPos.w, ray.wDir.w));
 		ret.prevVolume = ray.prevVolume;
-		ret.transmission = ray.transmission;
+		ret.volumeColor = ray.volumeColor;
+		ret.entryPos = ray.entryPos;
 		return ret;
 	}
 #else
@@ -177,11 +184,18 @@ uint GetRayDepth(uint rayInfo) {
 	#define UnpackRay(elem) (elem)
 #endif
 
+bool EnoughLightToBePerceptable(vec3 possibleAdditionalColor, vec3 currentColor) {
+	const vec3 lum = vec3(0.2125, 0.7154, 0.0721)*0+1; // luminance coefficient
+	
+	vec3 delC = Tonemap(possibleAdditionalColor + currentColor) - Tonemap(currentColor);
+	return any(greaterThan(delC, vec3(1.0 / 255.0)));
+}
+
 void RayPushBack(RayStruct elem, vec3 totalColor) {
-	if (GetRayDepth(elem.rayInfo) > MAX_RAY_BOUNCES) return;
+	if (GetRayDepth(elem.info) > MAX_RAY_BOUNCES) return;
 	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
 	if (queueOutOfSpace) return;
-	if (!EnoughLightToBePerceptable(elem.priorTransmission*brightestThing, totalColor)) return;
+	if (!EnoughLightToBePerceptable(elem.absorb*brightestThing, totalColor)) return;
 	
 	voxelMarchQueue[rayQueueBack % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
 	++rayQueueBack;
@@ -190,10 +204,10 @@ void RayPushBack(RayStruct elem, vec3 totalColor) {
 }
 
 void RayPushFront(RayStruct elem, vec3 totalColor) {
-	if (GetRayDepth(elem.rayInfo) > MAX_RAY_BOUNCES) return;
+	if (GetRayDepth(elem.info) > MAX_RAY_BOUNCES) return;
 	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
 	if (queueOutOfSpace) return;
-	if (!EnoughLightToBePerceptable(elem.priorTransmission*brightestThing, totalColor)) return;
+	if (!EnoughLightToBePerceptable(elem.absorb*brightestThing, totalColor)) return;
 	
 	--rayQueueFront;
 	voxelMarchQueue[rayQueueFront % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
@@ -216,44 +230,6 @@ RayStruct RayPopBack() {
 }
 
 
-#define BinaryDot(a, b) ((a.x & b.x) | (a.y & b.y) | (a.z & b.z))
-#define BinaryMix(a, b, c) ((a & (~c)) | (b & c))
-
-float MinComp(vec3 v, out vec3 minCompMask) {
-	float minComp = min(v.x, min(v.y, v.z));
-	minCompMask.xy = 1.0 - clamp((v.xy - minComp) * 1e35, 0.0, 1.0);
-	minCompMask.z = 1.0 - minCompMask.x - minCompMask.y;
-	return minComp;
-}
-
-float MinComp(vec3 v, out uvec3 minCompMask) {
-	ivec3 ia = floatBitsToInt(v);
-	ivec3 iCompMask;
-	iCompMask.xy = ((ia.xy - ia.yx) & (ia.xy - ia.zz)) >> 31;
-	iCompMask.z = (-1) ^ iCompMask.x ^ iCompMask.y;
-	
-	minCompMask = uvec3(iCompMask);
-	
-	return intBitsToFloat(BinaryDot(ia, iCompMask));
-}
-
-vec3 MinCompMask(vec3 v) {
-	vec3 minCompMask;
-	MinComp(v, minCompMask);
-	return minCompMask;
-}
-
-vec3 StepThroughVoxel(vec3 vPos, vec3 rayDir, out vec3 plane) {
-	vec3 dirPositive = (sign(rayDir) * 0.5 + 0.5); // +1.0 when going in a positive direction, 0.0 otherwise.
-	vec3 tDelta  = 1.0 / rayDir;
-	tDelta = clamp(tDelta, -10000.0, 10000.0);
-
-	vec3 tMax = (floor(vPos) - vPos + dirPositive)*tDelta;
-	float L = MinComp(tMax, plane);
-	
-	return vPos + rayDir * L;
-}
-
 #define NONE 0
 #define VM_STEPS_BW 1
 #define VM_STEPS_LOD 2
@@ -262,7 +238,6 @@ vec3 StepThroughVoxel(vec3 vPos, vec3 rayDir, out vec3 plane) {
 
 #define DEBUG_PRESET NONE // [NONE VM_STEPS_BW VM_STEPS_LOD VM_DIFFUSE VM_WPOS]
 
-
 void DEBUG_VM_ACCUM() {
 	inc(1.0 / 64.0);
 }
@@ -270,7 +245,7 @@ void DEBUG_VM_ACCUM() {
 	#define DEBUG_VM_ACCUM()
 #endif
 
-void DEBUG_VM_ACCUM_LOD(int LOD) {
+void DEBUG_VM_ACCUM_LOD(uint LOD) {
 	inc(rgb(vec3(float(LOD)/8.0, 1, 1)) / 40.0);
 }
 #if !(DEBUG_PRESET == VM_STEPS_LOD)
@@ -292,10 +267,64 @@ void DEBUG_WPOS_SHOW(vec3 vPos) {
 #endif
 
 
-int VM_steps = 0;
+#define BinaryDot(a, b) ((a.x & b.x) | (a.y & b.y) | (a.z & b.z))
+#define BinaryMix(a, b, c) ((a & (~c)) | (b & c))
+
+float BinaryDotF(vec3 v, uvec3 uplane) {
+	uvec3 u = floatBitsToUint(v);
+	return uintBitsToFloat(BinaryDot(u, uplane));
+}
+
+float MinComp(vec3 v, out vec3 minCompMask) {
+	float minComp = min(v.x, min(v.y, v.z));
+	minCompMask.xy = 1.0 - clamp((v.xy - minComp) * 1e35, 0.0, 1.0);
+	minCompMask.z = 1.0 - minCompMask.x - minCompMask.y;
+	return minComp;
+}
+
+float MinComp(vec3 v, out uvec3 minCompMask) {
+	ivec3 ia = floatBitsToInt(v);
+	ivec3 iCompMask;
+	iCompMask.xy = ((ia.xy - ia.yx) & (ia.xy - ia.zz)) >> 31;
+	iCompMask.z = (-1) ^ iCompMask.x ^ iCompMask.y;
+	
+	minCompMask = uvec3(iCompMask);
+	
+	return intBitsToFloat(BinaryDot(ia, iCompMask));
+}
+
+uvec3 GetMinCompMask(vec3 v) {
+	ivec3 ia = floatBitsToInt(v);
+	ivec3 iCompMask;
+	iCompMask.xy = ((ia.xy - ia.yx) & (ia.xy - ia.zz)) >> 31;
+	iCompMask.z = (-1) ^ iCompMask.x ^ iCompMask.y;
+	
+	return uvec3(iCompMask);
+}
+
+vec3 MinCompMask(vec3 v) {
+	vec3 minCompMask;
+	MinComp(v, minCompMask);
+	return minCompMask;
+}
+
+vec3 StepThroughVoxel(vec3 vPos, vec3 wDir, out vec3 plane) {
+	vec3 dirPositive = (sign(wDir) * 0.5 + 0.5); // +1.0 when going in a positive direction, 0.0 otherwise.
+	vec3 tDelta  = 1.0 / wDir;
+	tDelta = clamp(tDelta, -10000.0, 10000.0);
+
+	vec3 tMax = (floor(vPos) - vPos + dirPositive)*tDelta;
+	float L = MinComp(tMax, plane);
+	
+	return vPos + wDir * L;
+}
 
 uvec2 GetNonMinComps(uvec3 xyz, uvec3 uplane) {
 	return BinaryMix(xyz.xz, xyz.yy, uplane.xz);
+}
+
+vec2 GetNonMinComps(vec3 xyz, vec3 plane) {
+	return mix(xyz.xz, xyz.yy, plane.xz);
 }
 
 uint GetMinComp(uvec3 xyz, uvec3 uplane) {
@@ -316,8 +345,15 @@ uvec3 UnsortMinComp(uvec3 uvw, uvec3 uplane) {
 	return ret;
 }
 
-VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float prevVolume) {
-	VoxelMarchOut VMO;
+bool IsHit(ivec2 vCoord, float volume) {
+	float data = texelFetch(VOXEL_INTERSECTION_TEX, vCoord, 0).x;
+	return data != volume;
+}
+
+uint VM_steps = 0;
+
+VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
+	// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep1&type=pdf
 	
 	uvec3 dirIsPositive = uvec3(max(sign(wDir), 0));
 	uvec3 boundary = uvec3(vPos) + dirIsPositive;
@@ -325,64 +361,65 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float prevVolume) {
 	
 	uint LOD = 0;
 	uint lodOffset = 0;
-	uint prevLOD = 0;
 	uint hit = 0;
 	
-	// Based on: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep1&type=pdf
 	while (true) {
 		vec3 distToBoundary = (boundary - vPos) / wDir;
-		uvec3 uplane;
-		float L = MinComp(distToBoundary, uplane);
+		uvec3 uplane = GetMinCompMask(distToBoundary);
+		vec3 plane = vec3(-uplane);
 		
 		uvec3 isPos = SortMinComp(dirIsPositive, uplane);
-		uvec3 isNeg = isPos - 1;
 		
-		uint B = GetMinComp(boundary, uplane);
+		uint nearBound = GetMinComp(boundary, uplane);
 		
 		uvec3 newPos;
-		newPos.z = B + isNeg.z;
-		if ( LOD >= 8 || newPos.z > GetMinComp(uvec3(shadowDimensions2), uplane) - 1 || ++VM_steps >= 256 ) { break; }
-		newPos.xy = uvec2(uintBitsToFloat(GetNonMinComps(floatBitsToUint(vPos + wDir * L), uplane) + isNeg.xy));
+		newPos.z = nearBound + isPos.z - 1;
+		if ( LOD >= 8 || OutOfVoxelBounds(newPos.z, uplane) || ++VM_steps >= 256 ) { break; }
+		
+		float tLength = BinaryDotF(distToBoundary, uplane);
+		newPos.xy = GetNonMinComps(uvec3(floor(fract(vPos) + wDir * tLength) + floor(vPos)), uplane);
 		uint oldPos = GetMinComp(uvPos, uplane);
 		uvPos = UnsortMinComp(newPos, uplane);
 		
 		DEBUG_VM_ACCUM();
-		DEBUG_VM_ACCUM_LOD(int(LOD));
+		DEBUG_VM_ACCUM_LOD(LOD);
 		
 		uint shouldStepUp = uint((newPos.z >> (LOD+1)) != (oldPos >> (LOD+1)));
 		LOD = (LOD + shouldStepUp) & 7;
 		lodOffset += (shadowVolume >> ((LOD + (hit-1)) * 3)) * (shouldStepUp-hit);
-		prevLOD = LOD;
-		VMO.vCoord = VoxelToTextureSpace(uvPos, LOD, lodOffset);
-		float lookup = texelFetch(shadowtex0, VMO.vCoord, 0).x;
-		hit = uint(lookup != prevVolume);
+		ivec2 vCoord = VoxelToTextureSpace(uvPos, LOD, lodOffset);
+		hit = uint(IsHit(vCoord, volume));
 		uint miss = 1-hit;
 		LOD -= hit;
 		
 		boundary.xy  = ((newPos.xy >> LOD) + isPos.xy) << LOD;
-		boundary.z   = B + miss * (((isPos.z << 1) - 1) << LOD);
+		boundary.z   = nearBound + miss * ((isPos.z * 2 - 1) << LOD);
 		boundary     = UnsortMinComp(boundary, uplane);
 	}
 	
-	uvec3 uplane;
-	VMO.vPos = vPos + wDir * MinComp((boundary - vPos) / wDir, uplane);
+	VoxelMarchOut VMO;
 	VMO.hit = LOD > 8;
-	VMO.plane = vec3(-uplane) * sign(-wDir);
+	VMO.vCoord = VoxelToTextureSpace(uvPos);
+	VMO.vPos = vPos + wDir * MinComp((boundary - vPos) / wDir, VMO.plane);
+	VMO.plane *= sign(-wDir);
 	
 	return VMO;
 }
 
 struct SurfaceStruct {
 	mat3 tbn;
-	vec4 diffuse;
 	
-	vec3 normal;
+	float depth;
+	
+	vec4 albedo;
 	vec4 normals;
-	float emissive;
-	
 	vec4 specular;
 	
-	float isWater;
+	vec3 normal;
+	
+	float emissive;
+	
+	int blockID;
 };
 
 vec2 GetTexCoord(vec2 coord, float depth, vec2 spriteSize) {
@@ -411,53 +448,63 @@ mat3 GenerateTBN(vec3 plane) {
 }
 
 #include "../TerrainParallax.fsh"
-
 #include "../ComputeWaveNormals.fsh"
 
-vec4 GetNormals(vec2 coord) {
-	return textureLod(NORMAL_SAMPLER, coord, 0);
+vec4 GetNormals(ivec2 coord) {
+	return texelFetch(VOXEL_NORMALS_TEX, coord, 0);
 }
 #if (!defined MC_NORMAL_MAP)
 	#define GetNormals(coord) vec4(0.5, 0.5, 1.0, 0.0)
 #endif
 
-vec4 GetSpecular(vec2 coord) {
-	return textureLod(SPECULAR_SAMPLER, coord, 0);
+vec4 GetSpecular(ivec2 coord) {
+	return texelFetch(VOXEL_SPECULAR_TEX, coord, 0);
 }
 #if (!defined MC_SPECULAR_MAP)
 	#define GetSpecular(coord) vec4(0.0, 0.0, 0.0, 0.0)
 #endif
 
-SurfaceStruct ReconstructSurface(RayStruct curr, VoxelMarchOut VMO, int blockID) {
+SurfaceStruct ReconstructSurface(RayStruct curr, VoxelMarchOut VMO) {
+	float voxelDepth = texelFetch(shadowtex0, VMO.vCoord, 0).x;
+	
+	vec4 voxelData[2] = vec4[2](
+		texelFetch(shadowcolor0, VMO.vCoord, 0),
+		texelFetch(shadowcolor1, VMO.vCoord, 0)
+	);
+	
 	SurfaceStruct surface;
 	surface.tbn = GenerateTBN(VMO.plane);
 	
-	vec2 spriteSize = exp2(round(texelFetch(shadowcolor0, VMO.vCoord, 0).xx * 255.0));
+	vec2 spriteSize = exp2(round(voxelData[0].xx * 255.0));
 	
 	vec2 coord = ((fract(VMO.vPos) * 2.0 ) * mat2x3(surface.tbn) - vec3(1)*mat2x3(surface.tbn)) * 0.5 + 0.5;
-	float depth = texelFetch(shadowtex0, VMO.vCoord, 0).x;
-	vec2 tCoord = GetTexCoord(coord.xy, depth, spriteSize);
+	surface.depth = voxelDepth;
+	vec2 tCoord = GetTexCoord(coord.xy, surface.depth, spriteSize);
 	
-	vec2 parCoord = ComputeParallaxCoordinate(tCoord, curr.rayDir, surface.tbn, spriteSize, NORMAL_SAMPLER);
+	tCoord = ComputeParallaxCoordinate(tCoord, curr.wDir, surface.tbn, spriteSize, VOXEL_NORMALS_TEX);
 	
-	surface.diffuse  = textureLod(TEX_SAMPLER, parCoord, 0);
-	surface.normals  = GetNormals(parCoord);
-	surface.specular = GetSpecular(parCoord);
+	ivec2 iCoord = ivec2(tCoord * atlasSize);
 	
-	DEBUG_DIFFUSE_SHOW(surface.diffuse.rgb);
+	surface.albedo   = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
+	surface.normals  = GetNormals(iCoord);
+	surface.specular = GetSpecular(iCoord);
+	
+	DEBUG_DIFFUSE_SHOW(surface.albedo.rgb);
 	DEBUG_WPOS_SHOW(VoxelToWorldSpace(VMO.vPos));
 	
-	surface.diffuse.rgb *= texelFetch(shadowcolor1, VMO.vCoord, 0).rgb;
-	surface.diffuse.rgb = pow(surface.diffuse.rgb, vec3(2.2));
+	surface.albedo.rgb *= voxelData[1].rgb;
+	surface.albedo.rgb  = pow(surface.albedo.rgb, vec3(2.2));
 	
 	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
 	surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
 	
-	if (isEmissive(blockID))
+	surface.blockID = int(voxelData[0].g*255);
+	
+	if (isEmissive(surface.blockID))
 		surface.emissive = 1.0;
 	
-	if (isWater(blockID)) {
-		surface.normal = surface.tbn * ComputeWaveNormals(VoxelToWorldSpace(VMO.vPos), curr.rayDir, surface.tbn[2]);
+	if (isWater(surface.blockID)) {
+		surface.normal = surface.tbn * ComputeWaveNormals(VoxelToWorldSpace(VMO.vPos), curr.wDir, surface.tbn[2]);
 	}
 	
 	return surface;

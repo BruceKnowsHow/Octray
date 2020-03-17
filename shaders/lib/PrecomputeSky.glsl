@@ -314,7 +314,7 @@ vec4 GetScatteringTextureUvwzFromRMuMuSNu(float r, float mu, float mu_s, float n
 		
 		
 		// u_mu = mix(u_mu, u_mu2, 0.0);
-	//	u_mu = mix(u_mu, 1.0, pow(1-abs(sunDir.y), 4.0));
+	//	u_mu = mix(u_mu, 1.0, pow(1-abs(sunDirection.y), 4.0));
 	}
 
 	float d = DistanceToTopAtmosphereBoundary(ATMOSPHERE.bottom_radius, mu_s);
@@ -532,10 +532,18 @@ vec3 GetSunAndSkyIrradiance(vec3 point, vec3 normal, vec3 sun_direction, out vec
 	return ATMOSPHERE.solar_irradiance * GetTransmittanceToSun(r, mu_s);
 }
 
+vec3 GetSunIrradiance(vec3 point, vec3 sun_direction) {
+	float r = length(point);
+	float mu_s = dot(point, sun_direction) / r;
+
+	// Direct irradiance.
+	return ATMOSPHERE.solar_irradiance * GetTransmittanceToSun(r, mu_s);
+}
+
 vec3 CalculateNightSky(vec3 wDir, inout vec3 transmit) {
 	const vec3 nightSkyColor = vec3(0.04, 0.04, 0.1)*0.4;
 	
-	float value = (dot(wDir, -sunDir) * 0.5 + 0.5) + 0.5;
+	float value = (dot(wDir, -sunDirection) * 0.5 + 0.5) + 0.5;
 	value *= 1.0 - timeDay;
 	float horizon = cubesmooth(pow(1.0 - abs(wDir.y), 4.0));
 	
@@ -561,7 +569,7 @@ float CalculateFogfactor(vec3 position) {
 vec3 SkyAtmosphere(vec3 wDir, inout vec3 transmit) {
 	vec3 inScatter = vec3(0.0);
 //	inScatter += CalculateNightSky(wDir, transmit);
-	inScatter += PrecomputedSky(kCamera, wDir, 0.0, sunDir, transmit);
+	inScatter += PrecomputedSky(kCamera, wDir, 0.0, sunDirection, transmit);
 	
 	return inScatter;
 }
@@ -571,7 +579,7 @@ vec3 SkyAtmosphereToPoint(vec3 wPos0, vec3 wPos1, inout vec3 transmit) {
 	vec3 transmitIgnore = vec3(1.0);
 	vec3 inScatter = vec3(0.0);
 //	inScatter += CalculateNightSky(wDir, transmitIgnore);
-	inScatter += PrecomputedSky(kCamera, wDir, 0.0, sunDir, transmitIgnore);
+	inScatter += PrecomputedSky(kCamera, wDir, 0.0, sunDirection, transmitIgnore);
 	
 	float fog0 = CalculateFogfactor(wPos0);
 	float fog1 = CalculateFogfactor(wPos1);
