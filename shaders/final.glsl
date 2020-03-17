@@ -123,9 +123,9 @@ void main() {
 	}
 	
 	color = MotionBlur(color);
-	color = GetBloom(colortex3, color);
-	color = color / lookup.a;
 	color *= min(expo, 1000.0);
+	color = color / lookup.a;
+	color = GetBloom(colortex3, color);
 	
 	color = Tonemap(color);
 	

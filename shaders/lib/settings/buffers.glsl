@@ -17,6 +17,8 @@ const bool colortex4Clear = false;
 const bool colortex5Clear = false;
 const bool colortex6Clear = false;
 const bool colortex7Clear = false;
+
+#define ABOUT 0 // [0 1 2 3 4 5 6]
 */
 
 const int noiseTextureResolution = 64;

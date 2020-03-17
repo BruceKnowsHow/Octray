@@ -2,6 +2,19 @@ screen.Setup=Setup
 
 #§
 
+option.ABOUT=
+value.ABOUT.0=                                                            §fOctray Shaders                                                            
+value.ABOUT.1=                                                            §bGitHub.com/BruceKnowsHow                                                             
+value.ABOUT.2=                                                            §fBruceKnowsHow says: §a"Thank you...                                                             
+value.ABOUT.3=                                                            §rwe don't have to §ago §rany farther                                                             
+value.ABOUT.4=                                                            §rbut §aif §ryou do                                                             
+value.ABOUT.5=                                                            §rI'm going to be §avery proud §rof you."                                                             
+value.ABOUT.6=                                                                                                                         
+
+profile.Low=§a§nLow§r
+profile.Medium=§nMedium§r
+profile.High=§c§nHigh§r
+
 option.DEBUG=Debug
 option.DEBUG_PROGRAM=Debug Program
 option.CRASH_DANGLING_SHOW=Crash Dangling Show()
@@ -22,7 +35,8 @@ value.DEBUG_PRESET.VM_DIFFUSE=VoxelMarch Diffuse
 
 option.DEBUG_BRIGHTNESS=Debug Brightness
 
-option.AUTO_EXPOSURE=Auto Exposure
+option.AUTO_EXPOSURE=§bAuto Exposure
+value.AUTO_EXPOSURE.Off=§6Off
 option.OVERALL_BRIGHTNESS=Total Brightness
 option.SUNLIGHT_BRIGHTNESS=Sunlight Brightness
 option.SKY_BRIGHTNESS=Sky Brightness
@@ -30,20 +44,19 @@ option.AMBIENT_BRIGHTNESS=Ambient Brightness
 option.VIBRANCE=Vibrance
 
 option.FRAME_ACCUMULATION_COUNTER=Frame Accumulation Counter
-option.SUNLIGHT_RAYS=Trace Sunlight Rays
-option.SPECULAR_RAYS=Trace Specular Rays
+option.SUNLIGHT_RAYS=Sunlight Rays
+option.SPECULAR_RAYS=Specular Rays
 option.SPECULAR_RAYS.comment=Specular reflections aren't really setup yet
-option.AMBIENT_RAYS=Trace Ambient Rays
-option.MAX_RAY_BOUNCES=Max Ray Bounces
-option.USE_RASTER_ENGINE=Use Rasterization
-option.USE_RASTER_ENGINE.comment=Faster, but not completely setup yet
-option.COMPRESS_RAY_QUEUE=Compress Ray Queue
-option.COMPRESS_RAY_QUEUE.comment=Significantly increases FPS when ray bounces > 8
-option.UNHANDLED_BLOCKS=Unhandled Blocks
-value.UNHANDLED_BLOCKS.0=Force render
-value.UNHANDLED_BLOCKS.1=Raster only
-value.UNHANDLED_BLOCKS.2=Totally ignore
-option.VOXELIZATION_DISTANCE=Max Trace Distance
+option.AMBIENT_RAYS=Ambient Rays
+option.MAX_RAY_BOUNCES=§6Max Ray Bounces
+option.VOXELIZATION_DISTANCE=Max Ray Distance
 value.VOXELIZATION_DISTANCE.128=8 Normal
 value.VOXELIZATION_DISTANCE.256=16 Far
 option.VOXELIZATION_DISTANCE.comment=If playing at 8x render distance, setting this to 8x will be slightly faster.
+option.USE_RASTER_ENGINE=Use Rasterization
+option.COMPRESS_RAY_QUEUE=Compress Ray Queue
+option.COMPRESS_RAY_QUEUE.comment=Significantly increases FPS when ray bounces > 8
+option.UNHANDLED_BLOCKS=Special Blocks
+value.UNHANDLED_BLOCKS.0=Force render
+value.UNHANDLED_BLOCKS.1=Raster only
+value.UNHANDLED_BLOCKS.2=Invisible
