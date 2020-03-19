@@ -11,9 +11,10 @@
 
 // Return structure for the VoxelMarch function
 struct VoxelMarchOut {
-	bool  hit  ;
+	uint  hit  ;
 	vec3  vPos ;
 	vec3  plane;
+	float data;
 	ivec2 vCoord;
 };
 
@@ -23,8 +24,6 @@ struct RayStruct {
 	vec3 absorb;
 	uint info;
 	float prevVolume;
-	vec3 volumeColor;
-	vec3 entryPos;
 };
 
 //#define COMPRESS_RAY_QUEUE
@@ -34,8 +33,6 @@ struct RayStruct {
 		vec4 vPos;
 		vec4 wDir;
 		float prevVolume;
-		vec3 volumeColor;
-		vec3 entryPos;
 	};
 #else
 	#define RayQueueStruct RayStruct
@@ -163,8 +160,6 @@ uint GetRayDepth(uint info) {
 		ret.wDir.z = uintBitsToFloat(ray.info);
 		ret.wDir.w = col.g;
 		ret.prevVolume = ray.prevVolume;
-		ret.volumeColor = ray.volumeColor;
-		ret.entryPos = ray.entryPos;
 		return ret;
 	}
 
@@ -175,8 +170,6 @@ uint GetRayDepth(uint info) {
 		ret.info = floatBitsToUint(ray.wDir.z);
 		ret.absorb = unpackColor(vec2(ray.vPos.w, ray.wDir.w));
 		ret.prevVolume = ray.prevVolume;
-		ret.volumeColor = ray.volumeColor;
-		ret.entryPos = ray.entryPos;
 		return ret;
 	}
 #else
@@ -185,17 +178,15 @@ uint GetRayDepth(uint info) {
 #endif
 
 bool EnoughLightToBePerceptable(vec3 possibleAdditionalColor, vec3 currentColor) {
-	const vec3 lum = vec3(0.2125, 0.7154, 0.0721)*0+1; // luminance coefficient
-	
 	vec3 delC = Tonemap(possibleAdditionalColor + currentColor) - Tonemap(currentColor);
-	return any(greaterThan(delC, vec3(1.0 / 255.0)));
+	return any(greaterThan(delC, vec3(10.0 / 255.0)));
 }
 
 void RayPushBack(RayStruct elem, vec3 totalColor) {
 	if (GetRayDepth(elem.info) > MAX_RAY_BOUNCES) return;
 	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
 	if (queueOutOfSpace) return;
-	if (!EnoughLightToBePerceptable(elem.absorb*brightestThing, totalColor)) return;
+	if (!EnoughLightToBePerceptable(elem.absorb*brightestThing, totalColor)) { return;}
 	
 	voxelMarchQueue[rayQueueBack % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
 	++rayQueueBack;
@@ -235,8 +226,9 @@ RayStruct RayPopBack() {
 #define VM_STEPS_LOD 2
 #define VM_DIFFUSE 3
 #define VM_WPOS 4
+#define QUEUE_FULL 5
 
-#define DEBUG_PRESET NONE // [NONE VM_STEPS_BW VM_STEPS_LOD VM_DIFFUSE VM_WPOS]
+#define DEBUG_PRESET NONE // [NONE VM_STEPS_BW VM_STEPS_LOD VM_DIFFUSE VM_WPOS QUEUE_FULL]
 
 void DEBUG_VM_ACCUM() {
 	inc(1.0 / 64.0);
@@ -264,6 +256,13 @@ void DEBUG_WPOS_SHOW(vec3 vPos) {
 }
 #if !(DEBUG_PRESET == VM_WPOS)
 	#define DEBUG_WPOS_SHOW(x)
+#endif
+
+void DEBUG_QUEUE_FULL() {
+	show(queueOutOfSpace);
+}
+#if !(DEBUG_PRESET == QUEUE_FULL)
+	#define DEBUG_QUEUE_FULL()
 #endif
 
 
@@ -310,10 +309,8 @@ vec3 MinCompMask(vec3 v) {
 
 vec3 StepThroughVoxel(vec3 vPos, vec3 wDir, out vec3 plane) {
 	vec3 dirPositive = (sign(wDir) * 0.5 + 0.5); // +1.0 when going in a positive direction, 0.0 otherwise.
-	vec3 tDelta  = 1.0 / wDir;
-	tDelta = clamp(tDelta, -10000.0, 10000.0);
 
-	vec3 tMax = (floor(vPos) - vPos + dirPositive)*tDelta;
+	vec3 tMax = (floor(vPos) - vPos + dirPositive) / wDir;
 	float L = MinComp(tMax, plane);
 	
 	return vPos + wDir * L;
@@ -345,11 +342,6 @@ uvec3 UnsortMinComp(uvec3 uvw, uvec3 uplane) {
 	return ret;
 }
 
-bool IsHit(ivec2 vCoord, float volume) {
-	float data = texelFetch(VOXEL_INTERSECTION_TEX, vCoord, 0).x;
-	return data != volume;
-}
-
 uint VM_steps = 0;
 
 VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
@@ -362,6 +354,8 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 	uint LOD = 0;
 	uint lodOffset = 0;
 	uint hit = 0;
+	float data;
+	ivec2 vCoord;
 	
 	while (true) {
 		vec3 distToBoundary = (boundary - vPos) / wDir;
@@ -387,8 +381,9 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 		uint shouldStepUp = uint((newPos.z >> (LOD+1)) != (oldPos >> (LOD+1)));
 		LOD = (LOD + shouldStepUp) & 7;
 		lodOffset += (shadowVolume >> ((LOD + (hit-1)) * 3)) * (shouldStepUp-hit);
-		ivec2 vCoord = VoxelToTextureSpace(uvPos, LOD, lodOffset);
-		hit = uint(IsHit(vCoord, volume));
+		vCoord = VoxelToTextureSpace(uvPos, LOD, lodOffset);
+		data = texelFetch(VOXEL_INTERSECTION_TEX, vCoord, 0).x;
+		hit = uint(data != volume);
 		uint miss = 1-hit;
 		LOD -= hit;
 		
@@ -398,8 +393,9 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 	}
 	
 	VoxelMarchOut VMO;
-	VMO.hit = LOD > 8;
-	VMO.vCoord = VoxelToTextureSpace(uvPos);
+	VMO.vCoord = vCoord;
+	VMO.hit = hit;
+	VMO.data = data;
 	VMO.vPos = vPos + wDir * MinComp((boundary - vPos) / wDir, VMO.plane);
 	VMO.plane *= sign(-wDir);
 	
@@ -410,6 +406,7 @@ struct SurfaceStruct {
 	mat3 tbn;
 	
 	float depth;
+	vec4 voxelData;
 	
 	vec4 albedo;
 	vec4 normals;
@@ -420,14 +417,9 @@ struct SurfaceStruct {
 	float emissive;
 	
 	int blockID;
+	vec2 spriteSize;
+	vec2 cornerTexCoord;
 };
-
-vec2 GetTexCoord(vec2 coord, float depth, vec2 spriteSize) {
-	vec2 cornerTexCoord = unpackTexcoord(depth); // Coordinate of texture's starting corner in [0, 1] texture space
-	vec2 coordInSprite = coord.xy * spriteSize / atlasSize; // Fragment's position within sprite space
-	
-	return cornerTexCoord + coordInSprite;
-}
 
 mat3 GenerateTBN(vec3 plane) {
 	mat3 tbn;
@@ -465,23 +457,20 @@ vec4 GetSpecular(ivec2 coord) {
 #endif
 
 SurfaceStruct ReconstructSurface(RayStruct curr, VoxelMarchOut VMO) {
-	float voxelDepth = texelFetch(shadowtex0, VMO.vCoord, 0).x;
-	
-	vec4 voxelData[2] = vec4[2](
-		texelFetch(shadowcolor0, VMO.vCoord, 0),
-		texelFetch(shadowcolor1, VMO.vCoord, 0)
-	);
-	
 	SurfaceStruct surface;
+	surface.voxelData = vec4(texelFetch(shadowcolor0, VMO.vCoord, 0));
+	surface.blockID = int(surface.voxelData.g*255);
+	
 	surface.tbn = GenerateTBN(VMO.plane);
 	
-	vec2 spriteSize = exp2(round(voxelData[0].xx * 255.0));
+	surface.spriteSize = exp2(round(surface.voxelData.xx * 255.0));
 	
-	vec2 coord = ((fract(VMO.vPos) * 2.0 ) * mat2x3(surface.tbn) - vec3(1)*mat2x3(surface.tbn)) * 0.5 + 0.5;
-	surface.depth = voxelDepth;
-	vec2 tCoord = GetTexCoord(coord.xy, surface.depth, spriteSize);
+	vec2 coord = ((fract(VMO.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
+	surface.depth = VMO.data;
+	surface.cornerTexCoord = unpackTexcoord(VMO.data);
+	vec2 tCoord = surface.cornerTexCoord + coord.xy * surface.spriteSize / atlasSize;
 	
-	tCoord = ComputeParallaxCoordinate(tCoord, curr.wDir, surface.tbn, spriteSize, VOXEL_NORMALS_TEX);
+	tCoord = ComputeParallaxCoordinate(tCoord, curr.wDir, surface.tbn, surface.spriteSize, VOXEL_NORMALS_TEX);
 	
 	ivec2 iCoord = ivec2(tCoord * atlasSize);
 	
@@ -492,13 +481,12 @@ SurfaceStruct ReconstructSurface(RayStruct curr, VoxelMarchOut VMO) {
 	DEBUG_DIFFUSE_SHOW(surface.albedo.rgb);
 	DEBUG_WPOS_SHOW(VoxelToWorldSpace(VMO.vPos));
 	
-	surface.albedo.rgb *= voxelData[1].rgb;
+	surface.albedo.rgb *= rgb(vec3(surface.voxelData.ba, 1.0));
+	// surface.albedo.rgb *= surface.voxelData[1].rgb;
 	surface.albedo.rgb  = pow(surface.albedo.rgb, vec3(2.2));
 	
 	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
 	surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
-	
-	surface.blockID = int(voxelData[0].g*255);
 	
 	if (isEmissive(surface.blockID))
 		surface.emissive = 1.0;

@@ -115,7 +115,9 @@ void main() {
 	vec2 spriteSize = abs(midTexCoord[0] - texcoord[0]) * 2.0 * atlasSize;
 	vec2 cornerTexCoord = midTexCoord[0] - abs(midTexCoord[0] - texcoord[0]);
 	
-	data0 = vec4(log2(spriteSize.x) / 255.0, blockID[0] / 255.0, 0.0, 0.0);
+	vec2 hs = hsv(vColor[0].rgb).rg;
+	
+	data0 = vec4(log2(spriteSize.x) / 255.0, blockID[0] / 255.0, hs);
 	data1 = vec4(vColor[0].rgb, 0.0);
 	
 	// Can pass an unsigned integer range [0, 2^23 - 1]
@@ -153,7 +155,7 @@ flat in vec4 data1;
 
 void main() {
 	gl_FragData[0] = data0;
-	gl_FragData[1] = data1;
+	// gl_FragData[1] = data1;
 }
 
 #endif

@@ -179,7 +179,7 @@ vec3 ComputeFarSpace(vec3 wDir, vec3 transmit, const bool primary) {
 	return vec3(star) * 10.0 * transmit;
 }
 
-#define SUN_RADIUS 0.54
+#define SUN_RADIUS 0.54 // [0.54 1.0 2.0 3.0 4.0 5.0 20.0]
 
 vec3 ComputeSunspot(vec3 wDir, inout vec3 transmit) {
 	float sunspot = float(acos(dot(wDir, sunDirection)) < radians(SUN_RADIUS) + 0*0.9999567766);

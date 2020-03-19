@@ -23,12 +23,9 @@ void main() {
 
 in vec3 vColor;
 
-/* DRAWBUFFERS:123 */
-uniform bool DRAWBUFFERS_123;
-
 void main() {
 	discard;
-	gl_FragData[0] = vec4(vColor, 1.0);
+	// gl_FragData[0] = vec4(vColor, 1.0);
 }
 
 #endif

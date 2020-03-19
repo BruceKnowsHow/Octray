@@ -26,8 +26,8 @@ uniform sampler2D depthtex0;
 uniform sampler2D shadowtex0;
 #define SHADOW_DEPTH shadowtex0
 uniform sampler2D shadowcolor0;
-#define BEEEEEEEN5
-uniform sampler2D shadowcolor1;
+// #define BEEEEEEEN5
+// uniform sampler2D shadowcolor1;
 #define BEEEEEEEN6
 uniform sampler2D noisetex;
 
@@ -109,6 +109,8 @@ mat3 ArbitraryTBN(vec3 normal) {
 const float glassIOR = 1.0;
 vec3 totalColor = vec3(0.0);
 
+int RAY_COUNT;
+
 #define SUNLIGHT_RAYS On // [On Off]
 #define SPECULAR_RAYS Off // [On Off]
 #define AMBIENT_RAYS On // [On Off]
@@ -119,11 +121,13 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 	vec3 F0 = (isMetal) ? surface.albedo.rgb : vec3(surface.specular.g);
 	// if (isMetal) surface.albedo.rgb *= 0;
 	
+	if (IsAmbientRay(curr)) curr.absorb /= ambientBrightness;
+	
 	if (AMBIENT_RAYS) {
 		RayStruct ambientray = curr;
 		ambientray.info = PackRayInfo(GetRayDepth(curr.info) + 1, AMBIENT_RAY_TYPE, GetRayAttr(curr.info));
 		ambientray.wDir = ArbitraryTBN(surface.normal) * CalculateConeVector(RandNextF(), radians(90.0), 32);
-		ambientray.absorb *= surface.albedo.rgb * float(dot(ambientray.wDir, surface.tbn[2]) > 0.0);
+		ambientray.absorb *= surface.albedo.rgb * ambientBrightness * float(dot(ambientray.wDir, surface.tbn[2]) > 0.0);
 		RayPushBack(ambientray, totalColor);
 	}
 	
@@ -171,32 +175,53 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 }
 
 #define USE_RASTER_ENGINE
+#ifdef USE_RASTER_ENGINE
+	#define USE_RASTER_ENGINE_B On
+#else
+	#define USE_RASTER_ENGINE_B Off
+#endif
 
 // Returns true if no rays should be launched.
-bool ConstructTransparentRays(RayStruct curr, SurfaceStruct surface) {
+bool ConstructTransparentRays(inout RayStruct curr, SurfaceStruct surface) {
+	RayStruct through = curr;
+	through.vPos -= surface.tbn[2] * exp2(-12);
+	curr.vPos += surface.tbn[2] * exp2(-12);
+	
+	through.info = PackRayInfo(GetRayDepth(curr.info) + 1, GetRayType(curr.info));
+	
 	if (!isLeavesType(surface.blockID) && !isGlassType(surface.blockID)) return false;
+	
+	/*
+	vec3 plane;
+	vec3 pos = StepThroughVoxel(through.vPos, through.wDir, plane);
+	
+	mat3 tbn = GenerateTBN(plane);
+	
+	vec2 coord = ((fract(pos) * 2.0 ) * mat2x3(tbn) - vec3(1)*mat2x3(tbn)) * 0.5 + 0.5;
+	vec2 tCoord = surface.cornerTexCoord + coord.xy * surface.spriteSize / atlasSize;
+	ivec2 iCoord = ivec2(tCoord * atlasSize);
+	vec4 albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
+	
+	through.absorb *= (1 - albedo.a);
+	*/
+	
+	through.absorb *= (1 - surface.albedo.a);
+	curr.absorb *= surface.albedo.a;
+	
+	RayPushBack(through, totalColor);
+	return surface.albedo.a <= 0;
+}
 
-	if (surface.albedo.a < 1) { // exterior miss
-		RayStruct through = curr;
-		
-		if (isGlassType(surface.blockID)) {
-			through.prevVolume = surface.depth;
-			through.volumeColor = (1 - surface.albedo.a) * mix(vec3(1.0), surface.albedo.rgb, surface.albedo.a > 0);
-			through.absorb *= (1 - surface.albedo.a);
-			through.wDir = refract(through.wDir, surface.normal, 1/glassIOR);
-			through.entryPos = through.vPos;
-		} else {
-			through.absorb *= (1 - surface.albedo.a) * mix(vec3(1.0), surface.albedo.rgb, surface.albedo.a > 0);
-		}
-		
-		curr.absorb *= (1 - surface.albedo.a) * mix(vec3(1.0), surface.albedo.rgb, surface.albedo.a > 0);
-		
-		RayPushBack(through, totalColor);
-		if (surface.albedo.a <= 0) return true;
+void HandLight(RayStruct curr, SurfaceStruct surface) {
+	if (IsPrimaryRay(curr)) {
+		vec3 wPos = VoxelToWorldSpace(curr.vPos);
+
+		totalColor += surface.albedo.rgb * vec3(255, 200, 100) / 255.0 * 1.0 * (heldBlockLightValue + heldBlockLightValue2) / 16.0 * curr.absorb / (dot(wPos,wPos) + 0.5) * dot(surface.normal, -curr.wDir);
 	}
 	
-	return false;
+	totalColor += surface.albedo.rgb * surface.emissive * curr.absorb * emissiveBrightness;
 }
+
 
 /* DRAWBUFFERS:2 */
 uniform bool DRAWBUFFERS_2;
@@ -232,12 +257,10 @@ void main() {
 	
 	float accumulate = float(distance((wPos), texture2D(colortex4, eban.xy*0.5+0.5).rgb) < 0.1);
 	
-#ifdef USE_RASTER_ENGINE
-	for (int i = 0; i < 1; ++i) {
+	if (USE_RASTER_ENGINE_B) {
 		if (depth >= 1.0) {
 			vec3 transmit = vec3(1.0);
-			vec3 SKYY = ComputeTotalSky(vec3(0.0), wDir, transmit, true) * skyBrightness;
-			totalColor += SKYY;
+			totalColor += ComputeTotalSky(vec3(0.0), wDir, transmit, true) * skyBrightness;
 			gl_FragData[0] = vec4(totalColor, 1.0) + prevCol;
 			exit();
 			return;
@@ -261,85 +284,60 @@ void main() {
 		curr.absorb = vec3(1.0);
 		curr.info = PackRayInfo(0, PRIMARY_RAY_TYPE);
 		curr.prevVolume = 1.0;
-		curr.vPos = WorldToVoxelSpace(wPos) + surface.tbn[2] * exp2(-11);
+		curr.vPos = WorldToVoxelSpace(wPos) - surface.tbn[2] * exp2(-10)*0;
 		
 		surface.depth = texelFetch(shadowtex0, VoxelToTextureSpace(uvec3(curr.vPos - surface.tbn[2] / 4.0)), 0).x;
 		
-		if (ConstructTransparentRays(curr, surface)) continue;
+		if (!ConstructTransparentRays(curr, surface)) {
+			HandLight(curr, surface);
+			ConstructRays(curr, surface);
+		}
+	} else {
+		RayStruct primary;
+		primary.absorb = vec3(1.0);
+		primary.info = PackRayInfo(0, PRIMARY_RAY_TYPE);
+		primary.vPos = WorldToVoxelSpace(vec3(0));
+		if (cameraPosition.y + gbufferModelViewInverse[3].y*1.0 > 256.0 && wDir.y < 0.0) {
+			primary.vPos += wDir / wDir.y * -(cameraPosition.y + gbufferModelViewInverse[3].y*1.0 - 255.9);
+		}
 		
-		totalColor += surface.albedo.rgb * vec3(255, 200, 100) / 255.0 * 1.0 * (heldBlockLightValue + heldBlockLightValue2) / 16.0 / (dot(wPos,wPos) + 0.5) * dot(surface.normal, -curr.wDir);
-		totalColor += (surface.albedo.rgb * surface.emissive * emissiveBrightness);
-		
-		ConstructRays(curr, surface);
+		primary.wDir = wDir;
+		primary.prevVolume = 1.0;
+		RayPushBack(primary, totalColor);
 	}
 	
-#else
-	RayStruct primary;
-	primary.absorb = vec3(1.0);
-	primary.info = PackRayInfo(0, PRIMARY_RAY_TYPE);
-	primary.vPos = WorldToVoxelSpace(vec3(0));
-	if (cameraPosition.y + gbufferModelViewInverse[3].y*1.0 > 256.0 && wDir.y < 0.0) {
-		primary.vPos += wDir / wDir.y * -(cameraPosition.y + gbufferModelViewInverse[3].y*1.0 - 255.9);
-	}
-	
-	primary.wDir = wDir;
-	primary.prevVolume = 1.0;
-	RayPushBack(primary, totalColor);
-#endif
-	
-	int i;
-	for (i = 1; i < MAX_RAYS; ++i) {
+	for (RAY_COUNT = 1; RAY_COUNT < MAX_RAYS; ++RAY_COUNT) {
 		if (IsQueueEmpty()) break;
 		
 		RayStruct curr = RayPopBack();
 		
 		VoxelMarchOut VMO = VoxelMarch(curr.vPos, curr.wDir, curr.prevVolume);
 		
-		if (!VMO.hit) {
-			totalColor += curr.absorb * float(IsSunlightRay(curr));
-			if (IsSunlightRay(curr)) continue;
-			vec3 sky = ComputeTotalSky(VoxelToWorldSpace(VMO.vPos), curr.wDir, curr.absorb, IsPrimaryRay(curr));
-			if (IsAmbientRay(curr)) sky *= ambientBrightness;
-			totalColor += sky * skyBrightness;
+		if (!bool(VMO.hit)) {
+			if (IsSunlightRay(curr))
+				totalColor += curr.absorb * float(IsSunlightRay(curr));
+			else
+				totalColor += ComputeTotalSky(VoxelToWorldSpace(VMO.vPos), curr.wDir, curr.absorb, IsPrimaryRay(curr)) * skyBrightness;
+			
 			continue;
 		}
 		
 		SurfaceStruct surface = ReconstructSurface(curr, VMO);
 		
-		curr.vPos = VMO.vPos - VMO.plane * exp2(-12);
+		curr.vPos = VMO.vPos;
 		
-		if (curr.prevVolume < 1.0) {
-			vec3 ref = refract(curr.wDir, surface.normal, glassIOR);
-			
-			curr.prevVolume = 1.0;
-			float d = distance(curr.entryPos, VMO.vPos);
-			
-			curr.absorb /= exp(d / exp(3.0) / curr.volumeColor);
-			curr.vPos = VMO.vPos + surface.tbn[2] / 4096.0;
-			// curr.wDir = ref;
-			
-			// if (IsSunlightRay(curr) curr.wDir = ArbitraryTBN(sunDirection)*CalculateConeVector(RandNextF(), radians(SUN_RADIUS), 32);
-			
-			RayPushBack(curr, totalColor);
-			continue;
-		} else if (ConstructTransparentRays(curr, surface)) continue;
+		if (ConstructTransparentRays(curr, surface)) continue;
 		
 		if (IsSunlightRay(curr)) continue;
 		
-		if (IsAmbientRay(curr)) surface.emissive *= ambientBrightness.r;
-		
-		if (IsPrimaryRay(curr))  {
-			vec3 p = VoxelToWorldSpace(VMO.vPos);
-			
-			totalColor += surface.albedo.rgb * vec3(255, 200, 100) / 255.0 * 1.0 * (heldBlockLightValue + heldBlockLightValue2) / 16.0 * curr.absorb / (dot(p,p) + 0.5) * dot(surface.normal, -curr.wDir);
-		}
-		
-		totalColor += (surface.albedo.rgb * surface.emissive * curr.absorb * emissiveBrightness);
+		HandLight(curr, surface);
 		
 		ConstructRays(curr, surface);
 	}
 	
 	totalColor = max(totalColor, vec3(0.0));
+	
+	DEBUG_QUEUE_FULL();
 	
 	gl_FragData[0] = vec4(totalColor, alpha) + prevCol;
 	

@@ -60,7 +60,7 @@ noperspective in vec2 texcoord;
 #define MAX_MOTION_BLUR_AMOUNT 1.0
 
 #define VARIABLE_MOTION_BLUR_SAMPLES 1
-#define VARIABLE_MOTION_BLUR_SAMPLE_COEFFICIENT 50.0
+#define VARIABLE_MOTION_BLUR_SAMPLE_COEFFICIENT 1.0
 #define MAX_MOTION_BLUR_SAMPLE_COUNT 50
 #define CONSTANT_MOTION_BLUR_SAMPLE_COUNT 2
 
@@ -87,9 +87,9 @@ vec3 MotionBlur(vec3 color) {
 	vec2 velocity = (position.st - pene.st) * intensity; // Screen-space motion vector
 	     velocity = clamp(velocity, vec2(-maxVelocity), vec2(maxVelocity));
 	
-	float sampleCount = length(velocity / viewSize) * VARIABLE_MOTION_BLUR_SAMPLE_COEFFICIENT; // There should be exactly 1 sample for every pixel when the sample coefficient is 1.0
+	float sampleCount = length(velocity * viewSize) * VARIABLE_MOTION_BLUR_SAMPLE_COEFFICIENT; // There should be exactly 1 sample for every pixel when the sample coefficient is 1.0
 	      sampleCount = floor(clamp(sampleCount, 1, MAX_MOTION_BLUR_SAMPLE_COUNT));
-	sampleCount = 50.0;
+	
 	vec2 sampleStep = velocity / sampleCount;
 	int hashSeed = int(pow(gl_FragCoord.x, 1.4) * gl_FragCoord.y);
 	vec2 offset = sampleStep * WangHash(hashSeed)*0;

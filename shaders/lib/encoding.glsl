@@ -53,7 +53,7 @@ vec2 unpackTexcoord(float enc) {
 	
 	vec2 coord;
 	float matID = mod(floor(enc), exp2(B.r));
-	coord.r = mod(floor(enc / exp2(B.r)), exp2(B.g));
+	coord.r = mod(floor(enc / exp2(B.r      )), exp2(B.g));
 	coord.g = mod(floor(enc / exp2(B.r + B.g)), exp2(B.b));
 	
 	return coord * (exp2(-B.gb));
