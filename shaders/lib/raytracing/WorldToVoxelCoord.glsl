@@ -3,10 +3,6 @@
 
 #include "../settings/shadows.glsl"
 
-const int shadowRadius   = int(shadowDistance);
-const int shadowDiameter = 2 * shadowRadius;
-const ivec3 shadowDimensions = ivec3(shadowDiameter, 256, shadowDiameter);
-
 const int shadowRadius2   = int(min(shadowDistance, far));
 const int shadowDiameter2 = 2 * shadowRadius2;
 const ivec3 shadowDimensions2 = ivec3(shadowDiameter2, 256, shadowDiameter2);
@@ -43,22 +39,40 @@ vec3 VoxelToWorldSpace(vec3 position) {
 	return position - WtoV;
 }
 
-const int shadowArea = shadowDimensions.x * shadowDimensions.z;
-const int shadowVolume = shadowDimensions.y * shadowArea;
-
 const int shadowArea2 = shadowDimensions2.x * shadowDimensions2.z;
 const int shadowVolume2 = shadowDimensions2.y * shadowArea2;
 
 
+ivec2 VoxelToTextureSpace2(uvec3 position, uint LOD) {
+	const uint svv = (shadowVolume2*8)/7;
+	const uint svvv = shadowVolume2*8;
+	
+	const uint L1 = uint(ceil((shadowDiameter2)));
+	const uint L2 = uint(ceil((shadowArea2)));
+	
+	uvec3 b = uvec3(position) >> LOD;
+	b.x = (b.x * L1) >> LOD;
+	b.y = (b.y * L2) >> (LOD + LOD);
+	
+	uint linenum = uint(b.x + b.y + b.z) + (svv - (svvv >> int(LOD+LOD+LOD))/7);
+	return ivec2(linenum % shadowMapResolution, linenum / shadowMapResolution);
+}
+
 uint GetVoxelID(uvec3 vPos, uint LOD, uint offset) {
 	vPos = vPos >> LOD;
 	vPos.x = vPos.x << (8 - LOD);
-	vPos.z = vPos.z << (8 + uint(log2(shadowDimensions.x)) - (LOD + LOD));
+	vPos.z = vPos.z * uint((shadowDimensions2.x));
+	vPos.z = vPos.z << 8;
+	vPos.z = vPos.z >> (LOD + LOD);
+	// vPos.z = vPos.z << (uint(log2(shadowDimensions.x)) + (8 - (LOD + LOD)));
+	// vPos.z = vPos.z << (8 + uint(log2(shadowDimensions.x)) - (LOD + LOD));
 	
 	return vPos.x + vPos.y + vPos.z + offset;
 }
 
 ivec2 VoxelToTextureSpace(uvec3 vPos, uint LOD, uint offset) {
+	return VoxelToTextureSpace2(vPos, LOD);
+	
 	uint voxelID = GetVoxelID(vPos, LOD, offset);
 	
 	return ivec2(voxelID % shadowMapResolution, voxelID / shadowMapResolution);

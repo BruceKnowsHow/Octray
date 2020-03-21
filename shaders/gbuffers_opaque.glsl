@@ -15,6 +15,7 @@ uniform mat4 gbufferProjection;
 uniform vec3 cameraPosition;
 
 uniform float frameTimeCounter;
+uniform float far;
 uniform int frameCounter;
 uniform ivec2 atlasSize;
 uniform vec2 viewSize;
@@ -27,6 +28,7 @@ flat out vec2 midTexCoord;
 out vec4 vColor;
 out vec3 wPosition;
 out mat3 tbnMatrix;
+out vec3 wPos;
 flat out int blockID;
 
 mat3 CalculateTBN() {
@@ -40,6 +42,64 @@ mat3 CalculateTBN() {
 #include "block.properties"
 
 #include "lib/Random.glsl"
+
+vec2 rotate(vec2 vector, float radians) {
+	return vector *= mat2(
+		cos(radians), -sin(radians),
+		sin(radians),  cos(radians));
+}
+
+// #define DEFORM
+
+vec3 Deform(vec3 pos) {
+#ifndef DEFORM
+	return pos;
+#endif
+
+#if defined gbuffers_hand
+	return pos;
+#endif
+	
+	float rotation = (frameTimeCounter)*0;
+	
+	pos.xz = rotate(pos.xz, rotation);
+	
+	vec3 ret = pos;
+	
+	float distance2D = dot(pos.xz, pos.xz);
+	
+	// ret.y += 5.0 * sin(distance2D * sin((frameTimeCounter * 20 + 36000.0) / 143.0) / 1000.0);
+	ret.y += cameraPosition.y*0;
+	
+	vec2 sphereAngle = ret.xz / (far) * 3.14 / 2.0 / 3.0;
+	
+	vec3 pos1 = ret;
+	vec3 pos2 = ret;
+	
+	pos1.yz = rotate(pos1.yz, sphereAngle.y);
+	pos1.yx = rotate(pos1.yx, sphereAngle.x);
+	
+	pos2.yx = rotate(pos2.yx, sphereAngle.x);
+	pos2.yz = rotate(pos2.yz, sphereAngle.y);
+	
+	ret = mix(pos1, pos2, 0.5);
+	
+	ret.y -= cameraPosition.y*0;
+	// ret.y -= (dot(pos.z, pos.z) / 100.0);
+	// ret.y -= 5.0 * sin(sqrt(distance2D) / 10.0);
+	
+	pos = ret;
+	
+	float om = sin(distance2D * sin((frameTimeCounter * 20.0 + 36000.0) / 256.0) / 5000.0) * sin((frameTimeCounter * 20.0 + 36000.0) / 200.0);
+	
+	ret.xy = rotate(ret.xy, om*0);
+	
+	ret.xz = rotate(ret.xz, -rotation);
+	
+	return ret;
+}
+
+#include "lib/raytracing/WorldToVoxelCoord.glsl"
 
 void main() {
 	blockID = BackPortID(int(mc_Entity.x));
@@ -66,11 +126,17 @@ void main() {
 	// position.xyz = center;
 	// position.xz += offset[(gl_VertexID) % 4] * 0.25;
 	wPosition = position.xyz;
+	wPos = position.xyz - gbufferModelViewInverse[3].xyz;
+	
+	position.xyz = Deform(position.xyz);
+	
+	// position.xyz = wPos + gbufferModelViewInverse[3].xyz;
 	
 	discardflag = 0.0;
 #if UNHANDLED_BLOCKS >= 2
 	discardflag += float(!isVoxelized(blockID));
 #endif
+	discardflag += float(OutOfVoxelBounds(mix(WorldToVoxelSpace(wPosition - tbnMatrix[2]), vec3(1), vec3(0,1,0))));
 
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
 	
@@ -115,7 +181,6 @@ flat out vec2 cornerTexCoord;
 flat out int _blockID;
 
 
-#include "lib/settings/shadows.glsl"
 #include "lib/raytracing/WorldToVoxelCoord.glsl"
 #include "lib/encoding.glsl"
 
@@ -182,6 +247,7 @@ in vec4 vColor;
 in vec3 wPosition;
 in mat3 tbnMatrix;
 flat in vec2 cornerTexCoord;
+in vec3 wPos;
 flat in int blockID;
 
 /* DRAWBUFFERS:01 */
@@ -212,7 +278,7 @@ void main() {
 	}
 	
 	gl_FragData[0] = vec4(PackGBuffers(diffuse, normal, spec).xyz, EncodeTBNU(tbn));
-	gl_FragData[1] = vec4(blockID / 255.0, 0.0, 0.0, 0.0);
+	gl_FragData[1] = vec4(blockID / 255.0, wPos);
 	
 	exit();
 }

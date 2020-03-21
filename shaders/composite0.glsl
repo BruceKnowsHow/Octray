@@ -242,7 +242,11 @@ void main() {
 	vec4 prevCol = max(texture(colortex2, texcoord).rgba, 0) * float(accum);
 	
 	vec3 wPos = GetWorldSpacePosition(tc, depth);
+	vec3 wPos2 = texture(colortex1, texcoord).gba;
 	vec3 wDir = normalize(wPos);
+	// show(abs(wPos.z - wPos2.z) * 10.0)
+	wPos.xyz = wPos2.xyz;
+	// show(abs(wPos - wPos2)*100.0)
 	
 	vec4 totalColor2 = vec4(0.0,0.0,0.0,1.0);
 	float alpha = 1.0;

@@ -126,11 +126,11 @@ void main() {
 	
 	EmitVertex();
 	
-	int lodOffset = shadowVolume;
+	int lodOffset = shadowVolume2;
 	
 	for (int LOD = 1; LOD <= 7; ++LOD) {
 		coord = VoxelToTextureSpace(uvec3(vPos), LOD, lodOffset) + 0.5;
-		lodOffset += shadowVolume >> (LOD * 3);
+		lodOffset += (shadowVolume2 >> (LOD * 3));
 		coord /= shadowMapResolution;
 		
 		depth = -1.0;

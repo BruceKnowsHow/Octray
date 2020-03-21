@@ -220,6 +220,7 @@ RayStruct RayPopBack() {
 	return res;
 }
 
+uint VM_steps = 0;
 
 #define NONE 0
 #define VM_STEPS_BW 1
@@ -231,7 +232,7 @@ RayStruct RayPopBack() {
 #define DEBUG_PRESET NONE // [NONE VM_STEPS_BW VM_STEPS_LOD VM_DIFFUSE VM_WPOS QUEUE_FULL]
 
 void DEBUG_VM_ACCUM() {
-	inc(1.0 / 64.0);
+	show(float(VM_steps) * 0.01)
 }
 #if !(DEBUG_PRESET == VM_STEPS_BW)
 	#define DEBUG_VM_ACCUM()
@@ -342,8 +343,6 @@ uvec3 UnsortMinComp(uvec3 uvw, uvec3 uplane) {
 	return ret;
 }
 
-uint VM_steps = 0;
-
 VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 	// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep1&type=pdf
 	
@@ -368,7 +367,7 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 		
 		uvec3 newPos;
 		newPos.z = nearBound + isPos.z - 1;
-		if ( LOD >= 8 || OutOfVoxelBounds(newPos.z, uplane) || ++VM_steps >= 256 ) { break; }
+		if ( LOD >= 8 || OutOfVoxelBounds(newPos.z, uplane) || ++VM_steps >= 1024 ) { break; }
 		
 		float tLength = BinaryDotF(distToBoundary, uplane);
 		newPos.xy = GetNonMinComps(uvec3(floor(fract(vPos) + wDir * tLength) + floor(vPos)), uplane);
@@ -378,9 +377,9 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 		DEBUG_VM_ACCUM();
 		DEBUG_VM_ACCUM_LOD(LOD);
 		
-		uint shouldStepUp = uint((newPos.z >> (LOD+1)) != (oldPos >> (LOD+1)));
+		uint shouldStepUp = uint((newPos.z >> (LOD+1)) != (oldPos >> (LOD+1))) * uint(LOD <= 6);
 		LOD = (LOD + shouldStepUp) & 7;
-		lodOffset += (shadowVolume >> ((LOD + (hit-1)) * 3)) * (shouldStepUp-hit);
+		lodOffset += (shadowVolume2 >> ((LOD + (hit-1)) * 3)) * (shouldStepUp-hit);
 		vCoord = VoxelToTextureSpace(uvPos, LOD, lodOffset);
 		data = texelFetch(VOXEL_INTERSECTION_TEX, vCoord, 0).x;
 		hit = uint(data != volume);

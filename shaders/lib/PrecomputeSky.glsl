@@ -142,7 +142,7 @@ const vec3 skybright = 0.2 * SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SKY_SPECTRAL_R
 // const vec3 skybright = 1.0 * (SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE) /  (SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE).b;
 
 const float atmosphereScale = 5.0;
-vec3 kCamera = vec3(0.0, 1.0 + cameraPosition.y/1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+vec3 kCamera = vec3(0.0, 30.0 + cameraPosition.y/1000.0 + ATMOSPHERE.bottom_radius, 0.0);
 
 #define timeDay 1.0
 #define cubesmooth(x) ((x) * (x) * (3.0 - 2.0 * (x)))
@@ -277,8 +277,8 @@ vec4 GetScatteringTextureUvwzFromRMuMuSNu(float r, float mu, float mu_s, float n
 	float discriminant = r_mu * r_mu - r * r + ATMOSPHERE.bottom_radius * ATMOSPHERE.bottom_radius;
 
 	float u_mu;
-	// if (false && ray_r_mu_intersects_ground) {
-	if (ray_r_mu_intersects_ground) {
+	if (false && ray_r_mu_intersects_ground) {
+	// if (ray_r_mu_intersects_ground) {
 		// Distance to the ground for the ray (r,mu), and its minimum and maximum
 		// values over all mu - obtained for (r,-1) and (r,mu_horizon).
 		float d = -r_mu - SafeSqrt(discriminant);
@@ -313,7 +313,7 @@ vec4 GetScatteringTextureUvwzFromRMuMuSNu(float r, float mu, float mu_s, float n
 		float u_mu2 = 0.5 + 0.5 * GetTextureCoordFromUnitRange((d2 - d_min2) / (d_max2 - d_min2), SCATTERING_TEXTURE_MU_SIZE / 2);
 		
 		
-		// u_mu = mix(u_mu, u_mu2, 0.0);
+		// u_mu = mix(u_mu, u_mu2, 0.5);
 	//	u_mu = mix(u_mu, 1.0, pow(1-abs(sunDirection.y), 4.0));
 	}
 
