@@ -9,6 +9,8 @@
 #include "../settings/shadows.glsl"
 #include "WorldToVoxelCoord.glsl"
 
+#include "../TerrainParallax.fsh"
+
 // Return structure for the VoxelMarch function
 struct VoxelMarchOut {
 	uint  hit  ;
@@ -18,12 +20,38 @@ struct VoxelMarchOut {
 	ivec2 vCoord;
 };
 
+struct SurfaceStruct {
+	mat3 tbn;
+	
+	float depth;
+	vec4 voxelData;
+	
+	vec4 albedo;
+	vec4 normals;
+	vec4 specular;
+	
+	vec3 normal;
+	
+	float emissive;
+	
+	int blockID;
+	vec2 cornerTexCoord;
+};
+
 struct RayStruct {
 	vec3 vPos;
 	vec3 wDir;
 	vec3 absorb;
 	uint info;
 	float prevVolume;
+	
+	#if defined TERRAIN_PARALLAX
+		bool insidePOM;
+		vec3 tCoord;
+		vec2 spriteSize;
+		vec2 cornerTexCoord;
+		vec3 plane;
+	#endif
 };
 
 //#define COMPRESS_RAY_QUEUE
@@ -293,6 +321,10 @@ float MinComp(vec3 v, out uvec3 minCompMask) {
 	return intBitsToFloat(BinaryDot(ia, iCompMask));
 }
 
+vec2 MinCompMask(vec2 v) {
+	return (v.x < v.y) ? vec2(1,0) : vec2(0,1);
+}
+
 uvec3 GetMinCompMask(vec3 v) {
 	ivec3 ia = floatBitsToInt(v);
 	ivec3 iCompMask;
@@ -350,6 +382,9 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 	uvec3 boundary = uvec3(vPos) + dirIsPositive;
 	uvec3 uvPos = uvec3(vPos);
 	
+	uvec3 vvPos = uvPos;
+	vec3 fPos = fract(vPos);
+	
 	uint LOD = 0;
 	uint lodOffset = 0;
 	uint hit = 0;
@@ -367,10 +402,10 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 		
 		uvec3 newPos;
 		newPos.z = nearBound + isPos.z - 1;
-		if ( LOD >= 8 || OutOfVoxelBounds(newPos.z, uplane) || ++VM_steps >= 1024 ) { break; }
+		if ( LOD >= 8 || OutOfVoxelBounds(newPos.z, uplane) || ++VM_steps >= 512 ) { break; }
 		
 		float tLength = BinaryDotF(distToBoundary, uplane);
-		newPos.xy = GetNonMinComps(uvec3(floor(fract(vPos) + wDir * tLength) + floor(vPos)), uplane);
+		newPos.xy = GetNonMinComps(ivec3(floor(fPos + wDir * tLength)) + vvPos, uplane);
 		uint oldPos = GetMinComp(uvPos, uplane);
 		uvPos = UnsortMinComp(newPos, uplane);
 		
@@ -401,25 +436,6 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 	return VMO;
 }
 
-struct SurfaceStruct {
-	mat3 tbn;
-	
-	float depth;
-	vec4 voxelData;
-	
-	vec4 albedo;
-	vec4 normals;
-	vec4 specular;
-	
-	vec3 normal;
-	
-	float emissive;
-	
-	int blockID;
-	vec2 spriteSize;
-	vec2 cornerTexCoord;
-};
-
 mat3 GenerateTBN(vec3 plane) {
 	mat3 tbn;
 	
@@ -438,7 +454,6 @@ mat3 GenerateTBN(vec3 plane) {
 	return tbn;
 }
 
-#include "../TerrainParallax.fsh"
 #include "../ComputeWaveNormals.fsh"
 
 vec4 GetNormals(ivec2 coord) {
@@ -455,33 +470,43 @@ vec4 GetSpecular(ivec2 coord) {
 	#define GetSpecular(coord) vec4(0.0, 0.0, 0.0, 0.0)
 #endif
 
-SurfaceStruct ReconstructSurface(RayStruct curr, VoxelMarchOut VMO) {
+SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
+	curr.vPos = VMO.vPos - VMO.plane * exp2(-12);
+	
 	SurfaceStruct surface;
 	surface.voxelData = vec4(texelFetch(shadowcolor0, VMO.vCoord, 0));
 	surface.blockID = int(surface.voxelData.g*255);
 	
+	surface.depth = VMO.data;
+	
 	surface.tbn = GenerateTBN(VMO.plane);
 	
-	surface.spriteSize = exp2(round(surface.voxelData.xx * 255.0));
+	vec2 spriteSize = exp2(round(surface.voxelData.xx * 255.0));
+	vec2 spriteScale = spriteSize / atlasSize;
+	vec2 cornerTexCoord = unpackTexcoord(VMO.data);
+	vec2 tCoord = ((fract(curr.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
 	
-	vec2 coord = ((fract(VMO.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
-	surface.depth = VMO.data;
-	surface.cornerTexCoord = unpackTexcoord(VMO.data);
-	vec2 tCoord = surface.cornerTexCoord + coord.xy * surface.spriteSize / atlasSize;
+	tCoord = tCoord * spriteScale;
 	
-	tCoord = ComputeParallaxCoordinate(tCoord, curr.wDir, surface.tbn, surface.spriteSize, VOXEL_NORMALS_TEX);
+	#if defined TERRAIN_PARALLAX
+		vec3 tDir = curr.wDir * surface.tbn;
+		curr.tCoord = ComputeParallaxCoordinate(vec3(tCoord, 1.0), cornerTexCoord, tDir, spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
+		curr.plane = VMO.plane;
+		curr.spriteSize = spriteSize;
+		curr.cornerTexCoord = cornerTexCoord;
+		
+		tCoord = curr.tCoord.xy;
+	#endif
 	
-	ivec2 iCoord = ivec2(tCoord * atlasSize);
-	
-	surface.albedo   = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
-	surface.normals  = GetNormals(iCoord);
+	ivec2 iCoord = ivec2((mod(tCoord, spriteScale) + cornerTexCoord) * atlasSize);
+	surface.albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
+	surface.normals = GetNormals(iCoord);
 	surface.specular = GetSpecular(iCoord);
 	
 	DEBUG_DIFFUSE_SHOW(surface.albedo.rgb);
 	DEBUG_WPOS_SHOW(VoxelToWorldSpace(VMO.vPos));
 	
 	surface.albedo.rgb *= rgb(vec3(surface.voxelData.ba, 1.0));
-	// surface.albedo.rgb *= surface.voxelData[1].rgb;
 	surface.albedo.rgb  = pow(surface.albedo.rgb, vec3(2.2));
 	
 	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);

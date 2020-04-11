@@ -189,7 +189,7 @@ bool ConstructTransparentRays(inout RayStruct curr, SurfaceStruct surface) {
 	
 	through.info = PackRayInfo(GetRayDepth(curr.info) + 1, GetRayType(curr.info));
 	
-	if (!isLeavesType(surface.blockID) && !isGlassType(surface.blockID)) return false;
+	// if (!isLeavesType(surface.blockID) && !isGlassType(surface.blockID) ) return false;
 	
 	/*
 	vec3 plane;
@@ -244,9 +244,7 @@ void main() {
 	vec3 wPos = GetWorldSpacePosition(tc, depth);
 	vec3 wPos2 = texture(colortex1, texcoord).gba;
 	vec3 wDir = normalize(wPos);
-	// show(abs(wPos.z - wPos2.z) * 10.0)
 	wPos.xyz = wPos2.xyz;
-	// show(abs(wPos - wPos2)*100.0)
 	
 	vec4 totalColor2 = vec4(0.0,0.0,0.0,1.0);
 	float alpha = 1.0;
@@ -274,13 +272,7 @@ void main() {
 		UnpackGBuffers(texelFetch(GBUFFER0_SAMPLER, ivec2(tc*viewSize), 0).xyz, surface.albedo, surface.normals, surface.specular);
 		surface.tbn = DecodeTBNU(texelFetch(GBUFFER0_SAMPLER, ivec2(tc*viewSize), 0).a);
 		surface.blockID = int(texelFetch(GBUFFER1_SAMPLER, ivec2(tc*viewSize), 0).r * 255.0);
-		surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
-		surface.albedo.rgb = pow(surface.albedo.rgb, vec3(2.2));
-		surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
-		if (isEmissive(surface.blockID)) surface.emissive = 1.0;
-		if (isWater(surface.blockID)) {
-			surface.normal = surface.tbn * ComputeWaveNormals(wPos, wDir, surface.tbn[2]);
-		}
+		
 		
 		RayStruct curr;
 		curr.vPos = WorldToVoxelSpace(vec3(0.0));
@@ -290,7 +282,44 @@ void main() {
 		curr.prevVolume = 1.0;
 		curr.vPos = WorldToVoxelSpace(wPos) - surface.tbn[2] * exp2(-10)*0;
 		
-		surface.depth = texelFetch(shadowtex0, VoxelToTextureSpace(uvec3(curr.vPos - surface.tbn[2] / 4.0)), 0).x;
+		ivec2 vCoord = VoxelToTextureSpace(uvec3(curr.vPos - surface.tbn[2] / 4.0));
+		
+		surface.depth = texelFetch(shadowtex0, vCoord, 0).x;
+		
+		#if defined TERRAIN_PARALLAX
+			if (isVoxelized(surface.blockID)) {
+				vec4 voxelData = vec4(texelFetch(shadowcolor0, vCoord, 0));
+				vec2 spriteSize = exp2(round(voxelData.xx * 255.0));
+				vec2 spriteScale = spriteSize / atlasSize;
+				vec2 cornerTexCoord = unpackTexcoord(surface.depth);
+				
+				vec2 tCoord = ((fract(curr.vPos - surface.tbn[2]*exp2(-12)*0) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
+				tCoord = tCoord * spriteScale;
+				
+				vec3 tDir = curr.wDir * surface.tbn;
+				curr.tCoord = ComputeParallaxCoordinate(vec3(tCoord, 1.0), cornerTexCoord, tDir, spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
+				curr.plane = surface.tbn[2];
+				curr.spriteSize = spriteSize;
+				curr.cornerTexCoord = cornerTexCoord;
+				
+				tCoord = curr.tCoord.xy;
+				
+				ivec2 iCoord = ivec2((mod(tCoord, spriteScale) + cornerTexCoord) * atlasSize);
+				surface.albedo = vec4(1);
+				surface.albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
+				surface.normals = GetNormals(iCoord);
+				surface.specular = GetSpecular(iCoord);
+				surface.albedo.rgb *= rgb(vec3(voxelData.ba, 1.0));
+			}
+		#endif
+		
+		surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
+		surface.albedo.rgb = pow(surface.albedo.rgb, vec3(2.2));
+		surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
+		if (isEmissive(surface.blockID)) surface.emissive = 1.0;
+		if (isWater(surface.blockID)) {
+			surface.normal = surface.tbn * ComputeWaveNormals(wPos, wDir, surface.tbn[2]);
+		}
 		
 		if (!ConstructTransparentRays(curr, surface)) {
 			HandLight(curr, surface);
@@ -307,6 +336,9 @@ void main() {
 		
 		primary.wDir = wDir;
 		primary.prevVolume = 1.0;
+		#if defined TERRAIN_PARALLAX
+			primary.insidePOM = false;
+		#endif
 		RayPushBack(primary, totalColor);
 	}
 	
@@ -314,6 +346,17 @@ void main() {
 		if (IsQueueEmpty()) break;
 		
 		RayStruct curr = RayPopBack();
+		
+		#if defined TERRAIN_PARALLAX
+			if (curr.insidePOM) {
+				vec3 tDir = curr.wDir * GenerateTBN(curr.plane);
+				vec2 spriteScale = curr.spriteSize / atlasSize;
+				
+				curr.tCoord = ComputeParallaxCoordinate(curr.tCoord, curr.cornerTexCoord, tDir, spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
+				
+				if (curr.insidePOM) continue;
+			}
+		#endif
 		
 		VoxelMarchOut VMO = VoxelMarch(curr.vPos, curr.wDir, curr.prevVolume);
 		
@@ -328,14 +371,11 @@ void main() {
 		
 		SurfaceStruct surface = ReconstructSurface(curr, VMO);
 		
-		curr.vPos = VMO.vPos;
-		
 		if (ConstructTransparentRays(curr, surface)) continue;
 		
 		if (IsSunlightRay(curr)) continue;
 		
 		HandLight(curr, surface);
-		
 		ConstructRays(curr, surface);
 	}
 	

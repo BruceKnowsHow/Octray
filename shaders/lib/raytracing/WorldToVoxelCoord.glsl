@@ -61,13 +61,22 @@ ivec2 VoxelToTextureSpace2(uvec3 position, uint LOD) {
 uint GetVoxelID(uvec3 vPos, uint LOD, uint offset) {
 	vPos = vPos >> LOD;
 	vPos.x = vPos.x << (8 - LOD);
-	vPos.z = vPos.z * uint((shadowDimensions2.x));
+	vPos.z = vPos.z * uint(shadowDimensions2.x);
 	vPos.z = vPos.z << 8;
 	vPos.z = vPos.z >> (LOD + LOD);
 	// vPos.z = vPos.z << (uint(log2(shadowDimensions.x)) + (8 - (LOD + LOD)));
 	// vPos.z = vPos.z << (8 + uint(log2(shadowDimensions.x)) - (LOD + LOD));
 	
 	return vPos.x + vPos.y + vPos.z + offset;
+}
+
+uvec3 GetVoxelPosition(uint voxelID) {
+	uvec3 uvPos;
+	uvPos.y = voxelID % 256;
+	uvPos.x = (voxelID / 256) % uint(shadowDimensions2.x);
+	uvPos.z = (voxelID / 256) / uint(shadowDimensions2.x);
+	
+	return uvPos;
 }
 
 ivec2 VoxelToTextureSpace(uvec3 vPos, uint LOD, uint offset) {
