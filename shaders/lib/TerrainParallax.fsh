@@ -1,7 +1,7 @@
 #if !defined TERRAINPARALLAX_FSH
 #define TERRAINPARALLAX_FSH
 
-// #define TERRAIN_PARALLAX
+// #define RT_TERRAIN_PARALLAX
 #define TERRAIN_PARALLAX_QUALITY 1.0
 #define TERRAIN_PARALLAX_INTENSITY 1.0 // [0.0 1/4.0 2/4.0 3/4.0 1.0 1.5 2.0 3.0 4.0]
 #define TERRAIN_PARALLAX_DISTANCE 16.0
@@ -39,7 +39,7 @@ vec3 ComputeParallaxCoordinate(vec3 tCoord, vec2 cornerTexCoord, vec3 tDir, vec2
 	
 	return tCoord;
 }
-#ifndef TERRAIN_PARALLAX
+#ifndef RT_TERRAIN_PARALLAX
 	#define ComputeParallaxCoordinate1(tCoord, cornerTexCoord, tDir, spriteScale, insidePOM, samplr) vec3(tCoord.xy, 1.0)
 #endif
 

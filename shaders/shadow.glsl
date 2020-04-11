@@ -107,8 +107,6 @@ void main() {
 	
 	if (OutOfVoxelBounds(vPos)) return;
 	
-	
-	
 	vec2 coord = VoxelToTextureSpace(uvec3(vPos)) + 0.5;
 	coord /= shadowMapResolution;
 	

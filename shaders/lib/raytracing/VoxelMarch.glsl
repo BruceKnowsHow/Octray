@@ -6,8 +6,9 @@
 #define VOXEL_NORMALS_TEX depthtex2
 #define VOXEL_SPECULAR_TEX shadowtex1
 
-#include "../settings/shadows.glsl"
+
 #include "WorldToVoxelCoord.glsl"
+#include "../../block.properties"
 
 #include "../TerrainParallax.fsh"
 
@@ -45,7 +46,7 @@ struct RayStruct {
 	uint info;
 	float prevVolume;
 	
-	#if defined TERRAIN_PARALLAX
+	#if defined RT_TERRAIN_PARALLAX
 		bool insidePOM;
 		vec3 tCoord;
 		vec2 spriteSize;
@@ -488,7 +489,7 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	
 	tCoord = tCoord * spriteScale;
 	
-	#if defined TERRAIN_PARALLAX
+	#if defined RT_TERRAIN_PARALLAX
 		vec3 tDir = curr.wDir * surface.tbn;
 		curr.tCoord = ComputeParallaxCoordinate(vec3(tCoord, 1.0), cornerTexCoord, tDir, spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
 		curr.plane = VMO.plane;

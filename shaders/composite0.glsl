@@ -75,7 +75,6 @@ noperspective in vec2 texcoord;
 #include "lib/utility.glsl"
 #include "lib/encoding.glsl"
 #include "lib/settings/buffers.glsl"
-#include "block.properties"
 
 #include "lib/Random.glsl"
 
@@ -286,7 +285,7 @@ void main() {
 		
 		surface.depth = texelFetch(shadowtex0, vCoord, 0).x;
 		
-		#if defined TERRAIN_PARALLAX
+		#if defined RT_TERRAIN_PARALLAX
 			if (isVoxelized(surface.blockID)) {
 				vec4 voxelData = vec4(texelFetch(shadowcolor0, vCoord, 0));
 				vec2 spriteSize = exp2(round(voxelData.xx * 255.0));
@@ -305,7 +304,6 @@ void main() {
 				tCoord = curr.tCoord.xy;
 				
 				ivec2 iCoord = ivec2((mod(tCoord, spriteScale) + cornerTexCoord) * atlasSize);
-				surface.albedo = vec4(1);
 				surface.albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
 				surface.normals = GetNormals(iCoord);
 				surface.specular = GetSpecular(iCoord);
@@ -336,7 +334,7 @@ void main() {
 		
 		primary.wDir = wDir;
 		primary.prevVolume = 1.0;
-		#if defined TERRAIN_PARALLAX
+		#if defined RT_TERRAIN_PARALLAX
 			primary.insidePOM = false;
 		#endif
 		RayPushBack(primary, totalColor);
@@ -347,7 +345,7 @@ void main() {
 		
 		RayStruct curr = RayPopBack();
 		
-		#if defined TERRAIN_PARALLAX
+		#if defined RT_TERRAIN_PARALLAX
 			if (curr.insidePOM) {
 				vec3 tDir = curr.wDir * GenerateTBN(curr.plane);
 				vec2 spriteScale = curr.spriteSize / atlasSize;
