@@ -1,7 +1,11 @@
 #if !defined WORLDTOVOXELCOORD_GLSL
 #define WORLDTOVOXELCOORD_GLSL
 
-#include "../settings/shadows.glsl"
+#!dont-flatten
+#include "ShadowMapSettings.glsl"
+
+#!dont-flatten
+#include "/block.properties"
 
 const int shadowRadius2   = int(min(shadowDistance, far));
 const int shadowDiameter2 = 2 * shadowRadius2;

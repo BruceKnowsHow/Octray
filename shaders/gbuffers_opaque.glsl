@@ -39,9 +39,7 @@ mat3 CalculateTBN() {
 	return mat3(tangent, binormal, normal);
 }
 
-#include "block.properties"
-
-#include "lib/Random.glsl"
+#include "/lib/Random.glsl"
 
 vec2 rotate(vec2 vector, float radians) {
 	return vector *= mat2(

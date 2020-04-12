@@ -6,11 +6,9 @@
 #define VOXEL_NORMALS_TEX depthtex2
 #define VOXEL_SPECULAR_TEX shadowtex1
 
-
 #include "WorldToVoxelCoord.glsl"
-#include "../../block.properties"
-
-#include "../TerrainParallax.fsh"
+#include "RT_TerrainParallax.fsh"
+#include "RT_Encoding.glsl"
 
 // Return structure for the VoxelMarch function
 struct VoxelMarchOut {
@@ -66,64 +64,6 @@ struct RayStruct {
 #else
 	#define RayQueueStruct RayStruct
 #endif
-
-uint f32tof16(float val) {
-	uint f32 = floatBitsToUint(val);
-	int exponent = clamp(int((f32 >> 23u) & 0xFFu) - 127 + 31, 0, 63);
-
-	return uint(exponent << 10u) | ((f32 & 0x007FFFFFu) >> 13u);
-}
-
-float f16tof32(uint val) {
-	int exponent = int((val & 0xFC00u) >> 10) - 31;
-	
-	float scale = float(1 << abs(exponent));
-	      scale = (exponent < 0) ? 1.0 / scale : scale;
-
-	float decimal = 1.0 + float(val & 0x03FFu) / float(1 << 10);
-
-	return scale * decimal;
-}
-
-float pack2x1(vec2 v) {
-	const uint mask0 = (1 << 16) - 1;
-	const uint mask1 = ~mask0;
-	
-	uint ret = f32tof16(v.x) | (f32tof16(v.y) << 16);
-	
-	return uintBitsToFloat(ret);
-}
-
-vec2 unpack2x1(float v) {
-	const uint mask0 = (1 << 16) - 1;
-	const uint mask1 = ~mask0;
-	
-	uint t = floatBitsToUint(v);
-	
-	return vec2(f16tof32(t & mask0), f16tof32(t >> 16));
-}
-
-vec2 packColor(vec3 col) {
-	return vec2(col.r, pack2x1(col.gb));
-}
-
-vec3 unpackColor(vec2 col) {
-	return vec3(col.r, unpack2x1(col.g));
-}
-
-vec2 EncodeNormalSnorm(vec3 normal) {
-	normal = normalize(normal);
-	normal.y = uintBitsToFloat((floatBitsToUint(normal.y) & (~1)) | (floatBitsToUint(normal.z) >> 31));
-	return normal.xy;
-}
-
-vec3 DecodeNormalSnorm(vec2 norm) {
-	float z = 1.0 - 2.0*float(floatBitsToInt(norm.y) & (1));
-	norm.y = uintBitsToFloat((floatBitsToUint(norm.y)) & (~1));
-	z *= sqrt(1.0- dot(norm, norm));
-	
-	return vec3(norm, z+1e-35);
-}
 
 const uint  PRIMARY_RAY_TYPE = (1 <<  8);
 const uint SUNLIGHT_RAY_TYPE = (1 <<  9);
@@ -182,10 +122,10 @@ uint GetRayDepth(uint info) {
 #if defined COMPRESS_RAY_QUEUE
 	RayQueueStruct PackRay(RayStruct ray) {
 		RayQueueStruct ret;
-		vec2 col = packColor(ray.absorb);
+		vec2 col = RT_packColor(ray.absorb);
 		ret.vPos.xyz = ray.vPos;
 		ret.vPos.w = col.r;
-		ret.wDir.xy = EncodeNormalSnorm(ray.wDir);
+		ret.wDir.xy = RT_EncodeNormalSnorm(ray.wDir);
 		ret.wDir.z = uintBitsToFloat(ray.info);
 		ret.wDir.w = col.g;
 		ret.prevVolume = ray.prevVolume;
@@ -195,9 +135,9 @@ uint GetRayDepth(uint info) {
 	RayStruct UnpackRay(RayQueueStruct ray) {
 		RayStruct ret;
 		ret.vPos = ray.vPos.xyz;
-		ret.wDir = DecodeNormalSnorm(ray.wDir.xy);
+		ret.wDir = RT_DecodeNormalSnorm(ray.wDir.xy);
 		ret.info = floatBitsToUint(ray.wDir.z);
-		ret.absorb = unpackColor(vec2(ray.vPos.w, ray.wDir.w));
+		ret.absorb = RT_unpackColor(vec2(ray.vPos.w, ray.wDir.w));
 		ret.prevVolume = ray.prevVolume;
 		return ret;
 	}
@@ -455,8 +395,6 @@ mat3 GenerateTBN(vec3 plane) {
 	return tbn;
 }
 
-#include "../ComputeWaveNormals.fsh"
-
 vec4 GetNormals(ivec2 coord) {
 	return texelFetch(VOXEL_NORMALS_TEX, coord, 0);
 }
@@ -507,7 +445,7 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	DEBUG_DIFFUSE_SHOW(surface.albedo.rgb);
 	DEBUG_WPOS_SHOW(VoxelToWorldSpace(VMO.vPos));
 	
-	surface.albedo.rgb *= rgb(vec3(surface.voxelData.ba, 1.0));
+	surface.albedo.rgb *= RT_rgb(vec3(surface.voxelData.ba, 1.0));
 	surface.albedo.rgb  = pow(surface.albedo.rgb, vec3(2.2));
 	
 	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
@@ -515,10 +453,6 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	
 	if (isEmissive(surface.blockID))
 		surface.emissive = 1.0;
-	
-	if (isWater(surface.blockID)) {
-		surface.normal = surface.tbn * ComputeWaveNormals(VoxelToWorldSpace(VMO.vPos), curr.wDir, surface.tbn[2]);
-	}
 	
 	return surface;
 }

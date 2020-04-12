@@ -315,9 +315,6 @@ void main() {
 		surface.albedo.rgb = pow(surface.albedo.rgb, vec3(2.2));
 		surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
 		if (isEmissive(surface.blockID)) surface.emissive = 1.0;
-		if (isWater(surface.blockID)) {
-			surface.normal = surface.tbn * ComputeWaveNormals(wPos, wDir, surface.tbn[2]);
-		}
 		
 		if (!ConstructTransparentRays(curr, surface)) {
 			HandLight(curr, surface);
