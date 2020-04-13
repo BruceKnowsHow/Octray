@@ -5,6 +5,7 @@ attribute vec3 mc_Entity;
 attribute vec4 at_tangent;
 attribute vec2 mc_midTexCoord;
 
+uniform mat4 gbufferModelViewInverse;
 uniform mat4 shadowModelViewInverse;
 uniform float far;
 
@@ -99,7 +100,7 @@ void main() {
 	vec3 triCentroid = (wPosition[0] + wPosition[1] + wPosition[2]) / 3.0 - vNormal[0] / 4096.0;
 	triCentroid += fract(cameraPosition);
 	
-	vec3 vPos = WorldToVoxelSpace(triCentroid);
+	vec3 vPos = WorldToVoxelSpace_ShadowMap(triCentroid);
 	
 	if (OutOfVoxelBounds(vPos)) return;
 	

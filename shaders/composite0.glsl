@@ -92,8 +92,6 @@ vec3 GetWorldSpacePosition(vec2 coord, float depth) {
 #include "lib/PBR.glsl"
 #include "lib/sky.glsl"
 #include "lib/PrecomputeSky.glsl"
-#include "lib/raytracing/VoxelMarch.glsl"
-#include "lib/Volumetrics.fsh"
 
 mat3 ArbitraryTBN(vec3 normal) {
 	mat3 ret;
@@ -109,6 +107,16 @@ const float glassIOR = 1.0;
 vec3 totalColor = vec3(0.0);
 
 int RAY_COUNT;
+
+#include "/lib/Tonemap.glsl"
+
+bool PassesVisibilityThreshold(vec3 absorb) {
+	vec3 delC = Tonemap(absorb + totalColor) - Tonemap(totalColor);
+	return any(greaterThan(delC, vec3(10.0 / 255.0)));
+}
+
+#include "lib/raytracing/VoxelMarch.glsl"
+#include "lib/Volumetrics.fsh"
 
 #define SUNLIGHT_RAYS On // [On Off]
 #define SPECULAR_RAYS Off // [On Off]
@@ -127,7 +135,7 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 		ambientray.info = PackRayInfo(GetRayDepth(curr.info) + 1, AMBIENT_RAY_TYPE, GetRayAttr(curr.info));
 		ambientray.wDir = ArbitraryTBN(surface.normal) * CalculateConeVector(RandNextF(), radians(90.0), 32);
 		ambientray.absorb *= surface.albedo.rgb * ambientBrightness * float(dot(ambientray.wDir, surface.tbn[2]) > 0.0);
-		RayPushBack(ambientray, totalColor);
+		RayPushBack(ambientray);
 	}
 	
 	if (SPECULAR_RAYS) {
@@ -157,7 +165,7 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 	    vec3 Li = (kD * surface.albedo.rgb * 4.0*0 + spec) * NdotL;
 		
 		specular.absorb = curr.absorb * Li * float(dot(specular.wDir, surface.tbn[2]) > 0.0);
-		RayPushBack(specular, totalColor);
+		RayPushBack(specular);
 	}
 	
 	if (SUNLIGHT_RAYS) {
@@ -169,7 +177,7 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 		float sunlight = OrenNayarDiffuse(sunDirection, curr.wDir, surface.normal, 0.5, 1.0);
 		sunlight *= float(dot(surface.tbn[2], sunDirection) > 0.0);
 		sunray.absorb = curr.absorb * surface.albedo.rgb * sunlight * sunBrightness * GetSunIrradiance(kPoint(VoxelToWorldSpace(curr.vPos)), sunDirection);
-		RayPushBack(sunray, totalColor);
+		RayPushBack(sunray);
 	}
 }
 
@@ -207,7 +215,7 @@ bool ConstructTransparentRays(inout RayStruct curr, SurfaceStruct surface) {
 	through.absorb *= (1 - surface.albedo.a);
 	curr.absorb *= surface.albedo.a;
 	
-	RayPushBack(through, totalColor);
+	RayPushBack(through);
 	return surface.albedo.a <= 0;
 }
 
@@ -218,7 +226,7 @@ void HandLight(RayStruct curr, SurfaceStruct surface) {
 		totalColor += surface.albedo.rgb * vec3(255, 200, 100) / 255.0 * 1.0 * (heldBlockLightValue + heldBlockLightValue2) / 16.0 * curr.absorb / (dot(wPos,wPos) + 0.5) * dot(surface.normal, -curr.wDir);
 	}
 	
-	totalColor += surface.albedo.rgb * surface.emissive * curr.absorb * emissiveBrightness;
+	// totalColor += surface.albedo.rgb * surface.emissive * curr.absorb * emissiveBrightness;
 }
 
 
@@ -313,8 +321,8 @@ void main() {
 		
 		surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
 		surface.albedo.rgb = pow(surface.albedo.rgb, vec3(2.2));
-		surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
-		if (isEmissive(surface.blockID)) surface.emissive = 1.0;
+		// surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
+		// if (isEmissive(surface.blockID)) surface.emissive = 1.0;
 		
 		if (!ConstructTransparentRays(curr, surface)) {
 			HandLight(curr, surface);
@@ -334,7 +342,7 @@ void main() {
 		#if defined RT_TERRAIN_PARALLAX
 			primary.insidePOM = false;
 		#endif
-		RayPushBack(primary, totalColor);
+		RayPushBack(primary);
 	}
 	
 	for (RAY_COUNT = 1; RAY_COUNT < MAX_RAYS; ++RAY_COUNT) {

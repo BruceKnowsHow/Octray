@@ -31,10 +31,7 @@ struct SurfaceStruct {
 	
 	vec3 normal;
 	
-	float emissive;
-	
 	int blockID;
-	vec2 cornerTexCoord;
 };
 
 struct RayStruct {
@@ -87,8 +84,6 @@ bool queueOutOfSpace = false;
 
 bool IsQueueFull()  { return rayQueueSize == RAYMARCH_QUEUE_BANDWIDTH; }
 bool IsQueueEmpty() { return rayQueueSize == 0; }
-
-#include "../Tonemap.glsl"
 
 uint PackRayInfo(uint rayDepth, const uint RAY_TYPE) {
 	return rayDepth | RAY_TYPE;
@@ -146,16 +141,11 @@ uint GetRayDepth(uint info) {
 	#define UnpackRay(elem) (elem)
 #endif
 
-bool EnoughLightToBePerceptable(vec3 possibleAdditionalColor, vec3 currentColor) {
-	vec3 delC = Tonemap(possibleAdditionalColor + currentColor) - Tonemap(currentColor);
-	return any(greaterThan(delC, vec3(10.0 / 255.0)));
-}
-
-void RayPushBack(RayStruct elem, vec3 totalColor) {
+void RayPushBack(RayStruct elem) {
 	if (GetRayDepth(elem.info) > MAX_RAY_BOUNCES) return;
 	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
 	if (queueOutOfSpace) return;
-	if (!EnoughLightToBePerceptable(elem.absorb*brightestThing, totalColor)) { return;}
+	if (!PassesVisibilityThreshold(elem.absorb*brightestThing)) { return;}
 	
 	voxelMarchQueue[rayQueueBack % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
 	++rayQueueBack;
@@ -163,11 +153,11 @@ void RayPushBack(RayStruct elem, vec3 totalColor) {
 	return;
 }
 
-void RayPushFront(RayStruct elem, vec3 totalColor) {
+void RayPushFront(RayStruct elem) {
 	if (GetRayDepth(elem.info) > MAX_RAY_BOUNCES) return;
 	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
 	if (queueOutOfSpace) return;
-	if (!EnoughLightToBePerceptable(elem.absorb*brightestThing, totalColor)) return;
+	if (!PassesVisibilityThreshold(elem.absorb*brightestThing)) return;
 	
 	--rayQueueFront;
 	voxelMarchQueue[rayQueueFront % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
@@ -449,10 +439,6 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	surface.albedo.rgb  = pow(surface.albedo.rgb, vec3(2.2));
 	
 	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
-	surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
-	
-	if (isEmissive(surface.blockID))
-		surface.emissive = 1.0;
 	
 	return surface;
 }

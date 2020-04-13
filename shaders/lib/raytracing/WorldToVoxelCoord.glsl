@@ -26,20 +26,21 @@ bool OutOfVoxelBounds(uint point, uvec3 uplane) {
 	return point >= comp;
 }
 
-#if (defined gbuffers_shadow)
-vec3 WtoV = vec2(0.0, floor(cameraPosition.y)).xyx + vec2(0.0, shadowRadius2).yxy;
-#else
-vec3 WtoV = vec2(0.0, floor(cameraPosition.y)).xyx + vec2(0.0, shadowRadius2).yxy + gbufferModelViewInverse[3].xyz + fract(cameraPosition);
-#endif
-
 // Voxel space is a simple translation of world space.
 // The DDA marching function stays in voxel space inside its loop to avoid unnecessary transformations.
 vec3 WorldToVoxelSpace(vec3 position) {
+	vec3 WtoV = vec2(0.0, floor(cameraPosition.y)).xyx + vec2(0.0, shadowRadius2).yxy + gbufferModelViewInverse[3].xyz + fract(cameraPosition);
+	return position + WtoV;
+}
+
+vec3 WorldToVoxelSpace_ShadowMap(vec3 position) {
+	vec3 WtoV = vec2(0.0, floor(cameraPosition.y)).xyx + vec2(0.0, shadowRadius2).yxy;
 	return position + WtoV;
 }
 
 // When the DDA marching function has finished, its position output can be translated back to regular world space using this function.
 vec3 VoxelToWorldSpace(vec3 position) {
+	vec3 WtoV = vec2(0.0, floor(cameraPosition.y)).xyx + vec2(0.0, shadowRadius2).yxy + gbufferModelViewInverse[3].xyz + fract(cameraPosition);
 	return position - WtoV;
 }
 
