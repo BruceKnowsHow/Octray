@@ -108,21 +108,12 @@ vec3 totalColor = vec3(0.0);
 
 int RAY_COUNT;
 
-#include "/lib/Tonemap.glsl"
-
-bool PassesVisibilityThreshold(vec3 absorb) {
-	vec3 delC = Tonemap(absorb + totalColor) - Tonemap(totalColor);
-	return any(greaterThan(delC, vec3(10.0 / 255.0)));
-}
-
 #include "lib/raytracing/VoxelMarch.glsl"
 #include "lib/Volumetrics.fsh"
 
-#define SUNLIGHT_RAYS On // [On Off]
-#define SPECULAR_RAYS Off // [On Off]
-#define AMBIENT_RAYS On // [On Off]
-
 void ConstructRays(RayStruct curr, SurfaceStruct surface) {
+	if (GetRayDepth(curr.info) >= MAX_RAY_BOUNCES) return;
+	
 	bool isMetal = surface.specular.g > 1/229.5;
 	float roughness = pow(1.0 - surface.specular.r, 2.0);
 	vec3 F0 = (isMetal) ? surface.albedo.rgb : vec3(surface.specular.g);
@@ -190,6 +181,8 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 
 // Returns true if no rays should be launched.
 bool ConstructTransparentRays(inout RayStruct curr, SurfaceStruct surface) {
+	if (GetRayDepth(curr.info) >= MAX_RAY_BOUNCES) return true;
+	
 	RayStruct through = curr;
 	through.vPos -= surface.tbn[2] * exp2(-12);
 	curr.vPos += surface.tbn[2] * exp2(-12);
@@ -300,7 +293,7 @@ void main() {
 				vec2 spriteScale = spriteSize / atlasSize;
 				vec2 cornerTexCoord = unpackTexcoord(surface.depth);
 				
-				vec2 tCoord = ((fract(curr.vPos - surface.tbn[2]*exp2(-12)*0) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
+				vec2 tCoord = ((fract(curr.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
 				tCoord = tCoord * spriteScale;
 				
 				vec3 tDir = curr.wDir * surface.tbn;

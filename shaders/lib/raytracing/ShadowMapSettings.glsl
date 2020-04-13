@@ -1,7 +1,7 @@
 #if !defined LIB_SETTINGS_SHADOW_GLSL
 #define LIB_SETTINGS_SHADOW_GLSL
 
-#define VOXELIZATION_DISTANCE 256 // [128 256 384 478]
+#include "UserSettings.glsl"
 
 #if (VOXELIZATION_DISTANCE == 128)
 const float shadowDistance           =  128;
@@ -22,7 +22,6 @@ const float shadowDistanceRenderMul  =     1.0;
 #endif
 
 const float shadowIntervalSize       =    0.000001;
-const float sunPathRotation          =  -40.0; // [-80.0 -70.0 -60.0 -50.0 -40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]
 const bool  shadowHardwareFiltering0 = false;
 
 #endif

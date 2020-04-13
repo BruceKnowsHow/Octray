@@ -32,6 +32,14 @@ struct SurfaceStruct {
 	vec3 normal;
 	
 	int blockID;
+
+	bool hasSpecularMap;
+	
+	float roughness;
+	float reflectance;
+	float emission;
+	
+	mat2x3 metalIOR;
 };
 
 struct RayStruct {
@@ -40,6 +48,7 @@ struct RayStruct {
 	vec3 absorb;
 	uint info;
 	float prevVolume;
+	int accumIndex;
 	
 	#if defined RT_TERRAIN_PARALLAX
 		bool insidePOM;
@@ -62,6 +71,9 @@ struct RayStruct {
 	#define RayQueueStruct RayStruct
 #endif
 
+#define DIFFUSE_ACCUM_INDEX 0
+#define SPECULAR_ACCUM_INDEX 1
+
 const uint  PRIMARY_RAY_TYPE = (1 <<  8);
 const uint SUNLIGHT_RAY_TYPE = (1 <<  9);
 const uint  AMBIENT_RAY_TYPE = (1 << 10);
@@ -72,7 +84,6 @@ const uint RAY_TYPE_MASK  = ((1 << 16) - 1) & (~RAY_DEPTH_MASK);
 const uint RAY_ATTR_MASK  = ((1 << 24) - 1) & (~RAY_DEPTH_MASK) & (~RAY_TYPE_MASK);
 
 #define MAX_RAYS 64
-#define MAX_RAY_BOUNCES 2 // [0 1 2 3 4 6 8 12 16 24 32 48 64]
 #define RAYMARCH_QUEUE_BANDWIDTH (MAX_RAY_BOUNCES + 2)
 
 RayQueueStruct voxelMarchQueue[RAYMARCH_QUEUE_BANDWIDTH];
@@ -141,11 +152,12 @@ uint GetRayDepth(uint info) {
 	#define UnpackRay(elem) (elem)
 #endif
 
+#include "VisibilityThreshold.glsl"
+
 void RayPushBack(RayStruct elem) {
-	if (GetRayDepth(elem.info) > MAX_RAY_BOUNCES) return;
 	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
 	if (queueOutOfSpace) return;
-	if (!PassesVisibilityThreshold(elem.absorb*brightestThing)) { return;}
+	if (!PassesVisibilityThreshold(elem.absorb)) { return;}
 	
 	voxelMarchQueue[rayQueueBack % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
 	++rayQueueBack;
@@ -154,10 +166,9 @@ void RayPushBack(RayStruct elem) {
 }
 
 void RayPushFront(RayStruct elem) {
-	if (GetRayDepth(elem.info) > MAX_RAY_BOUNCES) return;
 	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
 	if (queueOutOfSpace) return;
-	if (!PassesVisibilityThreshold(elem.absorb*brightestThing)) return;
+	if (!PassesVisibilityThreshold(elem.absorb)) return;
 	
 	--rayQueueFront;
 	voxelMarchQueue[rayQueueFront % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
@@ -399,6 +410,8 @@ vec4 GetSpecular(ivec2 coord) {
 	#define GetSpecular(coord) vec4(0.0, 0.0, 0.0, 0.0)
 #endif
 
+#include "UnpackPBR.glsl"
+
 SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	curr.vPos = VMO.vPos - VMO.plane * exp2(-12);
 	
@@ -440,6 +453,8 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	
 	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
 	
+	UnpackSpecularData(surface);
+
 	return surface;
 }
 

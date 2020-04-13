@@ -21,6 +21,8 @@ const bool colortex7Clear = false;
 #define ABOUT 0 // [0 1 2 3 4 5 6]
 */
 
+const float sunPathRotation =  -40.0; // [-80.0 -70.0 -60.0 -50.0 -40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]
+
 const int noiseTextureResolution = 64;
 
 #endif
