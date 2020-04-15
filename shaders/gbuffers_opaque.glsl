@@ -121,7 +121,7 @@ void main() {
 	
 	vec3 center = position.xyz - (tbnMatrix * vec3(texDirection * spriteSize / atlasSize * 16.0,0.5));
 	
-	// position.xyz = center;
+	// position.xyz = mix(position.xyz, center, 0.5);
 	// position.xz += offset[(gl_VertexID) % 4] * 0.25;
 	wPosition = position.xyz;
 	wPos = position.xyz - gbufferModelViewInverse[3].xyz;
