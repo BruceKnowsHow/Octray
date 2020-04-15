@@ -1,6 +1,22 @@
 //#define ATROUS_FILTER
 
+//#define ATROUS_FILTER_PASSES_1
+//#define ATROUS_FILTER_PASSES_2
+//#define ATROUS_FILTER_PASSES_3
+//#define ATROUS_FILTER_PASSES_4
+//#define ATROUS_FILTER_PASSES_5
+
 #ifdef ATROUS_FILTER
+#endif
+#ifdef ATROUS_FILTER_PASSES_1
+#endif
+#ifdef ATROUS_FILTER_PASSES_2
+#endif
+#ifdef ATROUS_FILTER_PASSES_3
+#endif
+#ifdef ATROUS_FILTER_PASSES_4
+#endif
+#ifdef ATROUS_FILTER_PASSES_5
 #endif
 
 /***********************************************************************/
