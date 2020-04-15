@@ -60,7 +60,7 @@ void main() {
 	
 	vec4 color0 = texture(COLORSAMPLER, texcoord);
 	vec3 normal = texture(colortex0, texcoord).rgb;
-	vec3 wPos = texture(colortex1, texcoord).rgb;
+	float vDepth = texture(colortex0, texcoord).a;
 	
 	for (int i = -kernal; i <= kernal; i += 1 << ATROUS_INDEX) {
 		for (int j = -kernal; j <= kernal; j += 1 << ATROUS_INDEX) {
@@ -70,17 +70,15 @@ void main() {
 			if (texture(depthtex0, coord).x >= 1.0) continue;
 			
 			vec3 samplenormal = texture(colortex0, coord).rgb;
-			vec3 samplewPos = texture(colortex1, coord).rgb;
+			float sampledepth = texture(colortex0, coord).a;
 			
 			vec4 color = texture(COLORSAMPLER, coord);
 			
 			float weight = 1.0;
 			// weight *= pow(length(16 - vec2(i,j)) / 16.0, 2.0);
-			// weight *= max(dot(normal, samplenormal)*16-15, 0.0);
+			weight *= max(dot(normal, samplenormal)*16-15, 0.0);
 			// weight *= 1.0 / exp(color0.a);
-			// weight *= exp2(-distance(color.rgb/color.a, color0.rgb/color0.a)*10);
-			// weight *= float(distance(wPos,samplewPos) < 1.0);
-			// weight *= max(1.0-distance(wPos, samplewPos), 0.0);
+			weight *= max(1.0-distance(vDepth, sampledepth), 0.0);
 			weight = weight + 0.000001;
 			
 			col += color * weight;
@@ -91,8 +89,6 @@ void main() {
 	col /= weights;
 	
 	gl_FragData[0] = vec4(col);
-	// gl_FragData[0] = texture(COLORSAMPLER, texcoord);
-	// gl_FragData[0] = vec4(1);
 	
 	exit();
 }

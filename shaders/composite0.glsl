@@ -223,8 +223,8 @@ void HandLight(RayStruct curr, SurfaceStruct surface) {
 }
 
 
-/* DRAWBUFFERS:25 */
-uniform bool DRAWBUFFERS_25;
+/* DRAWBUFFERS:250 */
+uniform bool DRAWBUFFERS_250;
 #include "lib/exit.glsl"
 
 float ExpToLinearDepth(float depth) {
@@ -245,6 +245,8 @@ void main() {
 	vec3 wPos2 = texture(colortex1, texcoord).gba;
 	vec3 wDir = normalize(wPos);
 	wPos.xyz = wPos2.xyz;
+	
+	vec3 normal;
 	
 	vec4 totalColor2 = vec4(0.0,0.0,0.0,1.0);
 	float alpha = 1.0;
@@ -274,6 +276,7 @@ void main() {
 		surface.tbn = DecodeTBNU(texelFetch(GBUFFER0_SAMPLER, ivec2(tc*viewSize), 0).a);
 		surface.blockID = int(texelFetch(GBUFFER1_SAMPLER, ivec2(tc*viewSize), 0).r * 255.0);
 		
+		gl_FragData[2] = vec4(surface.tbn[2], (wPos*mat3(gbufferModelViewInverse)).z);
 		
 		RayStruct curr;
 		curr.vPos = WorldToVoxelSpace(vec3(0.0));
