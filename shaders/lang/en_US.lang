@@ -61,3 +61,7 @@ option.UNHANDLED_BLOCKS=Special Blocks
 value.UNHANDLED_BLOCKS.0=Force render
 value.UNHANDLED_BLOCKS.1=Raster only
 value.UNHANDLED_BLOCKS.2=Invisible
+option.GSH_MODE=Geometry Shader
+value.GSH_MODE.GSH_MODE_ACTIVE=On
+value.GSH_MODE.GSH_MODE_PASSTHROUGH=Inactive
+value.GSH_MODE.GSH_MODE_DISABLED=Disabled

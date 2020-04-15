@@ -1,3 +1,9 @@
+#define GSH_MODE_ACTIVE 0
+#define GSH_MODE_PASSTHROUGH 1
+#define GSH_MODE_DISABLED 2
+
+#define GSH_MODE GSH_MODE_ACTIVE // [GSH_MODE_ACTIVE GSH_MODE_PASSTHROUGH GSH_MODE_DISABLED]
+
 /***********************************************************************/
 #if defined vsh
 
@@ -12,26 +18,45 @@ uniform float far;
 uniform vec3 cameraPosition;
 uniform vec3 previousCameraPosition;
 
+uniform ivec2 atlasSize;
+
+uniform int instanceId;
+
+#include "WorldToVoxelCoord.glsl"
+#include "RT_Encoding.glsl"
+
 out vec4 vColor;
 flat out vec2 midTexCoord;
 out vec3 wPosition;
 flat out vec3 vNormal;
 out float discardflag;
 out vec2 texcoord;
-
 flat out int blockID;
+flat out vec4 data0;
+flat out vec4 data1;
 
-#include "WorldToVoxelCoord.glsl"
+#if GSH_MODE == GSH_MODE_ACTIVE
+	const int countInstances = 1;
+#else
+	const int countInstances = 8;
+#endif
+
+mat3 CalculateTBN() {
+	vec3 tangent  = normalize(mat3(shadowModelViewInverse) * gl_NormalMatrix * at_tangent.xyz);
+	vec3 normal   = normalize(mat3(shadowModelViewInverse) * gl_NormalMatrix * gl_Normal) ;
+	vec3 binormal = cross(tangent, normal); // Orthogonalize binormal
+	
+	return mat3(tangent, binormal, normal);
+}
 
 void main() {
 	blockID = BackPortID(int(mc_Entity.x));
 	
 	discardflag = 0.0;
-#if UNHANDLED_BLOCKS >= 1
-	discardflag += int(!isVoxelized(blockID));
-#endif
+	#if UNHANDLED_BLOCKS >= 1
+		discardflag += int(!isVoxelized(blockID));
+	#endif
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
-	
 	
 	vColor  = gl_Color;
 	
@@ -42,23 +67,51 @@ void main() {
 	wPosition = (shadowModelViewInverse * gl_ModelViewMatrix * gl_Vertex).xyz;
 	
 	gl_Position = vec4(0.0);
+	
+	#if GSH_MODE != GSH_MODE_ACTIVE
+		vec2 texDirection = sign(texcoord - mc_midTexCoord)*vec2(1,sign(at_tangent.w));
+		vec2 spriteSize = abs(midTexCoord - texcoord) * 2.0 * atlasSize;
+		
+		mat3 tbnMatrix = CalculateTBN();
+		
+		vec3 triCentroid = wPosition.xyz - (tbnMatrix * vec3(texDirection * spriteSize / atlasSize * 16.0,0.5));
+		// vec3 triCentroid = (wPosition[0] + wPosition[1] + wPosition[2]) / 3.0 - vNormal[0] / 4096.0;
+		triCentroid += fract(cameraPosition);
+		
+		vec3 vPos = WorldToVoxelSpace_ShadowMap(triCentroid);
+		
+		const vec2 offset[4] = vec2[4](vec2(-1,-1),vec2(-1,1),vec2(1,1),vec2(1,-1));
+		
+		vec2 coord = VoxelToTextureSpace(uvec3(vPos), instanceId, 0) + 0.5;
+		coord += offset[(gl_VertexID) % 4] * 0.5;
+		coord /= shadowMapResolution;
+		
+		vec2 cornerTexCoord = midTexCoord - abs(midTexCoord - texcoord);
+		
+		vec2 hs = RT_hsv(vColor.rgb).rg;
+		
+		data0 = vec4(log2(spriteSize.x) / 255.0, blockID / 255.0, hs);
+		data1 = vec4(vColor.rgb, 0.0);
+		
+		float depth = packTexcoord(cornerTexCoord);
+		gl_Position = vec4(coord * 2.0 - 1.0, depth, 1.0);
+	#endif
 }
-
 
 #endif
 /***********************************************************************/
 
-#define VOXELIZE
+
 
 /***********************************************************************/
 #if defined gsh
 
 layout(triangles) in;
 
-#if (defined VOXELIZE)
-layout(points, max_vertices = 8) out;
+#if (GSH_MODE == GSH_MODE_ACTIVE)
+	layout(points, max_vertices = 8) out;
 #else
-layout(triangle_strip, max_vertices = 3) out;
+	layout(triangle_strip, max_vertices = 3) out;
 #endif
 
 uniform mat4 shadowModelView;
@@ -75,27 +128,32 @@ in vec3 wPosition[];
 flat in vec3 vNormal[];
 in float discardflag[];
 in vec2 texcoord[];
-
 flat in int blockID[];
+flat in vec4 data0[];
+flat in vec4 data1[];
 
-flat out vec4 data0;
-flat out vec4 data1;
+flat out vec4 _data0;
+flat out vec4 _data1;
 
 #include "WorldToVoxelCoord.glsl"
 #include "RT_Encoding.glsl"
 
 void main() {
+	#if (GSH_MODE != GSH_MODE_ACTIVE)
+		for (int i = 0; i < 3; ++i) {
+			gl_Position = gl_in[i].gl_Position;
+			_data0 = data0[i];
+			_data1 = data1[i];
+			
+			EmitVertex();
+		}
+		
+		return;
+	#endif
+	
 	if (discardflag[0] + discardflag[1] + discardflag[2] > 0.0) return;
 	
 	if (abs(dot(wPosition[0] - wPosition[1], wPosition[2] - wPosition[1])) < 0.001) return;
-	
-	#if (!defined VOXELIZE)
-	for (int i = 0; i < 3; ++i) {
-		gl_Position = gl_in[i].gl_Position;
-		EmitVertex();
-	}
-	return;
-	#endif
 	
 	vec3 triCentroid = (wPosition[0] + wPosition[1] + wPosition[2]) / 3.0 - vNormal[0] / 4096.0;
 	triCentroid += fract(cameraPosition);
@@ -112,8 +170,8 @@ void main() {
 	
 	vec2 hs = RT_hsv(vColor[0].rgb).rg;
 	
-	data0 = vec4(log2(spriteSize.x) / 255.0, blockID[0] / 255.0, hs);
-	data1 = vec4(vColor[0].rgb, 0.0);
+	_data0 = vec4(log2(spriteSize.x) / 255.0, blockID[0] / 255.0, hs);
+	_data1 = vec4(vColor[0].rgb, 0.0);
 	
 	// Can pass an unsigned integer range [0, 2^23 - 1]
 	float depth = packTexcoord(cornerTexCoord);
@@ -138,12 +196,17 @@ void main() {
 #endif
 /***********************************************************************/
 
-#define GSH_ACTIVE
+
 
 /***********************************************************************/
 #if defined fsh
 
 // layout(early_fragment_tests) in;
+
+#if (GSH_MODE != GSH_MODE_DISABLED)
+	#define data0 _data0
+	#define data1 _data1
+#endif
 
 flat in vec4 data0;
 flat in vec4 data1;
