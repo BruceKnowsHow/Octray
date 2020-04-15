@@ -6,9 +6,9 @@ option.ABOUT=
 value.ABOUT.0=                                                            §fOctray Shaders                                                            
 value.ABOUT.1=                                                            §bGitHub.com/BruceKnowsHow                                                             
 value.ABOUT.2=                                                            §fBruceKnowsHow says: §a"Thank you...                                                             
-value.ABOUT.3=                                                            §rwe don't have to §ago §rany farther                                                             
-value.ABOUT.4=                                                            §rbut §aif §ryou do                                                             
-value.ABOUT.5=                                                            §rI'm going to be §avery proud §rof you."                                                             
+value.ABOUT.3=                                                            §fwe don't have to §ago §fany farther                                                             
+value.ABOUT.4=                                                            §fbut §aif §fyou do                                                             
+value.ABOUT.5=                                                            §fI'm going to be §avery proud§f of you."                                                             
 value.ABOUT.6=                                                                                                                         
 
 profile.Low=§a§nLow§r

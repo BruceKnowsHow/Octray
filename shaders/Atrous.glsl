@@ -1,3 +1,8 @@
+//#define ATROUS_FILTER
+
+#ifdef ATROUS_FILTER
+#endif
+
 /***********************************************************************/
 #if defined vsh
 
@@ -43,8 +48,8 @@ uniform bool DRAWBUFFERS_5;
 #include "lib/exit.glsl"
 
 void main() {
-	if (texture(depthtex0,texcoord).x >= 1.0) {
-		// gl_FragColor[0] = texture(COLORSAMPLER, texcoord);
+	if (texture(depthtex0, texcoord).x >= 1.0) {
+		gl_FragData[0] = texture(COLORSAMPLER, texcoord);
 		return;
 	}
 	
@@ -70,11 +75,12 @@ void main() {
 			vec4 color = texture(COLORSAMPLER, coord);
 			
 			float weight = 1.0;
-			weight *= pow(length(16 - vec2(i,j)) / 16.0, 2.0);
-			weight *= max(dot(normal, samplenormal)*16-15, 0.0);
+			// weight *= pow(length(16 - vec2(i,j)) / 16.0, 2.0);
+			// weight *= max(dot(normal, samplenormal)*16-15, 0.0);
 			// weight *= 1.0 / exp(color0.a);
+			// weight *= exp2(-distance(color.rgb/color.a, color0.rgb/color0.a)*10);
 			// weight *= float(distance(wPos,samplewPos) < 1.0);
-			weight *= max(1.0-distance(wPos, samplewPos), 0.0);
+			// weight *= max(1.0-distance(wPos, samplewPos), 0.0);
 			weight = weight + 0.000001;
 			
 			col += color * weight;
@@ -85,6 +91,8 @@ void main() {
 	col /= weights;
 	
 	gl_FragData[0] = vec4(col);
+	// gl_FragData[0] = texture(COLORSAMPLER, texcoord);
+	// gl_FragData[0] = vec4(1);
 	
 	exit();
 }

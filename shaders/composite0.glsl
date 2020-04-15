@@ -185,7 +185,7 @@ bool ConstructTransparentRays(inout RayStruct curr, SurfaceStruct surface) {
 	
 	RayStruct through = curr;
 	through.vPos -= surface.tbn[2] * exp2(-12);
-	curr.vPos += surface.tbn[2] * exp2(-12);
+	curr.vPos -= surface.tbn[2] * exp2(-12);
 	
 	through.info = PackRayInfo(GetRayDepth(curr.info) + 1, GetRayType(curr.info));
 	
@@ -223,8 +223,8 @@ void HandLight(RayStruct curr, SurfaceStruct surface) {
 }
 
 
-/* DRAWBUFFERS:2 */
-uniform bool DRAWBUFFERS_2;
+/* DRAWBUFFERS:25 */
+uniform bool DRAWBUFFERS_25;
 #include "lib/exit.glsl"
 
 float ExpToLinearDepth(float depth) {
@@ -264,6 +264,7 @@ void main() {
 			vec3 transmit = vec3(1.0);
 			totalColor += ComputeTotalSky(vec3(0.0), wDir, transmit, true) * skyBrightness;
 			gl_FragData[0] = vec4(totalColor, 1.0) + prevCol;
+			gl_FragData[1] = vec4(totalColor, 1.0) + prevCol;
 			exit();
 			return;
 		}
@@ -380,6 +381,7 @@ void main() {
 	DEBUG_QUEUE_FULL();
 	
 	gl_FragData[0] = vec4(totalColor, alpha) + prevCol;
+	gl_FragData[1] = vec4(totalColor, alpha) + prevCol;
 	
 	exit();
 }

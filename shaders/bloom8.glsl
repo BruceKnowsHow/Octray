@@ -28,9 +28,9 @@ void main() {
 #include "lib/utility.glsl"
 #include "lib/encoding.glsl"
 
-#define COMPOSITE0_COLOR_OUT colortex2
+#define COMPOSITE0_COLOR_OUT colortex5
 uniform sampler2D COMPOSITE0_COLOR_OUT;
-const bool colortex2MipmapEnabled = true;
+const bool colortex5MipmapEnabled = true;
 
 
 uniform vec2 viewSize;

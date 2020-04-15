@@ -29,6 +29,7 @@ uniform sampler2D shadowtex0;
 const bool colortex2MipmapEnabled = true;
 const bool colortex3MipmapEnabled = true;
 const bool colortex4MipmapEnabled = true;
+const bool colortex5MipmapEnabled = true;
 
 uniform mat4 gbufferPreviousProjection;
 uniform mat4 gbufferProjectionInverse;
@@ -97,8 +98,7 @@ vec3 MotionBlur(vec3 color) {
 	for(float i = 1.0; i <= sampleCount; i++) {
 		vec2 coord = texcoord + sampleStep * i - offset;
 		
-		color += texture2D(colortex2, coord).rgb;
-		// color += texture2D(colortex3, clampScreen(coord, pixelSize)).rgb;
+		color += texture2D(colortex5, coord).rgb;
 	}
 	
 	return color / max(sampleCount + 1.0, 1.0);
@@ -111,11 +111,11 @@ vec3 MotionBlur(vec3 color) {
 #define AUTO_EXPOSURE On // [On Off]
 
 void main() {
-	vec4 lookup = texture(colortex2, texcoord);
+	vec4 lookup = texture(colortex5, texcoord);
 	beni = lookup.a;
 	// vec3 color = texture(colortex5, texcoord).rgb;
 	vec3 color = lookup.rgb;
-	vec3 avgCol = textureLod(colortex2, vec2(0.5), 16).rgb / textureLod(colortex2, vec2(0.5), 16).a;
+	vec3 avgCol = textureLod(colortex5, vec2(0.5), 16).rgb / textureLod(colortex5, vec2(0.5), 16).a;
 	float expo = 1.0 / dot(avgCol, vec3(0.2125, 0.7154, 0.0721));
 	expo = 1.0;
 	if (AUTO_EXPOSURE) {
@@ -128,7 +128,6 @@ void main() {
 	color = GetBloom(colortex3, color);
 	
 	color = Tonemap(color);
-	
 	
 	gl_FragColor.rgb = color;
 	
