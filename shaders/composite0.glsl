@@ -219,7 +219,7 @@ void HandLight(RayStruct curr, SurfaceStruct surface) {
 		totalColor += surface.albedo.rgb * vec3(255, 200, 100) / 255.0 * 1.0 * (heldBlockLightValue + heldBlockLightValue2) / 16.0 * curr.absorb / (dot(wPos,wPos) + 0.5) * dot(surface.normal, -curr.wDir);
 	}
 	
-	// totalColor += surface.albedo.rgb * surface.emissive * curr.absorb * emissiveBrightness;
+	totalColor += surface.albedo.rgb * float(isEmissive(surface.blockID)) * curr.absorb * emissiveBrightness;
 }
 
 
@@ -276,8 +276,6 @@ void main() {
 		surface.tbn = DecodeTBNU(texelFetch(GBUFFER0_SAMPLER, ivec2(tc*viewSize), 0).a);
 		surface.blockID = int(texelFetch(GBUFFER1_SAMPLER, ivec2(tc*viewSize), 0).r * 255.0);
 		
-		gl_FragData[2] = vec4(surface.tbn[2], (wPos*mat3(gbufferModelViewInverse)).z);
-		
 		RayStruct curr;
 		curr.vPos = WorldToVoxelSpace(vec3(0.0));
 		curr.wDir = wDir;
@@ -320,6 +318,8 @@ void main() {
 		surface.albedo.rgb = pow(surface.albedo.rgb, vec3(2.2));
 		// surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
 		// if (isEmissive(surface.blockID)) surface.emissive = 1.0;
+		
+		gl_FragData[2] = vec4(surface.normal, (wPos*mat3(gbufferModelViewInverse)).z);
 		
 		if (!ConstructTransparentRays(curr, surface)) {
 			HandLight(curr, surface);
@@ -370,6 +370,10 @@ void main() {
 		}
 		
 		SurfaceStruct surface = ReconstructSurface(curr, VMO);
+		
+		if (GetRayDepth(curr.info) == 0) {
+			gl_FragData[2] = vec4(surface.normal, (VoxelToWorldSpace(VMO.vPos)*mat3(gbufferModelViewInverse)).z);
+		}
 		
 		if (ConstructTransparentRays(curr, surface)) continue;
 		

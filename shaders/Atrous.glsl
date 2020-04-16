@@ -1,10 +1,10 @@
 //#define ATROUS_FILTER
 
-//#define ATROUS_FILTER_PASSES_1
-//#define ATROUS_FILTER_PASSES_2
-//#define ATROUS_FILTER_PASSES_3
-//#define ATROUS_FILTER_PASSES_4
-//#define ATROUS_FILTER_PASSES_5
+#define ATROUS_FILTER_PASSES_1
+#define ATROUS_FILTER_PASSES_2
+#define ATROUS_FILTER_PASSES_3
+#define ATROUS_FILTER_PASSES_4
+#define ATROUS_FILTER_PASSES_5
 
 #ifdef ATROUS_FILTER
 #endif
@@ -64,14 +64,14 @@ uniform bool DRAWBUFFERS_5;
 #include "lib/exit.glsl"
 
 void main() {
-	if (texture(depthtex0, texcoord).x >= 1.0) {
-		gl_FragData[0] = texture(COLORSAMPLER, texcoord);
-		return;
-	}
+	// if (texture(depthtex0, texcoord).x >= 1.0) {
+	// 	gl_FragData[0] = texture(COLORSAMPLER, texcoord);
+	// 	return;
+	// }
 	
 	vec4 col = vec4(0);
 	
-	int kernal = 1 << ATROUS_INDEX;
+	int kernal = 2 << ATROUS_INDEX;
 	float weights = 0.0;
 	
 	vec4 color0 = texture(COLORSAMPLER, texcoord);
@@ -81,9 +81,9 @@ void main() {
 	for (int i = -kernal; i <= kernal; i += 1 << ATROUS_INDEX) {
 		for (int j = -kernal; j <= kernal; j += 1 << ATROUS_INDEX) {
 			vec2 offset = vec2(i,j) / viewSize;
-			vec2 coord = texcoord + offset;
+			vec2 coord = texcoord + offset * exp2(-color0.a / 10.0*0);
 			
-			if (texture(depthtex0, coord).x >= 1.0) continue;
+			// if (texture(depthtex0, coord).x >= 1.0) continue;
 			
 			vec3 samplenormal = texture(colortex0, coord).rgb;
 			float sampledepth = texture(colortex0, coord).a;
@@ -93,7 +93,6 @@ void main() {
 			float weight = 1.0;
 			// weight *= pow(length(16 - vec2(i,j)) / 16.0, 2.0);
 			weight *= max(dot(normal, samplenormal)*16-15, 0.0);
-			// weight *= 1.0 / exp(color0.a);
 			weight *= max(1.0-distance(vDepth, sampledepth), 0.0);
 			weight = weight + 0.000001;
 			
