@@ -412,20 +412,74 @@ vec4 GetSpecular(ivec2 coord) {
 
 #include "UnpackPBR.glsl"
 
-SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
+void MapID(int ID, out int index, out int vertCount) {
+	if (ID == 8) {
+		index = 0;
+		vertCount = 4;
+	}
+}
+
+const vec3 VAO[4][2] = vec3[4][2](
+	vec3[2](vec3((16-4)/16.0, 0.5, 0.5), vec3(1,0,0)),
+	vec3[2](vec3((16-12)/16.0, 0.5, 0.5), vec3(1,0,0)),
+	vec3[2](vec3(0.5, 0.5, (16-4)/16.0), vec3(0,0,1)),
+	vec3[2](vec3(0.5, 0.5, (16-12)/16.0), vec3(0,0,1))
+);
+
+SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO, inout bool rt) {
 	curr.vPos = VMO.vPos - VMO.plane * exp2(-12);
 	
 	SurfaceStruct surface;
 	surface.voxelData = vec4(texelFetch(shadowcolor0, VMO.vCoord, 0));
 	surface.blockID = int(surface.voxelData.g*255);
 	
+	vec2 spriteSize = exp2(round(surface.voxelData.xx * 255.0));
+	vec2 spriteScale = spriteSize / atlasSize;
+	vec2 cornerTexCoord = unpackTexcoord(VMO.data);
+	
+	/*
+	if (surface.blockID == 8) {
+		vec3 fr = fract(curr.vPos);
+		vec3 n = vec3(0);
+		float t = 1e35;
+		
+		int start, end;
+		MapID(surface.blockID, start, end);
+		end += start;
+		
+		for (int i = start; i < end; ++i) {
+			vec3 p0 = VAO[i][0];
+			vec3 ni = VAO[i][1];
+			
+			float t_ = dot(p0-fr, ni) / dot(curr.wDir,ni);
+			
+			vec3 hitpoint = fr+curr.wDir*t_;
+			
+			if (t_ > 0 && all(lessThan(abs(hitpoint-0.5), vec3(0.5))) && t_ < t) {
+				mat3 tbn = GenerateTBN(ni);
+				
+				vec2 tCoord = ((hitpoint * 2.0 - 1.0) * mat2x3(tbn)) * 0.5 + 0.5;
+				
+				ivec2 iCoord = ivec2((tCoord * spriteScale + cornerTexCoord) * atlasSize);
+				
+				vec4 albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
+				
+				if (albedo.a > 0.1) {
+					show(albedo)
+					t = t_;
+					n = ni;
+				}
+			}
+		}
+		
+		rt = t == 1e35;
+	}
+	*/
+	
 	surface.depth = VMO.data;
 	
 	surface.tbn = GenerateTBN(VMO.plane);
 	
-	vec2 spriteSize = exp2(round(surface.voxelData.xx * 255.0));
-	vec2 spriteScale = spriteSize / atlasSize;
-	vec2 cornerTexCoord = unpackTexcoord(VMO.data);
 	vec2 tCoord = ((fract(curr.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
 	
 	tCoord = tCoord * spriteScale;

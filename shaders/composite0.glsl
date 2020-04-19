@@ -369,7 +369,14 @@ void main() {
 			continue;
 		}
 		
-		SurfaceStruct surface = ReconstructSurface(curr, VMO);
+		
+		bool rt = false;
+		SurfaceStruct surface = ReconstructSurface(curr, VMO, rt);
+		
+		// if (rt) {
+		// 	RayPushBack(curr);
+		// 	continue;
+		// }
 		
 		if (GetRayDepth(curr.info) == 0) {
 			gl_FragData[2] = vec4(surface.normal, (VoxelToWorldSpace(VMO.vPos)*mat3(gbufferModelViewInverse)).z);
