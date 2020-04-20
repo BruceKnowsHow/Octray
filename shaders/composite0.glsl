@@ -222,54 +222,41 @@ void HandLight(RayStruct curr, SurfaceStruct surface) {
 	totalColor += surface.albedo.rgb * float(isEmissive(surface.blockID)) * curr.absorb * emissiveBrightness;
 }
 
+struct FilterData {
+	vec3 albedo;
+	vec3 normal;
+	float zPos;
+};
 
-/* DRAWBUFFERS:250 */
-uniform bool DRAWBUFFERS_250;
+/* DRAWBUFFERS:201 */
+uniform bool DRAWBUFFERS_201;
 #include "lib/exit.glsl"
 
-float ExpToLinearDepth(float depth) {
-	return 2.0 * near * (far + near - depth * (far - near));
-}
-
-float ExpToLinearDepth(vec3 pos) {
-	vec4 bene = gbufferProjectionInverse * vec4(pos, 1.0);
-	return -bene.z / bene.w;
-}
-
 void main() {
-	float depth = texelFetch(depthtex0, ivec2(tc * viewSize), 0).x;
+	vec3 wDir = normalize(GetWorldSpacePosition(tc, 1.0));
+	vec4 prevCol = max(texture(colortex2, texcoord).rgba, 0) * float(accum)*0;
 	
-	vec4 prevCol = max(texture(colortex2, texcoord).rgba, 0) * float(accum);
+	FilterData filterData;
+	filterData.albedo = vec3(1.0);
+	filterData.normal = vec3(0.0);
+	filterData.zPos = 0.0;
 	
-	vec3 wPos = GetWorldSpacePosition(tc, depth);
-	vec3 wPos2 = texture(colortex1, texcoord).gba;
-	vec3 wDir = normalize(wPos);
-	wPos.xyz = wPos2.xyz;
-	
-	vec3 normal;
-	
-	vec4 totalColor2 = vec4(0.0,0.0,0.0,1.0);
-	float alpha = 1.0;
-	
-	vec3 cene = (mat3(gbufferPreviousModelView) * wPos);
-	vec4 eban = gbufferProjection * vec4(cene, 1);
-	eban /= eban.w;
-	
-	vec4 ni = gbufferProjectionInverse * vec4(vec3(tc, depth)*2-1, 1);
-	ni /= ni.w;
-	ni.xyz = ni.xyz * mat3(gbufferPreviousModelView) ;
-	
-	float accumulate = float(distance((wPos), texture2D(colortex4, eban.xy*0.5+0.5).rgb) < 0.1);
+	gl_FragData[1] = vec4(filterData.normal, filterData.zPos);
+	gl_FragData[2] = vec4(filterData.albedo, 0.0);
 	
 	if (USE_RASTER_ENGINE_B) {
+		float depth = texelFetch(depthtex0, ivec2(tc * viewSize), 0).x;
+		
 		if (depth >= 1.0) {
 			vec3 transmit = vec3(1.0);
 			totalColor += ComputeTotalSky(vec3(0.0), wDir, transmit, true) * skyBrightness;
 			gl_FragData[0] = vec4(totalColor, 1.0) + prevCol;
-			gl_FragData[1] = vec4(totalColor, 1.0) + prevCol;
 			exit();
 			return;
 		}
+		
+		// vec3 wPos = GetWorldSpacePosition(tc, depth);
+		vec3 wPos = texture(colortex1, texcoord).gba;
 		
 		SurfaceStruct surface;
 		UnpackGBuffers(texelFetch(GBUFFER0_SAMPLER, ivec2(tc*viewSize), 0).xyz, surface.albedo, surface.normals, surface.specular);
@@ -319,7 +306,10 @@ void main() {
 		// surface.emissive = surface.specular.a * 255.0 / 254.0 * float(surface.specular.a < 254.0 / 255.0);
 		// if (isEmissive(surface.blockID)) surface.emissive = 1.0;
 		
-		gl_FragData[2] = vec4(surface.normal, (wPos*mat3(gbufferModelViewInverse)).z);
+		filterData.albedo = surface.albedo.rgb;
+		filterData.normal = surface.normal;
+		filterData.zPos = (wPos*mat3(gbufferModelViewInverse)).z;
+		surface.albedo.rgb = vec3(1.0);
 		
 		if (!ConstructTransparentRays(curr, surface)) {
 			HandLight(curr, surface);
@@ -369,7 +359,6 @@ void main() {
 			continue;
 		}
 		
-		
 		bool rt = false;
 		SurfaceStruct surface = ReconstructSurface(curr, VMO, rt);
 		
@@ -378,8 +367,12 @@ void main() {
 		// 	continue;
 		// }
 		
-		if (GetRayDepth(curr.info) == 0) {
-			gl_FragData[2] = vec4(surface.normal, (VoxelToWorldSpace(VMO.vPos)*mat3(gbufferModelViewInverse)).z);
+		if (GetRayDepth(curr.info) == 0 || (!USE_RASTER_ENGINE_B && IsPrimaryRay(curr))) {
+			filterData.albedo = mix(vec3(1.0), surface.albedo.rgb, surface.albedo.a);
+			filterData.normal = surface.normal;
+			filterData.zPos = (VoxelToWorldSpace(VMO.vPos)*mat3(gbufferModelViewInverse)).z;
+			
+			surface.albedo.rgb = vec3(1.0);
 		}
 		
 		if (ConstructTransparentRays(curr, surface)) continue;
@@ -390,12 +383,17 @@ void main() {
 		ConstructRays(curr, surface);
 	}
 	
+	// totalColor.rgb *= filterData.albedo;
+	
 	totalColor = max(totalColor, vec3(0.0));
 	
 	DEBUG_QUEUE_FULL();
 	
-	gl_FragData[0] = vec4(totalColor, alpha) + prevCol;
-	gl_FragData[1] = vec4(totalColor, alpha) + prevCol;
+	gl_FragData[0] = vec4(totalColor, 1.0) + prevCol;
+	gl_FragData[1] = vec4(filterData.normal, filterData.zPos);
+	gl_FragData[2] = vec4(filterData.albedo, 0.0);
+	
+	show(filterData.albedo)
 	
 	exit();
 }
