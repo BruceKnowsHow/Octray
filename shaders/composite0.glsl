@@ -393,8 +393,6 @@ void main() {
 	gl_FragData[1] = vec4(filterData.normal, filterData.zPos);
 	gl_FragData[2] = vec4(filterData.albedo, 0.0);
 	
-	show(filterData.albedo)
-	
 	exit();
 }
 

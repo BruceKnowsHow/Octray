@@ -202,7 +202,7 @@ uint VM_steps = 0;
 #define DEBUG_PRESET NONE // [NONE VM_STEPS_BW VM_STEPS_LOD VM_DIFFUSE VM_WPOS QUEUE_FULL]
 
 void DEBUG_VM_ACCUM() {
-	show(float(VM_steps) * 0.01)
+	show(float(VM_steps) * 0.01);
 }
 #if !(DEBUG_PRESET == VM_STEPS_BW)
 	#define DEBUG_VM_ACCUM()
