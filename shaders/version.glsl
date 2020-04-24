@@ -1,5 +1,4 @@
-#version 430 compatibility
-#extension GL_ARB_shader_group_vote : require
+#version 420 compatibility
 
 #define On true
 #define Off false

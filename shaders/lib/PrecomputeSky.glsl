@@ -142,7 +142,7 @@ const vec3 skybright = 0.2 * SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SKY_SPECTRAL_R
 // const vec3 skybright = 1.0 * (SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE) /  (SKY_SPECTRAL_RADIANCE_TO_LUMINANCE / SUN_SPECTRAL_RADIANCE_TO_LUMINANCE).b;
 
 const float atmosphereScale = 5.0;
-vec3 kCamera = vec3(0.0, 10.0 + cameraPosition.y/1000.0 + ATMOSPHERE.bottom_radius, 0.0);
+#define kCamera vec3(0.0, 10.0 + cameraPosition.y/1000.0 + ATMOSPHERE.bottom_radius, 0.0)
 
 #define timeDay 1.0
 #define cubesmooth(x) ((x) * (x) * (3.0 - 2.0 * (x)))

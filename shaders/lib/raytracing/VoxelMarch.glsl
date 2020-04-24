@@ -419,12 +419,14 @@ void MapID(int ID, out int index, out int vertCount) {
 	}
 }
 
+/*
 const vec3 VAO[4][2] = vec3[4][2](
 	vec3[2](vec3((16-4)/16.0, 0.5, 0.5), vec3(1,0,0)),
 	vec3[2](vec3((16-12)/16.0, 0.5, 0.5), vec3(1,0,0)),
 	vec3[2](vec3(0.5, 0.5, (16-4)/16.0), vec3(0,0,1)),
 	vec3[2](vec3(0.5, 0.5, (16-12)/16.0), vec3(0,0,1))
 );
+*/
 
 SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO, inout bool rt) {
 	curr.vPos = VMO.vPos - VMO.plane * exp2(-12);
