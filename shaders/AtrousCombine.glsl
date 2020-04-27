@@ -31,8 +31,6 @@ uniform bool accum;
 noperspective in vec2 texcoord;
 
 /* DRAWBUFFERS:5 */
-uniform bool DRAWBUFFERS_5;
-
 #include "lib/exit.glsl"
 
 void main() {
