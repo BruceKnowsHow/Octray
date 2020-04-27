@@ -17,18 +17,31 @@ void main() {
 #if defined fsh
 
 #include "lib/debug.glsl"
+
+#!dont-touch
 uniform sampler2D colortex0;
+#!dont-touch
 uniform sampler2D colortex1;
+#!dont-touch
 uniform sampler2D colortex2;
+#!dont-touch
 uniform sampler2D colortex3;
+#!dont-touch
 uniform sampler2D colortex4;
+#!dont-touch
 uniform sampler2D colortex5;
+#!dont-touch
 uniform sampler2D depthtex0;
+#!dont-touch
 uniform sampler2D shadowtex0;
 
+#!dont-touch
 const bool colortex2MipmapEnabled = true;
+#!dont-touch
 const bool colortex3MipmapEnabled = true;
+#!dont-touch
 const bool colortex4MipmapEnabled = true;
+#!dont-touch
 const bool colortex5MipmapEnabled = true;
 
 uniform mat4 gbufferPreviousProjection;

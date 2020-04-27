@@ -4,6 +4,4 @@
 #define gbuffers_textured_lit
 #define vsh
 
-#if defined world0
 #include "../gbuffers_opaque.glsl"
-#endif
