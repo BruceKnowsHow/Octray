@@ -93,7 +93,6 @@ vec3 ComputeBloom() {
 }
 
 /* DRAWBUFFERS:3 */
-uniform bool DRAWBUFFERS_3;
 #include "lib/exit.glsl"
 
 void main() {

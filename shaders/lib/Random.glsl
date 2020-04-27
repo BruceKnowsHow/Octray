@@ -34,13 +34,13 @@ vec2 WangHash(uvec2 seed) {
 #if (ShaderStage >= 10)
 	uint randState = triple32(uint(gl_FragCoord.x + viewSize.x * gl_FragCoord.y) + uint(viewSize.x * viewSize.y) * frameCounter);
 	uint RandNext() { return randState = triple32(randState); }
-	#define RandNext2() uvec2(RandNext(), RandNext())
-	#define RandNext3() uvec3(RandNext2(), RandNext())
-	#define RandNext4() uvec4(RandNext3(), RandNext())
-	#define RandNextF() (float(RandNext()) / float(0xffffffffu))
-	#define RandNext2F() (vec2(RandNext2()) / float(0xffffffffu))
-	#define RandNext3F() (vec3(RandNext3()) / float(0xffffffffu))
-	#define RandNext4F() (vec4(RandNext4()) / float(0xffffffffu))
+	uvec2 RandNext2() { return uvec2(RandNext(), RandNext()); }
+	uvec3 RandNext3() { return uvec3(RandNext2(), RandNext()); }
+	uvec4 RandNext4() { return uvec4(RandNext3(), RandNext()); }
+	float RandNextF() { return float(RandNext()) / float(0xffffffffu); }
+	vec2 RandNext2F() { return vec2(RandNext2()) / float(0xffffffffu); }
+	vec3 RandNext3F() { return vec3(RandNext3()) / float(0xffffffffu); }
+	vec4 RandNext4F() { return vec4(RandNext4()) / float(0xffffffffu); }
 #endif
 
 float RandF (uint  seed) { return float(triple32(seed))                    / float(0xffffffffu); }

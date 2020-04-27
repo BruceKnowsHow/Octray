@@ -74,6 +74,8 @@ noperspective in vec2 texcoord;
 #include "lib/debug.glsl"
 #include "lib/utility.glsl"
 #include "lib/encoding.glsl"
+
+#!dont-flatten
 #include "lib/settings/buffers.glsl"
 
 #include "lib/Random.glsl"
@@ -229,7 +231,6 @@ struct FilterData {
 };
 
 /* DRAWBUFFERS:201 */
-uniform bool DRAWBUFFERS_201;
 #include "lib/exit.glsl"
 
 void main() {

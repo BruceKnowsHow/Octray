@@ -108,10 +108,10 @@ uint GetRayType(uint info) {
 	return info & RAY_TYPE_MASK;
 }
 
-#define IsAmbientRay(ray) ((ray.info & AMBIENT_RAY_TYPE) != 0)
-#define IsSunlightRay(ray) ((ray.info & SUNLIGHT_RAY_TYPE) != 0)
-#define IsPrimaryRay(ray) ((ray.info & PRIMARY_RAY_TYPE) != 0)
-#define IsSpecularRay(ray) ((ray.info & SPECULAR_RAY_TYPE) != 0)
+bool IsAmbientRay(RayStruct ray) { return ((ray.info & AMBIENT_RAY_TYPE) != 0); }
+bool IsSunlightRay(RayStruct ray) { return ((ray.info & SUNLIGHT_RAY_TYPE) != 0); }
+bool IsPrimaryRay(RayStruct ray) { return ((ray.info & PRIMARY_RAY_TYPE) != 0); }
+bool IsSpecularRay(RayStruct ray) { return ((ray.info & SPECULAR_RAY_TYPE) != 0); }
 
 uint GetRayAttr(uint info) {
 	return info & RAY_ATTR_MASK;

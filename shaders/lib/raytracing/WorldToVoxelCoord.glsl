@@ -1,6 +1,7 @@
 #if !defined WORLDTOVOXELCOORD_GLSL
 #define WORLDTOVOXELCOORD_GLSL
 
+#!dont-flatten
 #include "ShadowMapSettings.glsl"
 #include "/block.properties"
 

@@ -53,8 +53,6 @@ uniform vec2 viewSize;
 noperspective in vec2 texcoord;
 
 /* DRAWBUFFERS:2 */
-uniform bool DRAWBUFFERS_2;
-
 #include "lib/exit.glsl"
 
 void main() {

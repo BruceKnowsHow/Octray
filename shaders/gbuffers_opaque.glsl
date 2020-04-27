@@ -249,7 +249,6 @@ in vec3 wPos;
 flat in int blockID;
 
 /* DRAWBUFFERS:01 */
-uniform bool DRAWBUFFERS_01;
 #include "lib/exit.glsl"
 
 #include "block.properties"
