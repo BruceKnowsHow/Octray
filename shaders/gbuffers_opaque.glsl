@@ -50,14 +50,6 @@ vec2 rotate(vec2 vector, float radians) {
 // #define DEFORM
 
 vec3 Deform(vec3 pos) {
-#ifndef DEFORM
-	return pos;
-#endif
-
-#if defined gbuffers_hand
-	return pos;
-#endif
-	
 	float rotation = (frameTimeCounter)*0;
 	
 	pos.xz = rotate(pos.xz, rotation);
@@ -96,6 +88,9 @@ vec3 Deform(vec3 pos) {
 	
 	return ret;
 }
+#ifndef DEFORM
+	#define Deform(x) x
+#endif
 
 #include "lib/raytracing/WorldToVoxelCoord.glsl"
 
