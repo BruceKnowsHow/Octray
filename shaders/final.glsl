@@ -158,5 +158,10 @@ void main() {
 	exit();
 }
 
+#if false
+	#define USERNAME DEFAULT_USER
+	#define LASTCOMMIT DEFAULT_COMMIT
+#endif
+
 #endif
 /***********************************************************************/
