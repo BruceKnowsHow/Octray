@@ -5,7 +5,7 @@
 #define SUNLIGHT_BRIGHTNESS         1.0 // [0.0 1/16 2/16 3/16 1/4 2/4 3/4 1.0 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0]
 #define SKY_BRIGHTNESS              1.0 // [0.0 1/16 2/16 3/16 1/4 2/4 3/4 1.0 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0]
 #define AMBIENT_BRIGHTNESS          1.0 // [0.0 1/16 2/16 3/16 1/4 2/4 3/4 1.0 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0]
-#define VIBRANCE                    1.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
+#define VIBRANCE                    1.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 2.1]
 
 #if (defined worldn1 || defined world1)
 const float dimensionMultiplyer = 0.0; // Nether and end

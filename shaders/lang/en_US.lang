@@ -54,8 +54,6 @@ value.VOXELIZATION_DISTANCE.0=8 Normal
 value.VOXELIZATION_DISTANCE.1=16 Far
 value.VOXELIZATION_DISTANCE.2=§c32 Extreme
 option.USE_RASTER_ENGINE=Use Rasterization
-option.COMPRESS_RAY_QUEUE=Compress Ray Queue
-option.COMPRESS_RAY_QUEUE.comment=Significantly increases FPS when ray bounces > 8
 option.UNHANDLED_BLOCKS=Special Blocks
 value.UNHANDLED_BLOCKS.0=Force render
 value.UNHANDLED_BLOCKS.1=Raster only
@@ -64,3 +62,14 @@ option.GSH_MODE=Geometry Shader
 value.GSH_MODE.GSH_MODE_ACTIVE=On
 value.GSH_MODE.GSH_MODE_PASSTHROUGH=Inactive
 value.GSH_MODE.GSH_MODE_DISABLED=Disabled
+
+option.ATROUS_FILTER=Filter Raytracing
+option.ATROUS_FILTER_PASSES_1=Filter Pass 1
+option.ATROUS_FILTER_PASSES_2=Filter Pass 2
+option.ATROUS_FILTER_PASSES_3=Filter Pass 3
+option.ATROUS_FILTER_PASSES_4=Filter Pass 4
+option.ATROUS_FILTER_PASSES_5=Filter Pass 5
+
+option.BLOOM=Bloom
+option.MOTION_BLUR=Motion Blur
+option.WHITEWORLD=White World
