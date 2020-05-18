@@ -3,19 +3,15 @@
 
 #include "UserSettings.glsl"
 
-#if (VOXELIZATION_DISTANCE == 128)
-const float shadowDistance           =  128;
-const int   shadowMapResolution      = 8192;
+#if (VOXELIZATION_DISTANCE == 0)
+const float shadowDistance           =  112;
+const int   shadowMapResolution      = 4096;
 const float shadowDistanceRenderMul  =    2.0;
-#elif (VOXELIZATION_DISTANCE == 256)
-const float shadowDistance           =   256;
-const int   shadowMapResolution      = 16384;
-const float shadowDistanceRenderMul  =     1.0;
-#elif (VOXELIZATION_DISTANCE == 384)
-const float shadowDistance           =   384;
-const int   shadowMapResolution      = 16384;
-const float shadowDistanceRenderMul  =     1.0;
-#elif (VOXELIZATION_DISTANCE == 478)
+#elif (VOXELIZATION_DISTANCE == 1)
+const float shadowDistance           =   232;
+const int   shadowMapResolution      = 8192;
+const float shadowDistanceRenderMul  =     2.0;
+#elif (VOXELIZATION_DISTANCE == 2)
 const float shadowDistance           =   478;
 const int   shadowMapResolution      = 16384;
 const float shadowDistanceRenderMul  =     1.0;
