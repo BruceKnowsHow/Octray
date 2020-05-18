@@ -279,25 +279,23 @@ void main() {
 		#if defined RT_TERRAIN_PARALLAX
 			if (isVoxelized(surface.blockID)) {
 				vec4 voxelData = vec4(texelFetch(shadowcolor0, vCoord, 0));
-				vec2 spriteSize = exp2(round(voxelData.xx * 255.0));
-				vec2 spriteScale = spriteSize / atlasSize;
+				curr.spriteScale = exp2(round(voxelData.xx * 255.0)) / atlasSize;
 				vec2 cornerTexCoord = unpackTexcoord(surface.depth);
 				
 				vec2 tCoord = ((fract(curr.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
-				tCoord = tCoord * spriteScale;
+				tCoord = tCoord * curr.spriteScale;
 				
 				vec3 tDir = curr.wDir * surface.tbn;
-				curr.tCoord = ComputeParallaxCoordinate(vec3(tCoord, 1.0), cornerTexCoord, tDir, spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
+				curr.tCoord = ComputeParallaxCoordinate(vec3(tCoord, 1.0), cornerTexCoord, tDir, curr.spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
 				curr.plane = surface.tbn[2];
-				curr.spriteSize = spriteSize;
 				curr.cornerTexCoord = cornerTexCoord;
 				
 				tCoord = curr.tCoord.xy;
 				
-				ivec2 iCoord = ivec2((mod(tCoord, spriteScale) + cornerTexCoord) * atlasSize);
-				surface.albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
-				surface.normals = GetNormals(iCoord);
-				surface.specular = GetSpecular(iCoord);
+				vec2 coord = mod(tCoord, curr.spriteScale) + cornerTexCoord;
+				surface.albedo = textureLod(VOXEL_ALBEDO_TEX, coord, 0);
+				surface.normals = GetNormals(coord);
+				surface.specular = GetSpecular(coord);
 				surface.albedo.rgb *= rgb(vec3(voxelData.ba, 1.0));
 			}
 		#endif
@@ -327,7 +325,7 @@ void main() {
 		
 		primary.wDir = wDir;
 		primary.prevVolume = 1.0;
-		#if defined RT_TERRAIN_PARALLAX
+		#ifdef RT_TERRAIN_PARALLAX
 			primary.insidePOM = false;
 		#endif
 		RayPushBack(primary);
@@ -338,14 +336,25 @@ void main() {
 		
 		RayStruct curr = RayPopBack();
 		
-		#if defined RT_TERRAIN_PARALLAX
+		#ifdef RT_TERRAIN_PARALLAX
 			if (curr.insidePOM) {
 				vec3 tDir = curr.wDir * GenerateTBN(curr.plane);
-				vec2 spriteScale = curr.spriteSize / atlasSize;
 				
-				curr.tCoord = ComputeParallaxCoordinate(curr.tCoord, curr.cornerTexCoord, tDir, spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
+				curr.tCoord = ComputeParallaxCoordinate(curr.tCoord, curr.cornerTexCoord, tDir, curr.spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
 				
 				if (curr.insidePOM) continue;
+			}
+		#endif
+		
+		#ifdef SUBVOXEL_RAYTRACING
+			if (curr.subvoxel_hit) {
+				mat3 tbn;
+				vec2 tCoord;
+				curr.subvoxel_hit = false;
+				SubVoxelTrace(curr.blockID, curr.wDir, curr.cornerTexCoord, curr.spriteScale, curr.vPos, tbn, tCoord, curr.subvoxel_hit);
+				if (curr.subvoxel_hit) {
+					continue;
+				}
 			}
 		#endif
 		
@@ -360,19 +369,17 @@ void main() {
 			continue;
 		}
 		
-		bool rt = false;
-		SurfaceStruct surface = ReconstructSurface(curr, VMO, rt);
+		SurfaceStruct surface = ReconstructSurface(curr, VMO);
 		
-		// if (rt) {
-		// 	RayPushBack(curr);
-		// 	continue;
-		// }
+		if (!curr.subvoxel_hit) {
+			RayPushBack(curr);
+			continue;
+		}
 		
 		if (GetRayDepth(curr.info) == 0 || (!USE_RASTER_ENGINE_B && IsPrimaryRay(curr))) {
 			filterData.albedo = mix(vec3(1.0), surface.albedo.rgb, surface.albedo.a);
 			filterData.normal = surface.normal;
 			filterData.zPos = (VoxelToWorldSpace(VMO.vPos)*mat3(gbufferModelViewInverse)).z;
-			
 			surface.albedo.rgb = vec3(1.0);
 		}
 		
@@ -396,11 +403,6 @@ void main() {
 	
 	exit();
 }
-
-#if false
-	#define USERNAME DEFAULT_USER
-	#define LASTCOMMIT DEFAULT_COMMIT
-#endif
 
 #endif
 /***********************************************************************/

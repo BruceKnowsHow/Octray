@@ -158,9 +158,16 @@ void main() {
 	exit();
 }
 
-#if false
-	#define USERNAME DEFAULT_USER
-	#define LASTCOMMIT DEFAULT_COMMIT
+#if 0
+	#define DISCORD_USERNAME DEFAULT
+	#define DISCORD_ID DEFAULT
+	#define COMMIT_HASH DEFAULT
+#endif
+
+#if 0
+	#define DISCORD_USERNAME REPLACE_ME
+	#define DISCORD_ID REPLACE_ME
+	#define COMMIT_HASH REPLACE_ME
 #endif
 
 #endif

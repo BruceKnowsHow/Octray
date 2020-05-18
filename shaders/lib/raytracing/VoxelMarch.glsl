@@ -10,6 +10,8 @@
 #include "RT_TerrainParallax.fsh"
 #include "RT_Encoding.glsl"
 
+//#define SUBVOXEL_RAYTRACING
+
 // Return structure for the VoxelMarch function
 struct VoxelMarchOut {
 	uint  hit  ;
@@ -50,13 +52,14 @@ struct RayStruct {
 	float prevVolume;
 	int accumIndex;
 	
-	#if defined RT_TERRAIN_PARALLAX
-		bool insidePOM;
-		vec3 tCoord;
-		vec2 spriteSize;
-		vec2 cornerTexCoord;
-		vec3 plane;
-	#endif
+	bool insidePOM;
+	vec3 tCoord;
+	vec2 spriteScale;
+	vec3 plane;
+	
+	bool subvoxel_hit;
+	int blockID;
+	vec2 cornerTexCoord;
 };
 
 //#define COMPRESS_RAY_QUEUE
@@ -396,15 +399,15 @@ mat3 GenerateTBN(vec3 plane) {
 	return tbn;
 }
 
-vec4 GetNormals(ivec2 coord) {
-	return texelFetch(VOXEL_NORMALS_TEX, coord, 0);
+vec4 GetNormals(vec2 coord) {
+	return textureLod(VOXEL_NORMALS_TEX, coord, 0);
 }
 #if (!defined MC_NORMAL_MAP)
 	#define GetNormals(coord) vec4(0.5, 0.5, 1.0, 0.0)
 #endif
 
-vec4 GetSpecular(ivec2 coord) {
-	return texelFetch(VOXEL_SPECULAR_TEX, coord, 0);
+vec4 GetSpecular(vec2 coord) {
+	return textureLod(VOXEL_SPECULAR_TEX, coord, 0);
 }
 #if (!defined MC_SPECULAR_MAP)
 	#define GetSpecular(coord) vec4(0.0, 0.0, 0.0, 0.0)
@@ -413,93 +416,103 @@ vec4 GetSpecular(ivec2 coord) {
 #include "UnpackPBR.glsl"
 
 void MapID(int ID, out int index, out int vertCount) {
-	if (ID == 8) {
-		index = 0;
-		vertCount = 4;
-	}
+	if (ID == 8) index = 0, vertCount = 4;
+	if (ID == 12) index = 4, vertCount = 1;
 }
 
-/*
-const vec3 VAO[4][2] = vec3[4][2](
-	vec3[2](vec3((16-4)/16.0, 0.5, 0.5), vec3(1,0,0)),
-	vec3[2](vec3((16-12)/16.0, 0.5, 0.5), vec3(1,0,0)),
-	vec3[2](vec3(0.5, 0.5, (16-4)/16.0), vec3(0,0,1)),
-	vec3[2](vec3(0.5, 0.5, (16-12)/16.0), vec3(0,0,1))
+const vec3 VAO[10] = vec3[10](
+	vec3((16-4)/16.0, 0.5, 0.5), vec3(1,0,0),
+	vec3((16-12)/16.0, 0.5, 0.5), vec3(1,0,0),
+	vec3(0.5, 0.5, (16-4)/16.0), vec3(0,0,1),
+	vec3(0.5, 0.5, (16-12)/16.0), vec3(0,0,1),
+	vec3(0.5, 15./16, (16-12)/16.0), vec3(0,1,0)
 );
-*/
 
-SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO, inout bool rt) {
+void SubVoxelTrace(int blockID, vec3 wDir, vec2 cornerTexCoord, vec2 spriteScale, inout vec3 vPos, inout mat3 TBN, inout vec2 tCoord, inout bool hit) {
+	#ifndef SUBVOXEL_RAYTRACING
+		return;
+	#endif
+	
+	if (!isSubVoxel(blockID))
+		return;
+	
+	vec3 fr = fract(vPos);
+	vec3 n = vec3(0);
+	float t = 1e35;
+	
+	vec3 vv = vPos;
+	
+	int start, end;
+	MapID(blockID, start, end);
+	end += start;
+	
+	for (int i = start; i < end; ++i) {
+		vec3 p0 = VAO[i*2];
+		vec3 ni = VAO[i*2+1] * sign(-wDir);
+		
+		float t_ = dot(p0-fr, ni) / dot(wDir,ni);
+		
+		vec3 hitpoint = fr+wDir*t_;
+		// hitpoint.y += 1/16.;
+		
+		if (t_ > 0 && all(lessThan(abs(hitpoint-0.5), vec3(0.5))) && t_ < t) {
+			mat3 tbn = GenerateTBN(ni);
+			
+			vec2 tempCoord = ((hitpoint * 2.0 - 1.0) * mat2x3(tbn)) * 0.5 + 0.5;
+			
+			vec2 coord = tempCoord * spriteScale + cornerTexCoord;
+			
+			vec4 albedo = textureLod(VOXEL_ALBEDO_TEX, coord, 0);
+			
+			if (albedo.a > 0.1) {
+				t = t_;
+				n = ni;
+				
+				vPos = vv + wDir*t_ + tbn[2] * exp2(-12);
+				tCoord = tempCoord;
+				TBN = tbn;
+			}
+		}
+	}
+	
+	hit = t != 1e35;
+}
+
+SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	curr.vPos = VMO.vPos - VMO.plane * exp2(-12);
 	
 	SurfaceStruct surface;
+	surface.depth = VMO.data;
 	surface.voxelData = vec4(texelFetch(shadowcolor0, VMO.vCoord, 0));
 	surface.blockID = int(surface.voxelData.g*255);
 	
-	vec2 spriteSize = exp2(round(surface.voxelData.xx * 255.0));
-	vec2 spriteScale = spriteSize / atlasSize;
-	vec2 cornerTexCoord = unpackTexcoord(VMO.data);
-	
-	/*
-	if (surface.blockID == 8) {
-		vec3 fr = fract(curr.vPos);
-		vec3 n = vec3(0);
-		float t = 1e35;
-		
-		int start, end;
-		MapID(surface.blockID, start, end);
-		end += start;
-		
-		for (int i = start; i < end; ++i) {
-			vec3 p0 = VAO[i][0];
-			vec3 ni = VAO[i][1];
-			
-			float t_ = dot(p0-fr, ni) / dot(curr.wDir,ni);
-			
-			vec3 hitpoint = fr+curr.wDir*t_;
-			
-			if (t_ > 0 && all(lessThan(abs(hitpoint-0.5), vec3(0.5))) && t_ < t) {
-				mat3 tbn = GenerateTBN(ni);
-				
-				vec2 tCoord = ((hitpoint * 2.0 - 1.0) * mat2x3(tbn)) * 0.5 + 0.5;
-				
-				ivec2 iCoord = ivec2((tCoord * spriteScale + cornerTexCoord) * atlasSize);
-				
-				vec4 albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
-				
-				if (albedo.a > 0.1) {
-					show(albedo)
-					t = t_;
-					n = ni;
-				}
-			}
-		}
-		
-		rt = t == 1e35;
-	}
-	*/
-	
-	surface.depth = VMO.data;
+	curr.spriteScale = exp2(round(surface.voxelData.xx * 255.0)) / atlasSize;
+	curr.cornerTexCoord = unpackTexcoord(VMO.data);
 	
 	surface.tbn = GenerateTBN(VMO.plane);
-	
 	vec2 tCoord = ((fract(curr.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
 	
-	tCoord = tCoord * spriteScale;
+	curr.subvoxel_hit = true;
+	
+	#ifdef SUBVOXEL_RAYTRACING
+		curr.blockID = surface.blockID;
+		SubVoxelTrace(curr.blockID, curr.wDir, curr.cornerTexCoord, curr.spriteScale, curr.vPos, surface.tbn, tCoord, curr.subvoxel_hit);
+	#endif
+	
+	tCoord = tCoord * curr.spriteScale;
 	
 	#if defined RT_TERRAIN_PARALLAX
 		vec3 tDir = curr.wDir * surface.tbn;
-		curr.tCoord = ComputeParallaxCoordinate(vec3(tCoord, 1.0), cornerTexCoord, tDir, spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
+		curr.tCoord = ComputeParallaxCoordinate(vec3(tCoord, 1.0), curr.cornerTexCoord, tDir, curr.spriteScale, curr.insidePOM, VOXEL_NORMALS_TEX);
 		curr.plane = VMO.plane;
-		curr.spriteSize = spriteSize;
-		curr.cornerTexCoord = cornerTexCoord;
 		
 		tCoord = curr.tCoord.xy;
 	#endif
 	
-	ivec2 iCoord = ivec2((mod(tCoord, spriteScale) + cornerTexCoord) * atlasSize);
-	surface.albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
-	surface.normals = GetNormals(iCoord);
-	surface.specular = GetSpecular(iCoord);
+	tCoord = mod(tCoord, curr.spriteScale) + curr.cornerTexCoord;
+	surface.albedo = textureLod(VOXEL_ALBEDO_TEX, tCoord, 0);
+	surface.normals = GetNormals(tCoord);
+	surface.specular = GetSpecular(tCoord);
 	
 	DEBUG_DIFFUSE_SHOW(surface.albedo.rgb);
 	DEBUG_WPOS_SHOW(VoxelToWorldSpace(VMO.vPos));
