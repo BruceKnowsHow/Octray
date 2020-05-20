@@ -429,10 +429,6 @@ const vec3 VAO[10] = vec3[10](
 );
 
 void SubVoxelTrace(int blockID, vec3 wDir, vec2 cornerTexCoord, vec2 spriteScale, inout vec3 vPos, inout mat3 TBN, inout vec2 tCoord, inout bool hit) {
-	#ifndef SUBVOXEL_RAYTRACING
-		return;
-	#endif
-	
 	if (!isSubVoxel(blockID))
 		return;
 	
@@ -477,6 +473,9 @@ void SubVoxelTrace(int blockID, vec3 wDir, vec2 cornerTexCoord, vec2 spriteScale
 	
 	hit = t != 1e35;
 }
+#ifndef SUBVOXEL_RAYTRACING
+	#define SubVoxelTrace(blockID, wDir, cornerTexCoord, spriteScale, vPos, TBN, tCoord, hit)
+#endif
 
 SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	curr.vPos = VMO.vPos - VMO.plane * exp2(-12);
