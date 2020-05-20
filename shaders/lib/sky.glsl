@@ -1,7 +1,7 @@
 #if !defined SKY_GLSL
 #define SKY_GLSL
 
-#define CLOUDS_2D
+//#define CLOUDS_2D
 #define CLOUD_HEIGHT_2D   512  // [384 512 640 768]
 #define CLOUD_COVERAGE_2D 0.5  // [0.3 0.4 0.5 0.6 0.7]
 #define CLOUD_SPEED_2D    1.00 // [0.25 0.50 1.00 2.00 4.00]
@@ -42,7 +42,7 @@ float GetCoverage(float clouds, float coverage) {
 }
 
 float CloudFBM(vec2 coord, out mat4x2 c, vec3 weights, float weight) {
-	float time = CLOUD_SPEED_2D * frameTimeCounter * 0.01;
+	float time = CLOUD_SPEED_2D * frameTimeCounter * 0.01*0;
 	
 	c[0]    = coord * 0.007;
 	c[0]   += GetNoise2D(c[0]) * 0.3 - 0.15;
@@ -113,16 +113,15 @@ vec3 Compute2DCloudPlane(vec3 wPos, vec3 wDir, inout vec3 transmit, float sunglo
 //	     directColor *= 1.0 + pow(sunglow, 10.0) * 10.0 / (sunlight * 0.8 + 0.2);
 //	     directColor *= mix(vec3(1.0), vec3(0.4, 0.5, 0.6), timeNight);
 	
-	vec3 ambientColor = mix(skylightColor, directColor, 0.15) * 0.1;
+	vec3 ambientColor = mix(skylightColor, directColor, 0.0) * 0.1;
 	
-	vec3 trans;
-	directColor = 0.5*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), sunDirection, 0.0, sunDirection, trans);
-	
-	ambientColor = 0.2*PrecomputedSky(vec3(0, 1+ATMOSPHERE.bottom_radius,0), vec3(0,1,0), 0.0, sunDirection, trans);
+	vec3 trans = vec3(1);
+	directColor = 2.0 * GetSunIrradiance(kPoint(wPos), sunDirection);
+	ambientColor = 0.05*PrecomputedSky(kCamera, vec3(0,1,0), 0.0, sunDirection, trans);
 	
 	vec3 cloud = mix(ambientColor, directColor, sunlight) * 2.0;
 	
-	transmit *= clamp(1.0 - cloudAlpha, 0.0, 1.0);
+	transmit *= clamp(1.0 - cloudAlpha, 0.0, 1.0)*0.5+0.5;
 	
 	return cloud * cloudAlpha * oldTransmit * 5.0;
 }
@@ -223,7 +222,9 @@ vec3 ComputeTotalSky(vec3 wPos, vec3 wDir, inout vec3 transmit, const bool prima
 	vec3 color = vec3(0.0);
 	
 	// calculateVolumetricClouds(color, transmit, wPos, wDir, sunDirection, vec2(0.0), 1.0, ATMOSPHERE.bottom_radius*1000.0, VC_QUALITY, VC_SUNLIGHT_QUALITY);
+	color += ComputeClouds(wPos, wDir, transmit);
 	color += CalculateNightSky(wDir)*transmit;
+	
 	// color += vec3(0.04, 0.04, 0.1)*0.01*transmit;
 	color += PrecomputedSky(kCamera, wDir, 0.0, sunDirection, transmit);
 	color += ComputeBackSky(wPos, wDir, transmit, primary);

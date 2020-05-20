@@ -41,56 +41,7 @@ mat3 CalculateTBN() {
 
 #include "/lib/Random.glsl"
 
-vec2 rotate(vec2 vector, float radians) {
-	return vector *= mat2(
-		cos(radians), -sin(radians),
-		sin(radians),  cos(radians));
-}
-
-// #define DEFORM
-
-vec3 Deform(vec3 pos) {
-	float rotation = (frameTimeCounter)*0;
-	
-	pos.xz = rotate(pos.xz, rotation);
-	
-	vec3 ret = pos;
-	
-	float distance2D = dot(pos.xz, pos.xz);
-	
-	// ret.y += 5.0 * sin(distance2D * sin((frameTimeCounter * 20 + 36000.0) / 143.0) / 1000.0);
-	ret.y += cameraPosition.y*0;
-	
-	vec2 sphereAngle = ret.xz / (far) * 3.14 / 2.0 / 3.0;
-	
-	vec3 pos1 = ret;
-	vec3 pos2 = ret;
-	
-	pos1.yz = rotate(pos1.yz, sphereAngle.y);
-	pos1.yx = rotate(pos1.yx, sphereAngle.x);
-	
-	pos2.yx = rotate(pos2.yx, sphereAngle.x);
-	pos2.yz = rotate(pos2.yz, sphereAngle.y);
-	
-	ret = mix(pos1, pos2, 0.5);
-	
-	ret.y -= cameraPosition.y*0;
-	// ret.y -= (dot(pos.z, pos.z) / 100.0);
-	// ret.y -= 5.0 * sin(sqrt(distance2D) / 10.0);
-	
-	pos = ret;
-	
-	float om = sin(distance2D * sin((frameTimeCounter * 20.0 + 36000.0) / 256.0) / 5000.0) * sin((frameTimeCounter * 20.0 + 36000.0) / 200.0);
-	
-	ret.xy = rotate(ret.xy, om*0);
-	
-	ret.xz = rotate(ret.xz, -rotation);
-	
-	return ret;
-}
-#ifndef DEFORM
-	#define Deform(x) x
-#endif
+#include "lib/Deformation.glsl"
 
 #include "lib/raytracing/WorldToVoxelCoord.glsl"
 

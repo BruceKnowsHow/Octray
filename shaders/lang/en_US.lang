@@ -73,3 +73,13 @@ option.ATROUS_FILTER_PASSES_5=Filter Pass 5
 option.BLOOM=Bloom
 option.MOTION_BLUR=Motion Blur
 option.WHITEWORLD=White World
+
+screen.misc=Secret Stuff §c(Dangerous)
+screen.Deformation=World Deformation
+
+option.DEFORM=Deformation
+value.DEFORM.DEFORM_NONE=None
+value.DEFORM.DEFORM_PLANET=Planetoid
+value.DEFORM.DEFORM_ACID=Acid
+
+option.PLANET_RADIUS=Planetoid Radius
