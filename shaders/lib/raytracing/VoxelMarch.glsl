@@ -155,7 +155,12 @@ uint GetRayDepth(uint info) {
 	#define UnpackRay(elem) (elem)
 #endif
 
-#include "VisibilityThreshold.glsl"
+#include "/lib/Tonemap.glsl"
+
+bool PassesVisibilityThreshold(vec3 absorb) {
+	vec3 delC = Tonemap(absorb*brightestThing + totalColor) - Tonemap(totalColor);
+	return any(greaterThan(delC, vec3(10.0 / 255.0)));
+}
 
 void RayPushBack(RayStruct elem) {
 	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
@@ -413,8 +418,6 @@ vec4 GetSpecular(vec2 coord) {
 	#define GetSpecular(coord) vec4(0.0, 0.0, 0.0, 0.0)
 #endif
 
-#include "UnpackPBR.glsl"
-
 void MapID(int ID, out int index, out int vertCount) {
 	if (ID == 8) index = 0, vertCount = 4;
 	if (ID == 12) index = 4, vertCount = 1;
@@ -521,8 +524,6 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	
 	surface.normal = surface.tbn * normalize(surface.normals.rgb * 2.0 - 1.0);
 	
-	UnpackSpecularData(surface);
-
 	return surface;
 }
 

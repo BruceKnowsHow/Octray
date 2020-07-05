@@ -16,25 +16,18 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#define BEEEEEEEN0
 uniform sampler2D colortex2;
-#define BEEEEEEEN1
 uniform sampler2D colortex4;
-#define BEEEEEEEN2
 uniform sampler2D depthtex0;
-#define BEEEEEEEN3
 uniform sampler2D shadowtex0;
 #define SHADOW_DEPTH shadowtex0
 uniform sampler2D shadowcolor0;
-// #define BEEEEEEEN5
-// uniform sampler2D shadowcolor1;
-#define BEEEEEEEN6
 uniform sampler2D noisetex;
 
 const bool colortex2MipmapEnabled = true;
 const bool depthtex0MipmapEnabled = true;
 
-// Do these weird declarations so that optifine doesn't create extra buffers
+// Do these definitions so that optifine doesn't create extra buffers
 #define SKY_SAMPLER colortex7
 uniform sampler3D SKY_SAMPLER;
 #define DEPTHTEX1 depthtex1
@@ -43,9 +36,11 @@ uniform sampler2D DEPTHTEX1;
 uniform sampler2D DEPTHTEX2;
 #define SHADOWTEX1 shadowtex1
 uniform sampler2D SHADOWTEX1;
+
 #define GBUFFER0_SAMPLER colortex0
-uniform sampler2D GBUFFER0_SAMPLER;
 #define GBUFFER1_SAMPLER colortex1
+
+uniform sampler2D GBUFFER0_SAMPLER;
 uniform sampler2D GBUFFER1_SAMPLER;
 
 uniform mat4 gbufferPreviousModelView;
@@ -75,7 +70,6 @@ noperspective in vec2 texcoord;
 #include "lib/utility.glsl"
 #include "lib/encoding.glsl"
 
-#!dont-flatten
 #include "lib/settings/buffers.glsl"
 
 #include "lib/Random.glsl"
@@ -111,7 +105,6 @@ vec3 totalColor = vec3(0.0);
 int RAY_COUNT;
 
 #include "lib/raytracing/VoxelMarch.glsl"
-#include "lib/Volumetrics.fsh"
 
 void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 	if (GetRayDepth(curr.info) >= MAX_RAY_BOUNCES) return;
@@ -129,36 +122,6 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 		ambientray.wDir = ArbitraryTBN(surface.normal) * CalculateConeVector(RandNextF(), radians(90.0), 32);
 		ambientray.absorb *= surface.albedo.rgb * ambientBrightness * float(dot(ambientray.wDir, surface.tbn[2]) > 0.0);
 		RayPushBack(ambientray);
-	}
-	
-	if (SPECULAR_RAYS) {
-		RayStruct specular = curr;
-		specular.info = PackRayInfo(GetRayDepth(curr.info) + 1, SPECULAR_RAY_TYPE, GetRayAttr(curr.info));
-		vec2 uv = RandNext2F();
-		
-		vec3 V = reflect(curr.wDir, surface.normal);
-		mat3 atbn = ArbitraryTBN(V);
-		
-		specular.wDir = atbn * GGXVNDFSample(V * atbn, roughness*roughness, uv);
-		
-		float cosTheta = dot(specular.wDir, surface.normal);
-		
-		float G = GeometrySmith(surface.normal, -curr.wDir, specular.wDir, roughness);
-		
-		vec3 F = fresnelSchlick(cosTheta, vec3(F0));
-		
-		vec3 numerator = G * F;
-		float denominator = 4.0 * max(dot(surface.normal, -curr.wDir), 0.0) * max(dot(surface.normal, specular.wDir), 0.0);
-		vec3 spec = numerator / max(denominator, 0.001);
-		
-		vec3 kS = F;
-		vec3 kD = (1.0 - kS) * float(!isMetal);
-		
-		float NdotL = max(dot(surface.normal, specular.wDir), 0.0);
-	    vec3 Li = (kD * surface.albedo.rgb * 4.0*0 + spec) * NdotL;
-		
-		specular.absorb = curr.absorb * Li * float(dot(specular.wDir, surface.tbn[2]) > 0.0);
-		RayPushBack(specular);
 	}
 	
 	if (SUNLIGHT_RAYS) {
@@ -390,8 +353,6 @@ void main() {
 		HandLight(curr, surface);
 		ConstructRays(curr, surface);
 	}
-	
-	// totalColor.rgb *= filterData.albedo;
 	
 	totalColor = max(totalColor, vec3(0.0));
 	

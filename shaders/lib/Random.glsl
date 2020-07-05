@@ -3,14 +3,14 @@
 
 uint triple32(uint x) {
 	// https://nullprogram.com/blog/2018/07/31/
-    x ^= x >> 17;
-    x *= 0xed5ad4bbu;
-    x ^= x >> 11;
-    x *= 0xac4c1b51u;
-    x ^= x >> 15;
-    x *= 0x31848babu;
-    x ^= x >> 14;
-    return x;
+	x ^= x >> 17;
+	x *= 0xed5ad4bbu;
+	x ^= x >> 11;
+	x *= 0xac4c1b51u;
+	x ^= x >> 15;
+	x *= 0x31848babu;
+	x ^= x >> 14;
+	return x;
 }
 
 float WangHash(uint seed) {

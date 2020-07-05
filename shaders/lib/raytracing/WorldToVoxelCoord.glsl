@@ -1,9 +1,33 @@
 #if !defined WORLDTOVOXELCOORD_GLSL
 #define WORLDTOVOXELCOORD_GLSL
 
-#!dont-flatten
-#include "ShadowMapSettings.glsl"
+
 #include "/block.properties"
+
+#define VOXELIZATION_DISTANCE 1 // [0 1 2]
+
+#define MAX_RAY_BOUNCES 2 // [0 1 2 3 4 6 8 12 16 24 32 48 64]
+
+#define SUNLIGHT_RAYS On // [On Off]
+#define SPECULAR_RAYS Off // [On Off]
+#define AMBIENT_RAYS On // [On Off]
+
+#if (VOXELIZATION_DISTANCE == 0)
+	const float shadowDistance           =  112;
+	const int   shadowMapResolution      = 4096;
+	const float shadowDistanceRenderMul  =    2.0;
+#elif (VOXELIZATION_DISTANCE == 1)
+	const float shadowDistance           =   232;
+	const int   shadowMapResolution      = 8192;
+	const float shadowDistanceRenderMul  =     2.0;
+#elif (VOXELIZATION_DISTANCE == 2)
+	const float shadowDistance           =   478;
+	const int   shadowMapResolution      = 16384;
+	const float shadowDistanceRenderMul  =     1.0;
+#endif
+
+const float shadowIntervalSize       =    0.000001;
+const bool  shadowHardwareFiltering0 = false;
 
 const int shadowRadius2   = int(min(shadowDistance, far));
 const int shadowDiameter2 = 2 * shadowRadius2;
@@ -67,8 +91,6 @@ uint GetVoxelID(uvec3 vPos, uint LOD, uint offset) {
 	vPos.z = vPos.z * uint(shadowDimensions2.x);
 	vPos.z = vPos.z << 8;
 	vPos.z = vPos.z >> (LOD + LOD);
-	// vPos.z = vPos.z << (uint(log2(shadowDimensions.x)) + (8 - (LOD + LOD)));
-	// vPos.z = vPos.z << (8 + uint(log2(shadowDimensions.x)) - (LOD + LOD));
 	
 	return vPos.x + vPos.y + vPos.z + offset;
 }
@@ -93,5 +115,6 @@ ivec2 VoxelToTextureSpace(uvec3 vPos, uint LOD, uint offset) {
 ivec2 VoxelToTextureSpace(uvec3 vPos) {
 	return VoxelToTextureSpace(vPos, 0, 0);
 }
+
 
 #endif
