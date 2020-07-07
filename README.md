@@ -1,5 +1,5 @@
 ## Octray
-![Teaser Image](https://cdn.discordapp.com/attachments/254127148913262593/718599693927710770/wide.jpg)
+![Image](https://cdn.discordapp.com/attachments/254127148913262593/730198439706755153/wide.jpg)
 
 Octray is an experimental raytraced shaderpack for Minecraft/Optifine.
 
