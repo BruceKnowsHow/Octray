@@ -29,9 +29,9 @@
 const float shadowIntervalSize       =    0.000001;
 const bool  shadowHardwareFiltering0 = false;
 
-const int shadowRadius   = int(min(shadowDistance, far));
-const int shadowDiameter = 2 * shadowRadius;
-const ivec3 shadowDimensions = ivec3(shadowDiameter, 256, shadowDiameter);
+int shadowRadius   = int(min(shadowDistance, far));
+int shadowDiameter = 2 * shadowRadius;
+ivec3 shadowDimensions = ivec3(shadowDiameter, 256, shadowDiameter);
 
 bool OutOfVoxelBounds(vec3 point) {
 	vec3 mid = shadowDimensions / 2.0;
@@ -66,16 +66,16 @@ vec3 VoxelToWorldSpace(vec3 position) {
 	return position - WtoV;
 }
 
-const int shadowArea2 = shadowDimensions.x * shadowDimensions.z;
-const int shadowVolume2 = shadowDimensions.y * shadowArea2;
+int shadowArea2 = shadowDimensions.x * shadowDimensions.z;
+int shadowVolume2 = shadowDimensions.y * shadowArea2;
 
 
 ivec2 VoxelToTextureSpace2(uvec3 position, uint LOD) {
-	const uint svv = (shadowVolume2*8)/7;
-	const uint svvv = shadowVolume2*8;
+	uint svv = (shadowVolume2*8)/7;
+	uint svvv = shadowVolume2*8;
 	
-	const uint L1 = uint(ceil((shadowDiameter)));
-	const uint L2 = uint(ceil((shadowArea2)));
+	uint L1 = uint(ceil((shadowDiameter)));
+	uint L2 = uint(ceil((shadowArea2)));
 	
 	uvec3 b = uvec3(position) >> LOD;
 	b.x = (b.x * L1) >> LOD;

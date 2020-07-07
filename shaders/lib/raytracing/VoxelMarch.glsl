@@ -472,8 +472,8 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	surface.blockID = int(surface.voxelData.g*255);
 	
 	curr.spriteScale = exp2(round(surface.voxelData.xx * 255.0)) / atlasSize;
-	curr.cornerTexCoord = unpackTexcoord(VMO.data);
-	show(int(curr.spriteScale.x * atlasSize.x) == 16)
+	curr.cornerTexCoord = unpackTexcoord(VMO.data);\
+	
 	surface.tbn = GenerateTBN(VMO.plane);
 	vec2 tCoord = ((fract(curr.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
 	
@@ -501,7 +501,6 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	surface.albedo = textureLod(VOXEL_ALBEDO_TEX, tCoord, 0);
 	surface.normals = GetNormals(tCoord);
 	surface.specular = GetSpecular(tCoord);
-	show(surface.albedo)
 	
 	DEBUG_DIFFUSE_SHOW(surface.albedo.rgb);
 	DEBUG_WPOS_SHOW(VoxelToWorldSpace(VMO.vPos));

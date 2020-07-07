@@ -2,13 +2,13 @@ screen.Setup=Setup
 
 #§
 
-option.ABOUT=
-value.ABOUT.0=                                                            §fOctray Shaders                                                            
-value.ABOUT.1=                                                            §bGitHub.com/BruceKnowsHow                                                             
-value.ABOUT.2=                                                            §fBruceKnowsHow says: §a"Thank you...                                                             
-value.ABOUT.3=                                                            §fwe don't have to §ago §fany farther                                                             
-value.ABOUT.4=                                                            §fbut §aif §fyou do                                                             
-value.ABOUT.5=                                                            §fI'm going to be §avery proud§f of you."                                                             
+option.ABOUT=(^
+value.ABOUT.0=§fOctray Shaders                                                            
+value.ABOUT.1=§bGitHub.com/BruceKnowsHow                                                             
+value.ABOUT.2=§fBruceKnowsHow says: §a"Thank you...                                                             
+value.ABOUT.3=§fwe don't have to §ago §fany farther                                                             
+value.ABOUT.4=§fbut §aif §fyou do                                                             
+value.ABOUT.5=§fI'll be §avery proud§f of you."                                                             
 value.ABOUT.6=                                                                                                                         
 
 profile.Low=§a§nLow§r
