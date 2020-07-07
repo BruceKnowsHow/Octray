@@ -11,6 +11,8 @@ attribute vec3 mc_Entity;
 attribute vec4 at_tangent;
 attribute vec2 mc_midTexCoord;
 
+uniform sampler2D tex;
+
 uniform mat4 gbufferModelViewInverse;
 uniform mat4 shadowModelViewInverse;
 uniform float far;
@@ -18,7 +20,7 @@ uniform float far;
 uniform vec3 cameraPosition;
 uniform vec3 previousCameraPosition;
 
-uniform ivec2 atlasSize;
+vec2 atlasSize = textureSize(tex, 0).xy;
 
 uniform int instanceId;
 
@@ -114,12 +116,14 @@ layout(triangles) in;
 	layout(triangle_strip, max_vertices = 3) out;
 #endif
 
+uniform sampler2D tex;
+
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform mat4 gbufferModelViewInverse;
 uniform vec3 cameraPosition;
 
-uniform ivec2 atlasSize;
+vec2 atlasSize = textureSize(tex, 0).xy;
 uniform float far;
 
 in vec4 vColor[];

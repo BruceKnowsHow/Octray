@@ -6,6 +6,8 @@
 #define VOXEL_NORMALS_TEX depthtex2
 #define VOXEL_SPECULAR_TEX shadowtex1
 
+vec2 atlasSize = textureSize(VOXEL_ALBEDO_TEX, 0).xy;
+
 #include "WorldToVoxelCoord.glsl"
 #include "RT_TerrainParallax.fsh"
 #include "RT_Encoding.glsl"
@@ -271,10 +273,6 @@ float MinComp(vec3 v, out uvec3 minCompMask) {
 	return intBitsToFloat(BinaryDot(ia, iCompMask));
 }
 
-vec2 MinCompMask(vec2 v) {
-	return (v.x < v.y) ? vec2(1,0) : vec2(0,1);
-}
-
 uvec3 GetMinCompMask(vec3 v) {
 	ivec3 ia = floatBitsToInt(v);
 	ivec3 iCompMask;
@@ -282,21 +280,6 @@ uvec3 GetMinCompMask(vec3 v) {
 	iCompMask.z = (-1) ^ iCompMask.x ^ iCompMask.y;
 	
 	return uvec3(iCompMask);
-}
-
-vec3 MinCompMask(vec3 v) {
-	vec3 minCompMask;
-	MinComp(v, minCompMask);
-	return minCompMask;
-}
-
-vec3 StepThroughVoxel(vec3 vPos, vec3 wDir, out vec3 plane) {
-	vec3 dirPositive = (sign(wDir) * 0.5 + 0.5); // +1.0 when going in a positive direction, 0.0 otherwise.
-
-	vec3 tMax = (floor(vPos) - vPos + dirPositive) / wDir;
-	float L = MinComp(tMax, plane);
-	
-	return vPos + wDir * L;
 }
 
 uvec2 GetNonMinComps(uvec3 xyz, uvec3 uplane) {
@@ -490,7 +473,7 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 	
 	curr.spriteScale = exp2(round(surface.voxelData.xx * 255.0)) / atlasSize;
 	curr.cornerTexCoord = unpackTexcoord(VMO.data);
-	
+	show(int(curr.spriteScale.x * atlasSize.x) == 16)
 	surface.tbn = GenerateTBN(VMO.plane);
 	vec2 tCoord = ((fract(curr.vPos) * 2.0 - 1.0) * mat2x3(surface.tbn)) * 0.5 + 0.5;
 	
@@ -511,10 +494,14 @@ SurfaceStruct ReconstructSurface(inout RayStruct curr, VoxelMarchOut VMO) {
 		tCoord = curr.tCoord.xy;
 	#endif
 	
-	tCoord = mod(tCoord, curr.spriteScale) + curr.cornerTexCoord;
+	curr.cornerTexCoord = ceil(curr.cornerTexCoord * atlasSize) / atlasSize; // cornerTexCoord encoding needs to be redone.
+	
+	tCoord = tCoord + curr.cornerTexCoord;
+	
 	surface.albedo = textureLod(VOXEL_ALBEDO_TEX, tCoord, 0);
 	surface.normals = GetNormals(tCoord);
 	surface.specular = GetSpecular(tCoord);
+	show(surface.albedo)
 	
 	DEBUG_DIFFUSE_SHOW(surface.albedo.rgb);
 	DEBUG_WPOS_SHOW(VoxelToWorldSpace(VMO.vPos));

@@ -54,7 +54,6 @@ uniform vec3 cameraPosition;
 uniform vec3 previousCameraPosition;
 uniform vec3 sunDirection;
 uniform vec2 viewSize;
-uniform ivec2 atlasSize;
 uniform float far;
 uniform float near;
 uniform float frameTimeCounter;
