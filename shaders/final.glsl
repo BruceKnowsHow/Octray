@@ -18,30 +18,18 @@ void main() {
 
 #include "lib/debug.glsl"
 
-#!dont-touch
 uniform sampler2D colortex0;
-#!dont-touch
 uniform sampler2D colortex1;
-#!dont-touch
 uniform sampler2D colortex2;
-#!dont-touch
 uniform sampler2D colortex3;
-#!dont-touch
 uniform sampler2D colortex4;
-#!dont-touch
 uniform sampler2D colortex5;
-#!dont-touch
 uniform sampler2D depthtex0;
-#!dont-touch
 uniform sampler2D shadowtex0;
 
-#!dont-touch
 const bool colortex2MipmapEnabled = true;
-#!dont-touch
 const bool colortex3MipmapEnabled = true;
-#!dont-touch
 const bool colortex4MipmapEnabled = true;
-#!dont-touch
 const bool colortex5MipmapEnabled = true;
 
 uniform mat4 gbufferPreviousProjection;
@@ -122,10 +110,10 @@ vec3 MotionBlur(vec3 color) {
 
 #define FRAME_ACCUMULATION_COUNTER Off // [On Off]
 #define AUTO_EXPOSURE On // [On Off]
+#define DRAW_DEBUG_VALUE
 
 void main() {
 	vec4 lookup = texture(colortex5, texcoord);
-	beni = lookup.a;
 	// vec3 color = texture(colortex5, texcoord).rgb;
 	vec3 color = lookup.rgb;
 	vec3 avgCol = textureLod(colortex5, vec2(0.5), 16).rgb / textureLod(colortex5, vec2(0.5), 16).a;
@@ -144,31 +132,33 @@ void main() {
 	
 	gl_FragColor.rgb = color;
 	
-	if (FRAME_ACCUMULATION_COUNTER) {
-		if (hideGUI == 0) {
-			vec2 textcoord = texcoord;
-			textcoord.x *= viewSize.x / viewSize.y;
-			
-			vec3 whiteText = vec3(text(textcoord));
-			if (texcoord.x < 0.61 && texcoord.y > 0.94) gl_FragColor.rgb *= 0.5;
-			gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
-		}
+	if (FRAME_ACCUMULATION_COUNTER && hideGUI == 0) {
+		vec2 textcoord = texcoord;
+		textcoord.x *= viewSize.x / viewSize.y;
+		
+		vec3 whiteText = vec3(DrawFrameAccumulation(textcoord, lookup.a));
+		if (texcoord.x < 0.61 && texcoord.y > 0.94) gl_FragColor.rgb *= 0.5;
+		gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
 	}
 	
 	exit();
+	
+	#ifdef DRAW_DEBUG_VALUE
+		#ifdef DEBUG
+			if (hideGUI == 0) {
+				vec2 textcoord = texcoord;
+				textcoord.x *= viewSize.x / viewSize.y;
+				vec2 fix = viewSize.yy / viewSize;
+				
+				vec3 whiteText = vec3(DrawDebugValue(textcoord));
+				float centerDist = sqrt(dot((texcoord - vec2(0.5))/fix, (texcoord - vec2(0.5))/fix));
+				// if (0.015 < centerDist && centerDist < 0.02) gl_FragColor.rgb = vec3(1.0);
+				if (texcoord.x < 0.267 && texcoord.y > 0.85) gl_FragColor.rgb *= 0.0;
+				gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
+			}
+		#endif
+	#endif
 }
-
-#if 0
-	#define DISCORD_USERNAME DEFAULT
-	#define DISCORD_ID DEFAULT
-	#define COMMIT_HASH DEFAULT
-#endif
-
-#if 0
-	#define DISCORD_USERNAME REPLACE_ME
-	#define DISCORD_ID REPLACE_ME
-	#define COMMIT_HASH REPLACE_ME
-#endif
 
 #endif
 /***********************************************************************/

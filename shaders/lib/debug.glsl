@@ -16,11 +16,15 @@
 	vec3 Debug = vec3(0.0);
 // #endif
 
+// Write the direct variable onto the screen
 void show( bool x) { Debug = vec3(float(x)); }
 void show(float x) { Debug = vec3(x); }
 void show( vec2 x) { Debug = vec3(x, 0.0); }
 void show( vec3 x) { Debug = x; }
 void show( vec4 x) { Debug = x.rgb; }
+
+// Display the value of the variable on the debug value viewer
+#define showval(x) if (distance(texcoord, vec2(0.5)) < 0.001) show(x);
 
 void inc( bool x) { Debug += vec3(float(x)); }
 void inc(float x) { Debug += vec3(x); }

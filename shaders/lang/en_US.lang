@@ -3,13 +3,13 @@ screen.Setup=Setup
 #§
 
 option.ABOUT=(^
-value.ABOUT.0=§fOctray Shaders                                                            
-value.ABOUT.1=§bGitHub.com/BruceKnowsHow                                                             
-value.ABOUT.2=§fBruceKnowsHow says: §a"Thank you...                                                             
-value.ABOUT.3=§fwe don't have to §ago §fany farther                                                             
-value.ABOUT.4=§fbut §aif §fyou do                                                             
-value.ABOUT.5=§fI'll be §avery proud§f of you."                                                             
-value.ABOUT.6=                                                                                                                         
+value.ABOUT.0=§fOctray Shaders
+value.ABOUT.1=§bGitHub.com/BruceKnowsHow
+value.ABOUT.2=§fBruceKnowsHow says: §a"Thank you...
+value.ABOUT.3=§fwe don't have to §ago §fany farther
+value.ABOUT.4=§fbut §aif §fyou do
+value.ABOUT.5=§fI'll be §avery proud§f of you."
+value.ABOUT.6=
 
 profile.Low=§a§nLow§r
 profile.Medium=§nMedium§r
@@ -34,6 +34,8 @@ value.DEBUG_PRESET.VM_STEPS_LOD=Ray steps + LOD
 value.DEBUG_PRESET.VM_DIFFUSE=VoxelMarch Diffuse
 
 option.DEBUG_BRIGHTNESS=Debug Brightness
+
+option.DRAW_DEBUG_VALUE=Draw Debug Value
 
 option.AUTO_EXPOSURE=§bAuto Exposure
 value.AUTO_EXPOSURE.Off=§6Off

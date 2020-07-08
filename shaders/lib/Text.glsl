@@ -100,14 +100,14 @@ float drawInt( in int val, in vec2 pos, in vec2 size, in vec2 uv )
 /*
 	Prints a fixed point fractional value. Be even more careful about overflowing.
 */
-float drawFixed( in float val, in int places, in vec2 pos, in vec2 size, in vec2 uv )
+float drawFixed8( in float val, in int places, in vec2 pos, in vec2 size, in vec2 uv )
 {
     // modf() sure would be nice right about now.
     vec2 p = vec2(pos);
     float res = 0.0;
     
     // Draw the floating point part.
-    res = drawIntCarriage( int( fract(val)*pow(10.0,float(places)) ), p, size, uv, places );
+    res = drawIntCarriage( int( fract(val)*pow(10.0,float(places)) ), p + vec2(places*size.x - 0.02, 0.0), size, uv, places );
     // The decimal is tiny, so we back things up a bit before drawing it.
     p.x -= size.x*2.4;
     res = max(res, drawChar(CH_FSTP,p,size,uv)); p.x-=size.x*1.2;
@@ -136,9 +136,7 @@ float drawFixed2( in float val, in int places, in vec2 pos, in vec2 size, in vec
 	return res;
 }
 
-float beni;
-
-float text( in vec2 uv ) {
+float DrawFrameAccumulation(vec2 uv, float val) {
     // Set a general character size...
     vec2 charSize = vec2(.03, .0375) * 0.8;
     // and a starting position.
@@ -171,87 +169,53 @@ float text( in vec2 uv ) {
 	chr += drawChar( CH_RPAR, charPos, charSize, uv); charPos.x += .035;
 	chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
 	charPos.x += .2;
-	chr += drawFixed2( beni, 2, charPos, charSize, uv);
-	/*
-    // Bitmap text rendering!
-    chr += drawChar( CH_B, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_M, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_P, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_BLNK, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_X, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_BLNK, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_R, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_D, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_R, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_EXCL, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_EXCL, charPos, charSize, uv); charPos.x += .04;
+	chr += drawFixed2(val, 2, charPos, charSize, uv);
+    return chr;
+}
+
+float DrawDebugValue(vec2 uv) {
+    // Set a general character size...
+    vec2 charSize = vec2(.03, .0375) * 0.8;
+    // and a starting position.
+    vec2 charPos = vec2(0.015, 0.96);
+    // Draw some text!
+    float chr = 0.0;
     
-    // Today's Date: {date}
-    charPos = vec2(0.05, .75);
-    chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_O, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_D, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_Y, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_APST, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_S, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_BLNK, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_D, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_BLNK, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_LPAR, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_M, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_M, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_HYPH, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_D, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_D, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_HYPH, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_Y, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_Y, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_Y, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_Y, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_RPAR, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .1;
-    // The date itself.
-    charPos.x += .3;
-    // chr += drawIntCarriage( int(iDate.x), charPos, charSize, uv, 4);
-    // chr += drawChar( CH_HYPH, charPos, charSize, uv); charPos.x-=.04;
-    // chr += drawIntCarriage( int(iDate.z)+1, charPos, charSize, uv, 2);
-    // chr += drawChar( CH_HYPH, charPos, charSize, uv); charPos.x-=.04;
-    // chr += drawIntCarriage( int(iDate.y)+1, charPos, charSize, uv, 2);
+    // chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
+    // chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
+    // chr += drawChar( CH_B, charPos, charSize, uv); charPos.x += .035;
+    // chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
     
-    // Shader uptime:
-    charPos = vec2(0.05, .6);
-    chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_L, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_O, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_B, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_L, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_M, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .04;
-    chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .04;
-    // The uptime itself.
-    charPos.x += .3;
-    chr += drawFixed( beni, 2, charPos, charSize, uv);
-	*/
+    
+    vec2 chartemp = charPos;
+    
+#if (defined DEBUG) && (-10 < DEBUG_PROGRAM) && (DEBUG_PROGRAM < 50)
+    vec3 val = texelFetch(colortex6, ivec2(viewSize/2.0), 0).rgb;
+#else
+    vec3 val = vec3(0.0);
+#endif
+
+    chr += drawChar( CH_R, charPos, charSize, uv); charPos.x += .035;
+    chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
+    charPos.x += 0.17;
+    chr += drawFixed8(val.r, 8, charPos, charSize, uv);
+    
+    
+    chartemp += vec2(0.0, -charSize.y * 1.5);
+    charPos = chartemp;
+    chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
+    chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
+    charPos.x += 0.17;
+    chr += drawFixed8(val.g, 8, charPos, charSize, uv);
+    
+    
+    chartemp += vec2(0.0, -charSize.y * 1.5);
+    charPos = chartemp;
+    chr += drawChar( CH_B, charPos, charSize, uv); charPos.x += .035;
+    chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
+    charPos.x += 0.17;
+    chr += drawFixed8(val.g, 8, charPos, charSize, uv);
+    
     return chr;
 }
 
