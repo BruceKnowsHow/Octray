@@ -3,17 +3,25 @@
 
 Octray is an experimental raytraced shaderpack for Minecraft/Optifine.
 
-**What is unique about Octray?**
+**What is remarkable about Octray?**
 
 Octray implements an Octree-like acceleration structure for its raytracing. This allows rays to be cast long distances in sparse environments with significantly fewer intersection-checks.
 
-For example, with 16x chunk render distance, a naive voxel intersection algorithm would need 512 intersection checks at minimum to propagate light from one side of the render region to the other. In a typical environment, Octray's voxel intersection algorithm will need ~32 intersection checks to do the same thing.
+Octray also contains a few other inventions, such as pseudo-recursive branching GLSL raytracer, implemented using a ray stack.
 
-**But at what cost?**
-- The Octal data structure requires an additional ~14% storage space.
-- The voxel intersection algorithm can be slightly slower in rare worst-case environments.
-- Generating the data structure is a little slow if you don't use a geometry shader (shadow.gsh).
+## Installation
+Octray can be installed the same as any other Minecraft shaderpack. Just download the .zip from GitHub and place it into your shaderpacks folder.
 
-**How does it work?**
+If you have never installed a shaderpack before, there are lots of videos on Youtube to walk you through it. [Here is one](https://www.youtube.com/watch?v=XNLVHl4s8rA).
 
-Octray's acceleration structure is simply a regular voxelized volume with 7 additional LOD volumes. Each LOD volume is 1/2 the resolution of the previous one (in 3D this means each volume takes 1/8 the space of the previous one). Querying a LOD volume allows you to ask "does this larger area of space contain any blocks at all"? For example, sampling from the LOD=3 voxel volume is equivalent to asking if there are any blocks in an 8x8x8 volume. If the volume contains a lot of contiguous empty space (like Minecraft worlds often do), then this allows casting rays through large distances with significantly fewer samples.
+## Compatibility
+As of writing, Octray should be compatible with:
+- Nvidia, AMD and Intel hardware
+- Every version of Minecraft from 1.8 through 1.16
+
+#### AMD / Intel fix for Minecraft 1.15 and 1.16
+Due to a current bug in Minecraft/Optifine in 1.15 & 1.16, AMD and Intel users must do the following to disable geometry shaders, which are not functioning:
+1. Unzip the shaderpack
+2. Navigate to `shaders/world0/` and delete the file named "shadow.gsh"
+4. If you plan to play in the Nether or the End, do the same in `shaders/world-1/` and `shaders/world1/`
+5. In the Octray shader settings menu, set the option `Debug->Secret Stuff->Geometry Shader: Disabled`
