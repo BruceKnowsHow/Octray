@@ -6,4 +6,4 @@
 #define ATROUS_INDEX 4
 #define fsh
 
-#include "../Atrous.glsl"
+#include "../programs/composite/C2_C6_AtrousFilter.glsl"

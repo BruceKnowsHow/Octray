@@ -4,4 +4,4 @@
 #include "worldID.glsl"
 #define fsh
 
-#include "../AtrousCombine.glsl"
+#include "../programs/composite/C7_AtrousCombine.glsl"

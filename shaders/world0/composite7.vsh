@@ -3,4 +3,4 @@
 #include "worldID.glsl"
 #define vsh
 
-#include "../AtrousCombine.glsl"
+#include "../programs/composite/C7_AtrousCombine.glsl"

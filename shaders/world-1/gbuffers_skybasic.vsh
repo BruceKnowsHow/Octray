@@ -4,4 +4,4 @@
 #define gbuffers_skybasic
 #define vsh
 
-#include "../gbuffers_discard.glsl"
+#include "../programs/gbuffers/gbuffers_discard.glsl"

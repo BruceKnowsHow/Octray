@@ -24,19 +24,18 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#include "lib/debug.glsl"
-#include "lib/utility.glsl"
-#include "lib/encoding.glsl"
+#include "../../lib/debug.glsl"
+#include "../../lib/utility.glsl"
+#include "../../lib/encoding.glsl"
 
 #define COMPOSITE0_COLOR_OUT colortex5
 uniform sampler2D COMPOSITE0_COLOR_OUT;
-const bool colortex5MipmapEnabled = true;
-
-
 uniform vec2 viewSize;
 
-
 noperspective in vec2 texcoord;
+
+const bool colortex5MipmapEnabled = true;
+
 
 #define cubesmooth(x) ((x) * (x) * (3.0 - 2.0 * (x)))
 
@@ -93,7 +92,7 @@ vec3 ComputeBloom() {
 }
 
 /* DRAWBUFFERS:3 */
-#include "lib/exit.glsl"
+#include "../../lib/exit.glsl"
 
 void main() {
 	gl_FragData[0] = vec4(ComputeBloom(), 1.0);

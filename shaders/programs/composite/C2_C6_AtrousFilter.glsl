@@ -37,23 +37,21 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#include "lib/debug.glsl"
-#include "lib/utility.glsl"
-#include "lib/encoding.glsl"
-
 #define COLORSAMPLER colortex2
 uniform sampler2D COLORSAMPLER;
-
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex5;
-
 uniform vec2 viewSize;
 
 noperspective in vec2 texcoord;
 
+#include "../../lib/debug.glsl"
+#include "../../lib/utility.glsl"
+#include "../../lib/encoding.glsl"
+
 /* DRAWBUFFERS:2 */
-#include "lib/exit.glsl"
+#include "../../lib/exit.glsl"
 
 void main() {
 	if (texture(colortex0, texcoord).a == 0) {

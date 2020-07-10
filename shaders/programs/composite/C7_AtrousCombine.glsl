@@ -18,20 +18,19 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#include "lib/debug.glsl"
-#include "lib/utility.glsl"
-#include "lib/encoding.glsl"
+#include "../../lib/debug.glsl"
+#include "../../lib/utility.glsl"
+#include "../../lib/encoding.glsl"
 
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex5;
-
 uniform bool accum;
 
 noperspective in vec2 texcoord;
 
 /* DRAWBUFFERS:5 */
-#include "lib/exit.glsl"
+#include "../../lib/exit.glsl"
 
 void main() {
 	vec3 albedo = texture(colortex1, texcoord).rgb;

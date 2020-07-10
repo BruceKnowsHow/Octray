@@ -4,4 +4,4 @@
 #define gbuffers_shadow
 #define gsh
 
-#include "../shadow.glsl"
+#include "../lib/raytracing/gbuffers_shadow.glsl"

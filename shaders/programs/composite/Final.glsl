@@ -16,8 +16,6 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#include "lib/debug.glsl"
-
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
@@ -26,41 +24,34 @@ uniform sampler2D colortex4;
 uniform sampler2D colortex5;
 uniform sampler2D depthtex0;
 uniform sampler2D shadowtex0;
+uniform mat4  gbufferPreviousProjection;
+uniform mat4  gbufferProjectionInverse;
+uniform mat4  gbufferModelViewInverse;
+uniform mat4  gbufferPreviousModelView;
+uniform vec3  cameraPosition;
+uniform vec3  previousCameraPosition;
+uniform vec2  viewSize;
+uniform float frameTimeCounter;
+uniform int   frameCounter;
+uniform int   hideGUI;
+
+noperspective in vec2 texcoord;
 
 const bool colortex2MipmapEnabled = true;
 const bool colortex3MipmapEnabled = true;
 const bool colortex4MipmapEnabled = true;
 const bool colortex5MipmapEnabled = true;
 
-uniform mat4 gbufferPreviousProjection;
-uniform mat4 gbufferProjectionInverse;
-uniform mat4 gbufferModelViewInverse;
-uniform mat4 gbufferPreviousModelView;
-
-uniform vec3 cameraPosition;
-uniform vec3 previousCameraPosition;
-
-uniform float frameTimeCounter;
-uniform int frameCounter;
-uniform vec2 viewSize;
-uniform int hideGUI;
-
-#include "lib/Tonemap.glsl"
-
-noperspective in vec2 texcoord;
-
-#include "lib/exit.glsl"
-
-#include "lib/Text.glsl"
-
-#include "lib/Bloom.fsh"
-#include "lib/Random.glsl"
+#include "../../lib/debug.glsl"
+#include "../../lib/Tonemap.glsl"
+#include "../../lib/exit.glsl"
+#include "../../lib/Text.glsl"
+#include "../../lib/Bloom.fsh"
+#include "../../lib/Random.glsl"
 
 #define MOTION_BLUR
-
 #define MOTION_BLUR_INTENSITY 1.0
 #define MAX_MOTION_BLUR_AMOUNT 1.0
-
 #define VARIABLE_MOTION_BLUR_SAMPLES 1
 #define VARIABLE_MOTION_BLUR_SAMPLE_COEFFICIENT 1.0
 #define MAX_MOTION_BLUR_SAMPLE_COUNT 50
@@ -143,20 +134,18 @@ void main() {
 	
 	exit();
 	
-	#ifdef DRAW_DEBUG_VALUE
-		#ifdef DEBUG
-			if (hideGUI == 0) {
-				vec2 textcoord = texcoord;
-				textcoord.x *= viewSize.x / viewSize.y;
-				vec2 fix = viewSize.yy / viewSize;
-				
-				vec3 whiteText = vec3(DrawDebugValue(textcoord));
-				float centerDist = sqrt(dot((texcoord - vec2(0.5))/fix, (texcoord - vec2(0.5))/fix));
-				// if (0.015 < centerDist && centerDist < 0.02) gl_FragColor.rgb = vec3(1.0);
-				if (texcoord.x < 0.267 && texcoord.y > 0.85) gl_FragColor.rgb *= 0.0;
-				gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
-			}
-		#endif
+	#if (defined DEBUG) && (defined DRAW_DEBUG_VALUE)
+		if (hideGUI == 0) {
+			vec2 textcoord = texcoord;
+			textcoord.x *= viewSize.x / viewSize.y;
+			vec2 fix = viewSize.yy / viewSize;
+			
+			vec3 whiteText = vec3(DrawDebugValue(textcoord));
+			float centerDist = sqrt(dot((texcoord - vec2(0.5))/fix, (texcoord - vec2(0.5))/fix));
+			// if (0.015 < centerDist && centerDist < 0.02) gl_FragColor.rgb = vec3(1.0);
+			if (texcoord.x < 0.267 && texcoord.y > 0.85) gl_FragColor.rgb *= 0.0;
+			gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
+		}
 	#endif
 }
 

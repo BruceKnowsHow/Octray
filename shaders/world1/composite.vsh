@@ -4,4 +4,4 @@
 #define composite0
 #define vsh
 
-#include "../composite0.glsl"
+#include "../programs/composite/C0_Raytrace.glsl"

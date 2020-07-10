@@ -5,4 +5,4 @@
 #define ATROUS_INDEX 0
 #define vsh
 
-#include "../Atrous.glsl"
+#include "../programs/composite/C2_C6_AtrousFilter.glsl"

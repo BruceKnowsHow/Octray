@@ -4,4 +4,4 @@
 #define gbuffers_skybasic
 #define fsh
 
-#include "../gbuffers_discard.glsl"
+#include "../programs/gbuffers/gbuffers_discard.glsl"

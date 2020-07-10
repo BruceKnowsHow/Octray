@@ -4,4 +4,4 @@
 #define final
 #define fsh
 
-#include "../final.glsl"
+#include "../programs/composite/Final.glsl"

@@ -15,9 +15,9 @@ const float dimensionMultiplyer = 1.0;
 
 const float exposure = 3.5 * OVERALL_BRIGHTNESS;
 
-const vec3 sunBrightness = vec3(1.0) * dimensionMultiplyer * SUNLIGHT_BRIGHTNESS;
+const vec3 sunBrightness = vec3(1.0) * SUNLIGHT_BRIGHTNESS;
 const vec3 skyBrightness = vec3(0.2) * dimensionMultiplyer / 3.14 * SKY_BRIGHTNESS;
-const vec3 ambientBrightness = vec3(3.14) * AMBIENT_BRIGHTNESS;
+const vec3 ambientBrightness = vec3(3.14 * 1.5) * AMBIENT_BRIGHTNESS;
 
 const vec3 emissiveBrightness = vec3(0.4);
 const vec3 specularBrightness = vec3(1.0);
@@ -67,12 +67,20 @@ vec3 RRTAndODTFit(vec3 v) {
 	return a / b;
 }
 
+#if defined world0
+	const float gamma = 2.3;
+#elif defined worldn1
+	const float gamma = 3.5;
+#elif defined world1
+	const float gamma = 3.5;
+#endif
+
 vec3 ACESFitted(vec3 color) {
 	color = color * exposure;
 	color = color * ACESInputMat;
 	color = RRTAndODTFit(color); // Apply RRT and ODT
 	color = color * ACESOutputMat;
-	color = pow(color, vec3(1.0 / 2.2));
+	color = pow(color, vec3(1.0 / gamma));
 	color = clamp(color, 0.0, 1.0);
 	color = hsv(color);
 	// color.g = pow(color.g, 0.8);

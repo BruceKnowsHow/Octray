@@ -4,4 +4,4 @@
 #define gbuffers_water
 #define vsh
 
-#include "../gbuffers_opaque.glsl"
+#include "../programs/gbuffers/gbuffers_opaque.glsl"

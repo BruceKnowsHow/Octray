@@ -7,41 +7,36 @@
 /***********************************************************************/
 #if defined vsh
 
-attribute vec3 mc_Entity;
+uniform sampler2D tex;
+uniform mat4  gbufferModelViewInverse;
+uniform mat4  shadowModelViewInverse;
+uniform vec3  cameraPosition;
+uniform vec3  previousCameraPosition;
+uniform float far;
+uniform int   instanceId;
+
 attribute vec4 at_tangent;
+attribute vec3 mc_Entity;
 attribute vec2 mc_midTexCoord;
 
-uniform sampler2D tex;
-
-uniform mat4 gbufferModelViewInverse;
-uniform mat4 shadowModelViewInverse;
-uniform float far;
-
-uniform vec3 cameraPosition;
-uniform vec3 previousCameraPosition;
-
-vec2 atlasSize = textureSize(tex, 0).xy;
-
-uniform int instanceId;
-
-#include "WorldToVoxelCoord.glsl"
-#include "RT_Encoding.glsl"
-
-out vec4 vColor;
-flat out vec2 midTexCoord;
-out vec3 wPosition;
-flat out vec3 vNormal;
-out float discardflag;
-out vec2 texcoord;
-flat out int blockID;
-flat out vec4 data0;
-flat out vec4 data1;
+     out vec4  vColor;
+flat out vec4  data0;
+flat out vec4  data1;
+     out vec3  wPosition;
+flat out vec3  vNormal;
+     out vec2  texcoord;
+flat out vec2  midTexCoord;
+     out float discardflag;
+flat out int   blockID;
 
 #if GSH_MODE == GSH_MODE_ACTIVE
 	const int countInstances = 1;
 #else
 	const int countInstances = 8;
 #endif
+
+#include "Voxelization.glsl"
+#include "RT_Encoding.glsl"
 
 mat3 CalculateTBN() {
 	vec3 tangent  = normalize(mat3(shadowModelViewInverse) * gl_NormalMatrix * at_tangent.xyz);
@@ -71,6 +66,7 @@ void main() {
 	gl_Position = vec4(0.0);
 	
 	#if GSH_MODE != GSH_MODE_ACTIVE
+		vec2 atlasSize = textureSize(tex, 0).xy;
 		vec2 texDirection = sign(texcoord - mc_midTexCoord)*vec2(1,sign(at_tangent.w));
 		vec2 spriteSize = abs(midTexCoord - texcoord) * 2.0 * atlasSize;
 		
@@ -84,7 +80,7 @@ void main() {
 		
 		const vec2 offset[4] = vec2[4](vec2(-1,-1),vec2(-1,1),vec2(1,1),vec2(1,-1));
 		
-		vec2 coord = VoxelToTextureSpace(uvec3(vPos), instanceId, 0) + 0.5;
+		vec2 coord = VoxelToTextureSpace(uvec3(vPos), instanceId) + 0.5;
 		coord += offset[(gl_VertexID) % 4] * 0.5;
 		coord /= shadowMapResolution;
 		
@@ -117,29 +113,26 @@ layout(triangles) in;
 #endif
 
 uniform sampler2D tex;
-
-uniform mat4 shadowModelView;
-uniform mat4 shadowProjection;
-uniform mat4 gbufferModelViewInverse;
-uniform vec3 cameraPosition;
-
-vec2 atlasSize = textureSize(tex, 0).xy;
+uniform mat4  shadowModelView;
+uniform mat4  shadowProjection;
+uniform mat4  gbufferModelViewInverse;
+uniform vec3  cameraPosition;
 uniform float far;
 
-in vec4 vColor[];
-flat in vec2 midTexCoord[];
-in vec3 wPosition[];
-flat in vec3 vNormal[];
-in float discardflag[];
-in vec2 texcoord[];
-flat in int blockID[];
-flat in vec4 data0[];
-flat in vec4 data1[];
+in      vec4  vColor[];
+flat in vec4  data0[];
+flat in vec4  data1[];
+in      vec3  wPosition[];
+flat in vec3  vNormal[];
+in      vec2  texcoord[];
+flat in vec2  midTexCoord[];
+in      float discardflag[];
+flat in int   blockID[];
 
 flat out vec4 _data0;
 flat out vec4 _data1;
 
-#include "WorldToVoxelCoord.glsl"
+#include "Voxelization.glsl"
 #include "RT_Encoding.glsl"
 
 void main() {
@@ -166,9 +159,7 @@ void main() {
 	
 	if (OutOfVoxelBounds(vPos)) return;
 	
-	vec2 coord = VoxelToTextureSpace(uvec3(vPos)) + 0.5;
-	coord /= shadowMapResolution;
-	
+	vec2 atlasSize = textureSize(tex, 0).xy;
 	vec2 spriteSize = abs(midTexCoord[0] - texcoord[0]) * 2.0 * atlasSize;
 	vec2 cornerTexCoord = midTexCoord[0] - abs(midTexCoord[0] - texcoord[0]);
 	
@@ -179,18 +170,9 @@ void main() {
 	
 	// Can pass an unsigned integer range [0, 2^23 - 1]
 	float depth = packTexcoord(cornerTexCoord);
-	gl_Position = vec4(coord * 2.0 - 1.0, depth, 1.0);
 	
-	EmitVertex();
-	
-	int lodOffset = shadowVolume2;
-	
-	for (int LOD = 1; LOD <= 7; ++LOD) {
-		coord = VoxelToTextureSpace(uvec3(vPos), LOD, lodOffset) + 0.5;
-		lodOffset += (shadowVolume2 >> (LOD * 3));
-		coord /= shadowMapResolution;
-		
-		depth = -1.0;
+	for (int LOD = 0; LOD <= 7; ++LOD) {
+		vec2 coord = (VoxelToTextureSpace(uvec3(vPos), LOD) + 0.5) / shadowMapResolution;
 		
 		gl_Position = vec4(coord * 2.0 - 1.0, depth, 1.0);
 		EmitVertex();

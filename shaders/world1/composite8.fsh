@@ -4,4 +4,4 @@
 #define bloom8
 #define fsh
 
-#include "../bloom8.glsl"
+#include "../programs/composite/C8_Bloom.glsl"

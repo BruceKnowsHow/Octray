@@ -3,4 +3,4 @@
 #define final
 #define vsh
 
-#include "../final.glsl"
+#include "../programs/composite/Final.glsl"

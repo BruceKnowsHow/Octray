@@ -2,13 +2,13 @@
 #define VOXELMARCH_GLSL
 
 #define VOXEL_INTERSECTION_TEX shadowtex0
-#define VOXEL_ALBEDO_TEX depthtex1
-#define VOXEL_NORMALS_TEX depthtex2
-#define VOXEL_SPECULAR_TEX shadowtex1
+#define VOXEL_ALBEDO_TEX       depthtex1
+#define VOXEL_NORMALS_TEX      depthtex2
+#define VOXEL_SPECULAR_TEX     shadowtex1
 
 vec2 atlasSize = textureSize(VOXEL_ALBEDO_TEX, 0).xy;
 
-#include "WorldToVoxelCoord.glsl"
+#include "Voxelization.glsl"
 #include "RT_TerrainParallax.fsh"
 #include "RT_Encoding.glsl"
 
@@ -64,18 +64,6 @@ struct RayStruct {
 	vec2 cornerTexCoord;
 };
 
-//#define COMPRESS_RAY_QUEUE
-
-#ifdef COMPRESS_RAY_QUEUE
-	struct RayQueueStruct {
-		vec4 vPos;
-		vec4 wDir;
-		float prevVolume;
-	};
-#else
-	#define RayQueueStruct RayStruct
-#endif
-
 #define DIFFUSE_ACCUM_INDEX 0
 #define SPECULAR_ACCUM_INDEX 1
 
@@ -89,17 +77,15 @@ const uint RAY_TYPE_MASK  = ((1 << 16) - 1) & (~RAY_DEPTH_MASK);
 const uint RAY_ATTR_MASK  = ((1 << 24) - 1) & (~RAY_DEPTH_MASK) & (~RAY_TYPE_MASK);
 
 #define MAX_RAYS 64
-#define RAYMARCH_QUEUE_BANDWIDTH (MAX_RAY_BOUNCES + 2)
+#define RAY_STACK_CAPACITY (MAX_RAY_BOUNCES + 2)
 
-RayQueueStruct voxelMarchQueue[RAYMARCH_QUEUE_BANDWIDTH];
+RayStruct voxelMarchQueue[RAY_STACK_CAPACITY];
 
-int  rayQueueFront   = RAYMARCH_QUEUE_BANDWIDTH*256; // Index of the occupied front of the queue
-int  rayQueueBack    = rayQueueFront; // Index of the unnoccupied back of the queue
-int  rayQueueSize    = 0;
-bool queueOutOfSpace = false;
+int  rayStackTop     = 0;
+bool stackOutOfSpace = false;
 
-bool IsQueueFull()  { return rayQueueSize == RAYMARCH_QUEUE_BANDWIDTH; }
-bool IsQueueEmpty() { return rayQueueSize == 0; }
+bool IsStackFull()  { return rayStackTop == RAY_STACK_CAPACITY; }
+bool IsStackEmpty() { return rayStackTop == 0; }
 
 uint PackRayInfo(uint rayDepth, const uint RAY_TYPE) {
 	return rayDepth | RAY_TYPE;
@@ -113,9 +99,9 @@ uint GetRayType(uint info) {
 	return info & RAY_TYPE_MASK;
 }
 
-bool IsAmbientRay(RayStruct ray) { return ((ray.info & AMBIENT_RAY_TYPE) != 0); }
+bool IsAmbientRay (RayStruct ray) { return ((ray.info & AMBIENT_RAY_TYPE)  != 0); }
 bool IsSunlightRay(RayStruct ray) { return ((ray.info & SUNLIGHT_RAY_TYPE) != 0); }
-bool IsPrimaryRay(RayStruct ray) { return ((ray.info & PRIMARY_RAY_TYPE) != 0); }
+bool IsPrimaryRay (RayStruct ray) { return ((ray.info & PRIMARY_RAY_TYPE)  != 0); }
 bool IsSpecularRay(RayStruct ray) { return ((ray.info & SPECULAR_RAY_TYPE) != 0); }
 
 uint GetRayAttr(uint info) {
@@ -130,33 +116,6 @@ uint GetRayDepth(uint info) {
 	return info & RAY_DEPTH_MASK;
 }
 
-#if defined COMPRESS_RAY_QUEUE
-	RayQueueStruct PackRay(RayStruct ray) {
-		RayQueueStruct ret;
-		vec2 col = RT_packColor(ray.absorb);
-		ret.vPos.xyz = ray.vPos;
-		ret.vPos.w = col.r;
-		ret.wDir.xy = RT_EncodeNormalSnorm(ray.wDir);
-		ret.wDir.z = uintBitsToFloat(ray.info);
-		ret.wDir.w = col.g;
-		ret.prevVolume = ray.prevVolume;
-		return ret;
-	}
-
-	RayStruct UnpackRay(RayQueueStruct ray) {
-		RayStruct ret;
-		ret.vPos = ray.vPos.xyz;
-		ret.wDir = RT_DecodeNormalSnorm(ray.wDir.xy);
-		ret.info = floatBitsToUint(ray.wDir.z);
-		ret.absorb = RT_unpackColor(vec2(ray.vPos.w, ray.wDir.w));
-		ret.prevVolume = ray.prevVolume;
-		return ret;
-	}
-#else
-	#define   PackRay(elem) (elem)
-	#define UnpackRay(elem) (elem)
-#endif
-
 #include "/lib/Tonemap.glsl"
 
 bool PassesVisibilityThreshold(vec3 absorb) {
@@ -164,39 +123,19 @@ bool PassesVisibilityThreshold(vec3 absorb) {
 	return any(greaterThan(delC, vec3(10.0 / 255.0)));
 }
 
-void RayPushBack(RayStruct elem) {
-	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
-	if (queueOutOfSpace) return;
+void RayPush(RayStruct elem) {
+	stackOutOfSpace = stackOutOfSpace || IsStackFull();
+	if (stackOutOfSpace) return;
 	if (!PassesVisibilityThreshold(elem.absorb)) { return;}
 	
-	voxelMarchQueue[rayQueueBack % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
-	++rayQueueBack;
-	++rayQueueSize;
+	voxelMarchQueue[rayStackTop % RAY_STACK_CAPACITY] = elem;
+	++rayStackTop;
 	return;
 }
 
-void RayPushFront(RayStruct elem) {
-	queueOutOfSpace = queueOutOfSpace || IsQueueFull();
-	if (queueOutOfSpace) return;
-	if (!PassesVisibilityThreshold(elem.absorb)) return;
-	
-	--rayQueueFront;
-	voxelMarchQueue[rayQueueFront % RAYMARCH_QUEUE_BANDWIDTH] = PackRay(elem);
-	++rayQueueSize;
-	return;
-}
-
-RayStruct RayPopFront() {
-	RayStruct res = UnpackRay(voxelMarchQueue[rayQueueFront % RAYMARCH_QUEUE_BANDWIDTH]);
-	++rayQueueFront;
-	--rayQueueSize;
-	return res;
-}
-
-RayStruct RayPopBack() {
-	--rayQueueBack;
-	RayStruct res = UnpackRay(voxelMarchQueue[rayQueueBack % RAYMARCH_QUEUE_BANDWIDTH]);
-	--rayQueueSize;
+RayStruct RayPop() {
+	--rayStackTop;
+	RayStruct res = voxelMarchQueue[rayStackTop % RAY_STACK_CAPACITY];
 	return res;
 }
 
@@ -207,43 +146,52 @@ uint VM_steps = 0;
 #define VM_STEPS_LOD 2
 #define VM_DIFFUSE 3
 #define VM_WPOS 4
-#define QUEUE_FULL 5
+#define STACK_FULL 5
 
-#define DEBUG_PRESET NONE // [NONE VM_STEPS_BW VM_STEPS_LOD VM_DIFFUSE VM_WPOS QUEUE_FULL]
+#define DEBUG_PRESET NONE // [NONE VM_STEPS_BW VM_STEPS_LOD VM_DIFFUSE VM_WPOS STACK_FULL]
 
+#if (DEBUG_PRESET == VM_STEPS_BW)
 void DEBUG_VM_ACCUM() {
-	show(float(VM_steps) * 0.01);
+	float val = float(VM_steps);
+	show(val / 100.0);
+	showval(val);
 }
-#if !(DEBUG_PRESET == VM_STEPS_BW)
+#else
 	#define DEBUG_VM_ACCUM()
 #endif
 
+#if (DEBUG_PRESET == VM_STEPS_LOD)
 void DEBUG_VM_ACCUM_LOD(uint LOD) {
-	inc(rgb(vec3(float(LOD)/8.0, 1, 1)) / 40.0);
+	vec3 val = rgb(vec3(float(LOD)/8.0, 1, 1));
+	inc(val / 40.0);
+	incval(val);
 }
-#if !(DEBUG_PRESET == VM_STEPS_LOD)
+#else
 	#define DEBUG_VM_ACCUM_LOD(x)
 #endif
 
+#if (DEBUG_PRESET == VM_DIFFUSE)
 void DEBUG_DIFFUSE_SHOW(vec3 color) {
 	show(color);
 }
-#if !(DEBUG_PRESET == VM_DIFFUSE)
+#else
 	#define DEBUG_DIFFUSE_SHOW(x)
 #endif
 
+#if (DEBUG_PRESET == VM_WPOS)
 void DEBUG_WPOS_SHOW(vec3 vPos) {
 	show(vPos);
 }
-#if !(DEBUG_PRESET == VM_WPOS)
+#else
 	#define DEBUG_WPOS_SHOW(x)
 #endif
 
-void DEBUG_QUEUE_FULL() {
-	show(queueOutOfSpace);
+#if (DEBUG_PRESET == STACK_FULL)
+void DEBUG_STACK_FULL() {
+	show(stackOutOfSpace);
 }
-#if !(DEBUG_PRESET == QUEUE_FULL)
-	#define DEBUG_QUEUE_FULL()
+#else
+	#define DEBUG_STACK_FULL()
 #endif
 
 
@@ -286,10 +234,6 @@ uvec2 GetNonMinComps(uvec3 xyz, uvec3 uplane) {
 	return BinaryMix(xyz.xz, xyz.yy, uplane.xz);
 }
 
-vec2 GetNonMinComps(vec3 xyz, vec3 plane) {
-	return mix(xyz.xz, xyz.yy, plane.xz);
-}
-
 uint GetMinComp(uvec3 xyz, uvec3 uplane) {
 	return BinaryDot(xyz, uplane);
 }
@@ -319,7 +263,6 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 	vec3 fPos = fract(vPos);
 	
 	uint LOD = 0;
-	uint lodOffset = 0;
 	uint hit = 0;
 	float data;
 	ivec2 vCoord;
@@ -345,10 +288,9 @@ VoxelMarchOut VoxelMarch(vec3 vPos, vec3 wDir, float volume) {
 		DEBUG_VM_ACCUM();
 		DEBUG_VM_ACCUM_LOD(LOD);
 		
-		uint shouldStepUp = uint((newPos.z >> (LOD+1)) != (oldPos >> (LOD+1))) * uint(LOD <= 6);
-		LOD = (LOD + shouldStepUp) & 7;
-		lodOffset += (shadowVolume2 >> ((LOD + (hit-1)) * 3)) * (shouldStepUp-hit);
-		vCoord = VoxelToTextureSpace(uvPos, LOD, lodOffset);
+		uint shouldStepUp = uint((newPos.z >> (LOD+1)) != (oldPos >> (LOD+1)));
+		LOD = min(LOD + shouldStepUp, 7);
+		vCoord = VoxelToTextureSpace(uvPos, LOD);
 		data = texelFetch(VOXEL_INTERSECTION_TEX, vCoord, 0).x;
 		hit = uint(data != volume);
 		uint miss = 1-hit;
@@ -407,10 +349,10 @@ void MapID(int ID, out int index, out int vertCount) {
 }
 
 const vec3 VAO[10] = vec3[10](
-	vec3((16-4)/16.0, 0.5, 0.5), vec3(1,0,0),
-	vec3((16-12)/16.0, 0.5, 0.5), vec3(1,0,0),
-	vec3(0.5, 0.5, (16-4)/16.0), vec3(0,0,1),
-	vec3(0.5, 0.5, (16-12)/16.0), vec3(0,0,1),
+	vec3((16-4)/16.0, 0.5, 0.5)    , vec3(1,0,0),
+	vec3((16-12)/16.0, 0.5, 0.5)   , vec3(1,0,0),
+	vec3(0.5, 0.5, (16-4)/16.0)    , vec3(0,0,1),
+	vec3(0.5, 0.5, (16-12)/16.0)   , vec3(0,0,1),
 	vec3(0.5, 15./16, (16-12)/16.0), vec3(0,1,0)
 );
 

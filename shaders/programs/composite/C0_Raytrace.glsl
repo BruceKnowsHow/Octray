@@ -23,12 +23,7 @@ uniform sampler2D shadowtex0;
 #define SHADOW_DEPTH shadowtex0
 uniform sampler2D shadowcolor0;
 uniform sampler2D noisetex;
-
-const bool colortex2MipmapEnabled = true;
-const bool depthtex0MipmapEnabled = true;
-
-// Do these definitions so that optifine doesn't create extra buffers
-#define SKY_SAMPLER colortex7
+#define SKY_SAMPLER colortex7 // Do these definitions so that optifine doesn't create extra buffers
 uniform sampler3D SKY_SAMPLER;
 #define DEPTHTEX1 depthtex1
 uniform sampler2D DEPTHTEX1;
@@ -36,42 +31,43 @@ uniform sampler2D DEPTHTEX1;
 uniform sampler2D DEPTHTEX2;
 #define SHADOWTEX1 shadowtex1
 uniform sampler2D SHADOWTEX1;
-
 #define GBUFFER0_SAMPLER colortex0
-#define GBUFFER1_SAMPLER colortex1
-
 uniform sampler2D GBUFFER0_SAMPLER;
+#define GBUFFER1_SAMPLER colortex1
 uniform sampler2D GBUFFER1_SAMPLER;
-
-uniform mat4 gbufferPreviousModelView;
-uniform mat4 gbufferModelView;
-uniform mat4 gbufferModelViewInverse;
-uniform mat4 gbufferPreviousProjection;
-uniform mat4 gbufferPreviousProjectionInverse;
-uniform mat4 gbufferProjection;
-uniform mat4 gbufferProjectionInverse;
-uniform vec3 cameraPosition;
-uniform vec3 previousCameraPosition;
-uniform vec3 sunDirection;
-uniform vec2 viewSize;
+uniform mat4  gbufferPreviousModelView;
+uniform mat4  gbufferModelView;
+uniform mat4  gbufferModelViewInverse;
+uniform mat4  gbufferPreviousProjection;
+uniform mat4  gbufferPreviousProjectionInverse;
+uniform mat4  gbufferProjection;
+uniform mat4  gbufferProjectionInverse;
+uniform vec3  cameraPosition;
+uniform vec3  previousCameraPosition;
+uniform vec3  sunDirection;
+uniform vec2  viewSize;
 uniform float far;
 uniform float near;
 uniform float frameTimeCounter;
-uniform int heldBlockLightValue;
-uniform int heldBlockLightValue2;
-uniform int frameCounter;
-uniform int isEyeInWater;
-uniform bool accum;
+uniform int   heldBlockLightValue;
+uniform int   heldBlockLightValue2;
+uniform int   frameCounter;
+uniform int   isEyeInWater;
+uniform bool  accum;
 
 noperspective in vec2 texcoord;
 
-#include "lib/debug.glsl"
-#include "lib/utility.glsl"
-#include "lib/encoding.glsl"
+const bool colortex2MipmapEnabled = true;
+const bool depthtex0MipmapEnabled = true;
 
-#include "lib/settings/buffers.glsl"
-
-#include "lib/Random.glsl"
+#include "../../lib/debug.glsl"
+#include "../../lib/utility.glsl"
+#include "../../lib/encoding.glsl"
+#include "../../lib/settings/buffers.glsl"
+#include "../../lib/Random.glsl"
+#include "../../lib/PBR.glsl"
+#include "../../lib/sky.glsl"
+#include "../../lib/PrecomputeSky.glsl"
 
 vec2 tc = texcoord - TAAHash()*float(accum);
 
@@ -83,10 +79,6 @@ vec3 GetWorldSpacePosition(vec2 coord, float depth) {
 	
 	return pos.xyz;
 }
-
-#include "lib/PBR.glsl"
-#include "lib/sky.glsl"
-#include "lib/PrecomputeSky.glsl"
 
 mat3 ArbitraryTBN(vec3 normal) {
 	mat3 ret;
@@ -103,7 +95,7 @@ vec3 totalColor = vec3(0.0);
 
 int RAY_COUNT;
 
-#include "lib/raytracing/VoxelMarch.glsl"
+#include "../../lib/raytracing/VoxelMarch.glsl"
 
 void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 	if (GetRayDepth(curr.info) >= MAX_RAY_BOUNCES) return;
@@ -115,25 +107,25 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 	
 	if (IsAmbientRay(curr)) curr.absorb /= ambientBrightness;
 	
-	if (AMBIENT_RAYS) {
+	#ifdef AMBIENT_RAYS
 		RayStruct ambientray = curr;
 		ambientray.info = PackRayInfo(GetRayDepth(curr.info) + 1, AMBIENT_RAY_TYPE, GetRayAttr(curr.info));
 		ambientray.wDir = ArbitraryTBN(surface.normal) * CalculateConeVector(RandNextF(), radians(90.0), 32);
 		ambientray.absorb *= surface.albedo.rgb * ambientBrightness * float(dot(ambientray.wDir, surface.tbn[2]) > 0.0);
-		RayPushBack(ambientray);
-	}
+		RayPush(ambientray);
+	#endif
 	
-	if (SUNLIGHT_RAYS) {
+	#ifdef SUNLIGHT_RAYS
 		vec3 randSunDir = ArbitraryTBN(sunDirection)*CalculateConeVector(RandNextF(), radians(SUN_RADIUS), 32);
 		
 		RayStruct sunray = curr;
 		sunray.info = PackRayInfo(GetRayDepth(curr.info) + 1, SUNLIGHT_RAY_TYPE, GetRayAttr(curr.info));
 		sunray.wDir = randSunDir;
 		float sunlight = OrenNayarDiffuse(sunDirection, curr.wDir, surface.normal, 0.5, 1.0);
-		sunlight *= float(dot(surface.tbn[2], sunDirection) > 0.0);
+		sunlight *= float(dot(surface.tbn[2], sunDirection) > 0.0) * mix(1.0, 3.0, float(GetRayDepth(curr.info) > 0));
 		sunray.absorb = curr.absorb * surface.albedo.rgb * sunlight * sunBrightness * GetSunIrradiance(kPoint(VoxelToWorldSpace(curr.vPos)), sunDirection);
-		RayPushBack(sunray);
-	}
+		RayPush(sunray);
+	#endif
 }
 
 #define USE_RASTER_ENGINE
@@ -172,7 +164,7 @@ bool ConstructTransparentRays(inout RayStruct curr, SurfaceStruct surface) {
 	through.absorb *= (1 - surface.albedo.a);
 	curr.absorb *= surface.albedo.a;
 	
-	RayPushBack(through);
+	RayPush(through);
 	return surface.albedo.a <= 0;
 }
 
@@ -193,7 +185,7 @@ struct FilterData {
 };
 
 /* DRAWBUFFERS:201 */
-#include "lib/exit.glsl"
+#include "../../lib/exit.glsl"
 
 void main() {
 	vec3 wDir = normalize(GetWorldSpacePosition(tc, 1.0));
@@ -290,13 +282,15 @@ void main() {
 		#ifdef RT_TERRAIN_PARALLAX
 			primary.insidePOM = false;
 		#endif
-		RayPushBack(primary);
+		RayPush(primary);
 	}
 	
+	
+	
 	for (RAY_COUNT = 1; RAY_COUNT < MAX_RAYS; ++RAY_COUNT) {
-		if (IsQueueEmpty()) break;
+		if (IsStackEmpty()) break;
 		
-		RayStruct curr = RayPopBack();
+		RayStruct curr = RayPop();
 		
 		#ifdef RT_TERRAIN_PARALLAX
 			if (curr.insidePOM) {
@@ -334,7 +328,7 @@ void main() {
 		SurfaceStruct surface = ReconstructSurface(curr, VMO);
 		
 		if (!curr.subvoxel_hit) {
-			RayPushBack(curr);
+			RayPush(curr);
 			continue;
 		}
 		
@@ -353,9 +347,11 @@ void main() {
 		ConstructRays(curr, surface);
 	}
 	
+	
+	
 	totalColor = max(totalColor, vec3(0.0));
 	
-	DEBUG_QUEUE_FULL();
+	DEBUG_STACK_FULL();
 	
 	gl_FragData[0] = vec4(totalColor, 1.0) + prevCol;
 	gl_FragData[1] = vec4(filterData.normal, filterData.zPos);

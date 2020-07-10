@@ -3,4 +3,4 @@
 #define gbuffers_basic
 #define fsh
 
-#include "../gbuffers_basic.glsl"
+#include "../programs/gbuffers/gbuffers_basic.glsl"

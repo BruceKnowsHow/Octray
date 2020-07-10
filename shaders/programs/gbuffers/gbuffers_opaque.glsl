@@ -1,35 +1,35 @@
 /***********************************************************************/
 #if defined vsh
 
-#include "lib/utility.glsl"
-#include "lib/debug.glsl"
-
-attribute vec3 mc_Entity;
-attribute vec4 at_tangent;
-attribute vec2 mc_midTexCoord;
-
 uniform mat4 gbufferModelView;
 uniform mat4 gbufferModelViewInverse;
 uniform mat4 gbufferProjection;
-
 uniform vec3 cameraPosition;
-
 uniform float frameTimeCounter;
 uniform float far;
 uniform int frameCounter;
 uniform ivec2 atlasSize;
 uniform vec2 viewSize;
-
 uniform bool accum;
 
-out float discardflag;
-out vec2 texcoord;
-flat out vec2 midTexCoord;
-out vec4 vColor;
-out vec3 wPosition;
-out mat3 tbnMatrix;
-out vec3 wPos;
-flat out int blockID;
+attribute vec4 at_tangent;
+attribute vec3 mc_Entity;
+attribute vec2 mc_midTexCoord;
+
+out      mat3  tbnMatrix;
+out      vec4  vColor;
+out      vec3  wPosition;
+out      vec3  wPos;
+out      vec2  texcoord;
+flat out vec2  midTexCoord;
+out      float discardflag;
+flat out int   blockID;
+
+#include "../../lib/utility.glsl"
+#include "../../lib/debug.glsl"
+#include "../../lib/Random.glsl"
+#include "../../lib/Deformation.glsl"
+#include "../../lib/raytracing/Voxelization.glsl"
 
 mat3 CalculateTBN() {
 	vec3 tangent  = normalize(mat3(gbufferModelViewInverse) * gl_NormalMatrix * at_tangent.xyz);
@@ -38,12 +38,6 @@ mat3 CalculateTBN() {
 	
 	return mat3(tangent, binormal, normal);
 }
-
-#include "/lib/Random.glsl"
-
-#include "lib/Deformation.glsl"
-
-#include "lib/raytracing/WorldToVoxelCoord.glsl"
 
 void main() {
 	blockID = BackPortID(int(mc_Entity.x));
@@ -102,31 +96,31 @@ void main() {
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
 
-uniform vec3 cameraPosition;
-uniform mat4 gbufferModelViewInverse;
-uniform float far;
+uniform mat4  gbufferModelViewInverse;
+uniform vec3  cameraPosition;
 uniform ivec2 atlasSize;
+uniform float far;
 
-in float discardflag[];
-in vec2 texcoord[];
-flat in vec2 midTexCoord[];
-in vec4 vColor[];
-in vec3 wPosition[];
-in mat3 tbnMatrix[];
-flat in int blockID[];
+in      mat3  tbnMatrix[];
+in      vec4  vColor[];
+in      vec3  wPosition[];
+in      vec2  texcoord[];
+flat in vec2  midTexCoord[];
+in      float discardflag[];
+flat in int   blockID[];
 
-out float _discardflag;
-out vec2 _texcoord;
-flat out vec2 _midTexCoord;
-out vec4 _vColor;
-out vec3 _wPosition;
-out mat3 _tbnMatrix;
-flat out vec2 cornerTexCoord;
-flat out int _blockID;
+out      mat3  _tbnMatrix;
+out      vec4  _vColor;
+out      vec3  _wPosition;
+out      vec2  _texcoord;
+flat out vec2  _midTexCoord;
+flat out vec2  cornerTexCoord;
+out      float _discardflag;
+flat out int   _blockID;
 
 
-#include "lib/raytracing/WorldToVoxelCoord.glsl"
-#include "lib/encoding.glsl"
+#include "../../lib/raytracing/Voxelization.glsl"
+#include "../../lib/encoding.glsl"
 
 void main() {
 	if (discardflag[0] + discardflag[1] + discardflag[2] > 0.0)
@@ -163,41 +157,39 @@ void main() {
 
 layout (depth_greater) out float gl_FragDepth;
 
-#include "lib/debug.glsl"
-#include "lib/encoding.glsl"
-
 uniform sampler2D tex;
 uniform sampler2D normals;
 uniform sampler2D specular;
-
-uniform mat4 gbufferModelViewInverse;
-uniform vec2 viewSize;
+uniform mat4  gbufferModelViewInverse;
+uniform vec2  viewSize;
 uniform ivec2 atlasSize;
-uniform int frameCounter;
+uniform int   frameCounter;
 
 //#define GSH_ACTIVE
 #if (defined GSH_ACTIVE)
+	#define tbnMatrix   _tbnMatrix
+	#define wPosition   _wPosition
+	#define vColor      _vColor
+	#define texcoord    _texcoord
 	#define discardflag _discardflag
-	#define texcoord _texcoord
-	#define vColor _vColor
-	#define wPosition _wPosition
-	#define tbnMatrix _tbnMatrix
-	#define blockID _blockID
+	#define blockID     _blockID
 #endif
 
-in float discardflag;
-in vec2 texcoord;
-in vec4 vColor;
-in vec3 wPosition;
-in mat3 tbnMatrix;
-flat in vec2 cornerTexCoord;
-in vec3 wPos;
-flat in int blockID;
+in      mat3  tbnMatrix;
+in      vec4  vColor;
+in      vec3  wPosition;
+in      vec3  wPos;
+in      vec2  texcoord;
+flat in vec2  cornerTexCoord;
+in      float discardflag;
+flat in int   blockID;
+
+#include "../../lib/debug.glsl"
+#include "../../lib/encoding.glsl"
+#include "../../block.properties"
 
 /* DRAWBUFFERS:01 */
-#include "lib/exit.glsl"
-
-#include "block.properties"
+#include "../../lib/exit.glsl"
 
 void main() {
 	if (discardflag > 0.0) discard;

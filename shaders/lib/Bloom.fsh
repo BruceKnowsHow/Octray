@@ -72,6 +72,8 @@ vec3 GetBloom(sampler2D tex, vec3 color) {
 	
 	bloom[0] /= 7.0;
 	
+	// return color + bloom[0];
+	
 	return mix(color, min(pow(bloom[0], vec3(BLOOM_CURVE)), bloom[0]), BLOOM_AMOUNT);
 }
 #ifndef BLOOM

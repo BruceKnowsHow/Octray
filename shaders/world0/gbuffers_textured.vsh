@@ -4,4 +4,4 @@
 #define gbuffers_textured_lit
 #define vsh
 
-#include "../gbuffers_opaque.glsl"
+#include "../programs/gbuffers/gbuffers_opaque.glsl"

@@ -1,9 +1,9 @@
 /***********************************************************************/
 #if defined vsh
 
-#include "lib/debug.glsl"
-
 out vec3 vColor;
+
+#include "../../lib/debug.glsl"
 
 void main() {
 	vColor = gl_Color.rgb;
@@ -19,9 +19,9 @@ void main() {
 /***********************************************************************/
 #if defined fsh
 
-#include "lib/debug.glsl"
-
 in vec3 vColor;
+
+#include "../../lib/debug.glsl"
 
 void main() {
 	discard;
