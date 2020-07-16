@@ -51,6 +51,10 @@ noperspective in vec2 texcoord;
 #include "../../lib/encoding.glsl"
 
 /* DRAWBUFFERS:2 */
+#if (defined DEBUG) && (DEBUG_PROGRAM == ShaderStage)
+	/* DRAWBUFFERS:27 */
+	#define DEBUG_OUT gl_FragData[1]
+#endif
 #include "../../lib/exit.glsl"
 
 void main() {

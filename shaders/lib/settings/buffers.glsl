@@ -9,6 +9,7 @@ const int colortex3Format = RGB32F;
 const int colortex4Format = RGBA32F;
 const int colortex5Format = RGBA32F;
 const int colortex6Format = RGBA32F;
+const int colortex7Format = RGBA32F;
 
 const bool colortex0Clear = false;
 const bool colortex1Clear = false;

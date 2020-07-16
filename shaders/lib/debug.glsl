@@ -42,7 +42,7 @@ void inc( vec4 x) { Debug += x.rgb; }
 
 
 #ifndef DEBUG
-#define CRASH_DANGLING_SHOW
+	// #define CRASH_DANGLING_SHOW
 #endif
 
 #ifdef CRASH_DANGLING_SHOW

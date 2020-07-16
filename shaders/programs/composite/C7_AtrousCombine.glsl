@@ -30,10 +30,14 @@ uniform bool accum;
 noperspective in vec2 texcoord;
 
 /* DRAWBUFFERS:5 */
+#if (defined DEBUG) && (DEBUG_PROGRAM == ShaderStage)
+	/* DRAWBUFFERS:57 */
+	#define DEBUG_OUT gl_FragData[1]
+#endif
 #include "../../lib/exit.glsl"
 
 void main() {
-	vec3 albedo = texture(colortex1, texcoord).rgb;
+	vec3 albedo = texelFetch(colortex1, ivec2(gl_FragCoord.xy), 0).rgb;
 	
 	vec4 prevCol = max(texture(colortex5, texcoord), 0) * float(accum);
 	vec4 currCol = texture(colortex2, texcoord);

@@ -190,15 +190,29 @@ float DrawDebugValue(vec2 uv) {
     vec2 chartemp = charPos;
     
 #if (defined DEBUG) && (-10 < DEBUG_PROGRAM) && (DEBUG_PROGRAM < 50)
-    vec3 val = texelFetch(colortex6, ivec2(viewSize/2.0), 0).rgb;
+    vec3 val = texelFetch(colortex7, ivec2(viewSize/2.0), 0).rgb;
 #else
     vec3 val = vec3(0.0);
 #endif
-
+	
+	vec3 siggn = sign(val);
+	val = abs(val);
+	
     chr += drawChar( CH_R, charPos, charSize, uv); charPos.x += .035;
     chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
     charPos.x += 0.17;
     chr += drawFixed8(val.r, 8, charPos, charSize, uv);
+    if (siggn.x < 0.0) {
+	    charPos.x += .25;
+	    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_V, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
+	}
     
     
     chartemp += vec2(0.0, -charSize.y * 1.5);
@@ -207,6 +221,17 @@ float DrawDebugValue(vec2 uv) {
     chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
     charPos.x += 0.17;
     chr += drawFixed8(val.g, 8, charPos, charSize, uv);
+    if (siggn.y < 0.0) {
+	    charPos.x += .25;
+	    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_V, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
+	}
     
     
     chartemp += vec2(0.0, -charSize.y * 1.5);
@@ -215,6 +240,17 @@ float DrawDebugValue(vec2 uv) {
     chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
     charPos.x += 0.17;
     chr += drawFixed8(val.g, 8, charPos, charSize, uv);
+    if (siggn.z < 0.0) {
+	    charPos.x += .25;
+	    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_V, charPos, charSize, uv); charPos.x += .035;
+		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
+	}
     
     return chr;
 }

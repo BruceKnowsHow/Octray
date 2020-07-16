@@ -134,7 +134,7 @@ void main() {
 	
 	exit();
 	
-	#if (defined DEBUG) && (defined DRAW_DEBUG_VALUE)
+	#if (defined DEBUG) && (defined DRAW_DEBUG_VALUE) && (DEBUG_PROGRAM != 50)
 		if (hideGUI == 0) {
 			vec2 textcoord = texcoord;
 			textcoord.x *= viewSize.x / viewSize.y;

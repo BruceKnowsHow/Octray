@@ -37,11 +37,14 @@ vec3 DeformAcid(vec3 pos) {
 vec3 DeformPlanet(vec3 pos) {
     #define PLANET_RADIUS 1.0 // [1/4f 2/4f 3/4f 1.0 1.5 2.0 3.0]
     
+	pos.y += 5.0;
+	pos.z += 256.0;
+	
     vec3 ret = pos;
     
     float distance2D = dot(pos.xz, pos.xz);
     
-    vec2 sphereAngle = ret.xz / (far * 2.0) * 3.14 / 2.0 / (PLANET_RADIUS);
+    vec2 sphereAngle = ret.xz / (far * 2.0) * 3.14 / 2.0 / (-PLANET_RADIUS);
     
     vec3 zFirst = ret;
     vec3 xFirst = ret;
@@ -56,6 +59,8 @@ vec3 DeformPlanet(vec3 pos) {
     
     // discardflag += float(any(!equal(sign(ret.xz), sign(pos.xz))));
     
+	
+	
     return ret;
 }
 

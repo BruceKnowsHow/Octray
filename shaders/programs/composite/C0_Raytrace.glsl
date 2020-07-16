@@ -69,7 +69,7 @@ const bool depthtex0MipmapEnabled = true;
 #include "../../lib/sky.glsl"
 #include "../../lib/PrecomputeSky.glsl"
 
-vec2 tc = texcoord - TAAHash()*float(accum);
+vec2 tc = texcoord - TAAHash();
 
 vec3 GetWorldSpacePosition(vec2 coord, float depth) {
 	vec4 pos = vec4(vec3(coord, depth) * 2.0 - 1.0, 1.0);
@@ -185,6 +185,10 @@ struct FilterData {
 };
 
 /* DRAWBUFFERS:201 */
+#if (defined DEBUG) && (DEBUG_PROGRAM == ShaderStage)
+	/* DRAWBUFFERS:2017 */
+	#define DEBUG_OUT gl_FragData[3]
+#endif
 #include "../../lib/exit.glsl"
 
 void main() {
@@ -346,8 +350,6 @@ void main() {
 		HandLight(curr, surface);
 		ConstructRays(curr, surface);
 	}
-	
-	
 	
 	totalColor = max(totalColor, vec3(0.0));
 	

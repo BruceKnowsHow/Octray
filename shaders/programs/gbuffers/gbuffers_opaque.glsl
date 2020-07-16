@@ -74,6 +74,7 @@ void main() {
 #if UNHANDLED_BLOCKS >= 2
 	discardflag += float(!isVoxelized(blockID));
 #endif
+	discardflag += float(blockID == 0);
 	discardflag += float(OutOfVoxelBounds(mix(WorldToVoxelSpace(wPosition - tbnMatrix[2]), vec3(1), vec3(0,1,0))));
 
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
@@ -83,7 +84,7 @@ void main() {
 	
 	gl_Position = gbufferProjection * gbufferModelView * position;
 	gl_Position.xy = gl_Position.xy * 0.5 + 0.5;
-	gl_Position.xy += TAAHash() * gl_Position.w * float(accum);
+	gl_Position.xy += TAAHash() * gl_Position.w;
 	gl_Position.xy = gl_Position.xy * 2.0 - 1.0;
 }
 
@@ -189,6 +190,10 @@ flat in int   blockID;
 #include "../../block.properties"
 
 /* DRAWBUFFERS:01 */
+#if (defined DEBUG) && (DEBUG_PROGRAM == ShaderStage)
+	/* DRAWBUFFERS:017 */
+	#define DEBUG_OUT gl_FragData[2]
+#endif
 #include "../../lib/exit.glsl"
 
 void main() {

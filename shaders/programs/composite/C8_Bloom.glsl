@@ -92,11 +92,15 @@ vec3 ComputeBloom() {
 }
 
 /* DRAWBUFFERS:3 */
+#if (defined DEBUG) && (DEBUG_PROGRAM == ShaderStage)
+	/* DRAWBUFFERS:37 */
+	#define DEBUG_OUT gl_FragData[1]
+#endif
 #include "../../lib/exit.glsl"
 
 void main() {
 	gl_FragData[0] = vec4(ComputeBloom(), 1.0);
-	#define OBF_FIX
+	
 	exit();
 }
 
