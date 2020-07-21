@@ -84,7 +84,7 @@ void main() {
 	
 	gl_Position = gbufferProjection * gbufferModelView * position;
 	gl_Position.xy = gl_Position.xy * 0.5 + 0.5;
-	gl_Position.xy += TAAHash() * gl_Position.w;
+	gl_Position.xy += TAAHash() * float(accum) * gl_Position.w;
 	gl_Position.xy = gl_Position.xy * 2.0 - 1.0;
 }
 

@@ -32,6 +32,13 @@
 const float shadowIntervalSize       =    0.000001;
 const bool  shadowHardwareFiltering0 = false;
 
+const int voxelRadius2   = int(shadowDistance);
+const int voxelDiameter2 = 2 * voxelRadius2;
+const ivec3 voxelDimensions2 = ivec3(voxelDiameter2, 256, voxelDiameter2);
+
+const int voxelArea2 = voxelDimensions2.x * voxelDimensions2.z;
+const int voxelVolume2 = voxelDimensions2.y * voxelArea2;
+
 int voxelRadius   = int(min(shadowDistance, far));
 int voxelDiameter = 2 * voxelRadius;
 ivec3 voxelDimensions = ivec3(voxelDiameter, 256, voxelDiameter);
@@ -74,10 +81,10 @@ vec3 VoxelToWorldSpace(vec3 position) {
 
 ivec2 VoxelToTextureSpace(uvec3 position, uint LOD) {
 	position = position >> LOD;
-	position.x = (position.x * voxelDiameter) >> LOD;
-	position.y = (position.y * voxelArea) >> (LOD*2);
+	position.x = (position.x * voxelDiameter2) >> LOD;
+	position.y = (position.y * voxelArea2) >> (LOD*2);
 	
-	uint linenum = (position.x + position.y + position.z) + ((voxelVolume*8) - ((voxelVolume*8) >> int(LOD*3)))/7;
+	uint linenum = (position.x + position.y + position.z) + ((voxelVolume2*8) - ((voxelVolume2*8) >> int(LOD*3)))/7;
 	return ivec2(linenum % shadowMapResolution, linenum / shadowMapResolution);
 }
 

@@ -33,8 +33,8 @@ void inc( vec4 x) { Debug += x.rgb; }
 
 #ifdef DRAW_DEBUG_VALUE
 	// Display the value of the variable on the debug value viewer
-	#define showval(x) if (distance(texcoord, vec2(0.5)) < 0.001) show(x);
-	#define incval(x)  if (distance(texcoord, vec2(0.5)) < 0.001) inc(x);
+	#define showval(x) if (distance(ivec2(gl_FragCoord.xy)/viewSize, vec2(0.5)) < 0.001) show(x);
+	#define incval(x)  if (distance(ivec2(gl_FragCoord.xy)/viewSize, vec2(0.5)) < 0.001) inc(x);
 #else
 	#define showval(x)
 	#define incval(x)

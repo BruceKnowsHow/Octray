@@ -1,10 +1,7 @@
 /***********************************************************************/
 #if defined vsh
 
-noperspective out vec2 texcoord;
-
 void main() {
-	texcoord    = gl_Vertex.xy;
 	gl_Position = vec4(gl_Vertex.xy * 2.0 - 1.0, 0.0, 1.0);
 }
 
@@ -55,8 +52,6 @@ uniform int   frameCounter;
 uniform int   isEyeInWater;
 uniform bool  accum;
 
-noperspective in vec2 texcoord;
-
 const bool colortex2MipmapEnabled = true;
 const bool depthtex0MipmapEnabled = true;
 
@@ -69,7 +64,8 @@ const bool depthtex0MipmapEnabled = true;
 #include "../../lib/sky.glsl"
 #include "../../lib/PrecomputeSky.glsl"
 
-vec2 tc = texcoord - TAAHash();
+// vec2 tc = texcoord - TAAHash()*0;
+vec2 tc = gl_FragCoord.xy / viewSize;
 
 vec3 GetWorldSpacePosition(vec2 coord, float depth) {
 	vec4 pos = vec4(vec3(coord, depth) * 2.0 - 1.0, 1.0);
@@ -92,8 +88,6 @@ mat3 ArbitraryTBN(vec3 normal) {
 
 const float glassIOR = 1.0;
 vec3 totalColor = vec3(0.0);
-
-int RAY_COUNT;
 
 #include "../../lib/raytracing/VoxelMarch.glsl"
 
@@ -127,13 +121,6 @@ void ConstructRays(RayStruct curr, SurfaceStruct surface) {
 		RayPush(sunray);
 	#endif
 }
-
-#define USE_RASTER_ENGINE
-#ifdef USE_RASTER_ENGINE
-	#define USE_RASTER_ENGINE_B On
-#else
-	#define USE_RASTER_ENGINE_B Off
-#endif
 
 // Returns true if no rays should be launched.
 bool ConstructTransparentRays(inout RayStruct curr, SurfaceStruct surface) {
@@ -193,7 +180,7 @@ struct FilterData {
 
 void main() {
 	vec3 wDir = normalize(GetWorldSpacePosition(tc, 1.0));
-	vec4 prevCol = max(texture(colortex2, texcoord).rgba, 0) * float(accum)*0;
+	vec4 prevCol = max(texelFetch(colortex2, ivec2(gl_FragCoord.xy), 0).rgba, 0) * float(accum)*0;
 	
 	FilterData filterData;
 	filterData.albedo = vec3(1.0);
@@ -203,8 +190,9 @@ void main() {
 	gl_FragData[1] = vec4(filterData.normal, filterData.zPos);
 	gl_FragData[2] = vec4(filterData.albedo, 0.0);
 	
-	if (USE_RASTER_ENGINE_B) {
-		float depth = texelFetch(depthtex0, ivec2(tc * viewSize), 0).x;
+	#define USE_RASTER_ENGINE
+	#ifdef USE_RASTER_ENGINE
+		float depth = texelFetch(depthtex0, ivec2(gl_FragCoord.xy), 0).x;
 		
 		if (depth >= 1.0) {
 			vec3 transmit = vec3(1.0);
@@ -215,12 +203,12 @@ void main() {
 		}
 		
 		// vec3 wPos = GetWorldSpacePosition(tc, depth);
-		vec3 wPos = texture(colortex1, texcoord).gba;
+		vec3 wPos = texelFetch(colortex1, ivec2(gl_FragCoord.xy), 0).gba;
 		
 		SurfaceStruct surface;
-		UnpackGBuffers(texelFetch(GBUFFER0_SAMPLER, ivec2(tc*viewSize), 0).xyz, surface.albedo, surface.normals, surface.specular);
-		surface.tbn = DecodeTBNU(texelFetch(GBUFFER0_SAMPLER, ivec2(tc*viewSize), 0).a);
-		surface.blockID = int(texelFetch(GBUFFER1_SAMPLER, ivec2(tc*viewSize), 0).r * 255.0);
+		UnpackGBuffers(texelFetch(GBUFFER0_SAMPLER, ivec2(gl_FragCoord.xy), 0).xyz, surface.albedo, surface.normals, surface.specular);
+		surface.tbn = DecodeTBNU(texelFetch(GBUFFER0_SAMPLER, ivec2(gl_FragCoord.xy), 0).a);
+		surface.blockID = int(texelFetch(GBUFFER1_SAMPLER, ivec2(gl_FragCoord.xy), 0).r * 255.0);
 		
 		RayStruct curr;
 		curr.vPos = WorldToVoxelSpace(vec3(0.0));
@@ -272,25 +260,26 @@ void main() {
 			HandLight(curr, surface);
 			ConstructRays(curr, surface);
 		}
-	} else {
-		RayStruct primary;
-		primary.absorb = vec3(1.0);
-		primary.info = PackRayInfo(0, PRIMARY_RAY_TYPE);
-		primary.vPos = WorldToVoxelSpace(vec3(0));
+	#else
+		RayStruct curr;
+		curr.absorb = vec3(1.0);
+		curr.info = PackRayInfo(0, PRIMARY_RAY_TYPE);
+		curr.vPos = WorldToVoxelSpace(vec3(0));
 		if (cameraPosition.y + gbufferModelViewInverse[3].y*1.0 > 256.0 && wDir.y < 0.0) {
-			primary.vPos += wDir / wDir.y * -(cameraPosition.y + gbufferModelViewInverse[3].y*1.0 - 255.9);
+			curr.vPos += wDir / wDir.y * -(cameraPosition.y + gbufferModelViewInverse[3].y*1.0 - 255.9);
 		}
 		
-		primary.wDir = wDir;
-		primary.prevVolume = 1.0;
+		curr.wDir = wDir;
+		curr.prevVolume = 1.0;
 		#ifdef RT_TERRAIN_PARALLAX
-			primary.insidePOM = false;
+			curr.insidePOM = false;
 		#endif
-		RayPush(primary);
-	}
+		RayPush(curr);
+	#endif
 	
 	
 	
+	int RAY_COUNT;
 	for (RAY_COUNT = 1; RAY_COUNT < MAX_RAYS; ++RAY_COUNT) {
 		if (IsStackEmpty()) break;
 		
@@ -336,12 +325,14 @@ void main() {
 			continue;
 		}
 		
-		if (GetRayDepth(curr.info) == 0 || (!USE_RASTER_ENGINE_B && IsPrimaryRay(curr))) {
-			filterData.albedo = mix(vec3(1.0), surface.albedo.rgb, surface.albedo.a);
-			filterData.normal = surface.normal;
-			filterData.zPos = (VoxelToWorldSpace(VMO.vPos)*mat3(gbufferModelViewInverse)).z;
-			surface.albedo.rgb = vec3(1.0);
-		}
+		#ifndef USE_RASTER_ENGINE
+			if (IsPrimaryRay(curr)) {
+				filterData.albedo = mix(vec3(1.0), surface.albedo.rgb, surface.albedo.a);
+				filterData.normal = surface.normal;
+				filterData.zPos = (VoxelToWorldSpace(VMO.vPos)*mat3(gbufferModelViewInverse)).z;
+				surface.albedo.rgb = vec3(1.0);
+			}
+		#endif
 		
 		if (ConstructTransparentRays(curr, surface)) continue;
 		

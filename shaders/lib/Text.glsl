@@ -239,7 +239,7 @@ float DrawDebugValue(vec2 uv) {
     chr += drawChar( CH_B, charPos, charSize, uv); charPos.x += .035;
     chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
     charPos.x += 0.17;
-    chr += drawFixed8(val.g, 8, charPos, charSize, uv);
+    chr += drawFixed8(val.b, 8, charPos, charSize, uv);
     if (siggn.z < 0.0) {
 	    charPos.x += .25;
 	    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .035;

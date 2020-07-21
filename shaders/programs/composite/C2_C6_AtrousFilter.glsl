@@ -40,8 +40,8 @@ void main() {
 #define COLORSAMPLER colortex2
 uniform sampler2D COLORSAMPLER;
 uniform sampler2D colortex0;
-uniform sampler2D colortex1;
 uniform sampler2D colortex5;
+uniform sampler2D depthtex0;
 uniform vec2 viewSize;
 
 noperspective in vec2 texcoord;
@@ -58,7 +58,7 @@ noperspective in vec2 texcoord;
 #include "../../lib/exit.glsl"
 
 void main() {
-	if (texture(colortex0, texcoord).a == 0) {
+	if (texture(depthtex0, texcoord).x >= 1.0) {
 		gl_FragData[0] = texture(COLORSAMPLER, texcoord);
 		return;
 	}
