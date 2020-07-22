@@ -19,20 +19,6 @@
 #ifdef ATROUS_FILTER_PASSES_5
 #endif
 
-/***********************************************************************/
-#if defined vsh
-
-noperspective out vec2 texcoord;
-
-void main() {
-	texcoord    = gl_Vertex.xy;
-	gl_Position = vec4(gl_Vertex.xy * 2.0 - 1.0, 0.0, 1.0);
-}
-
-#endif
-/***********************************************************************/
-
-
 
 /***********************************************************************/
 #if defined fsh
@@ -44,7 +30,7 @@ uniform sampler2D colortex5;
 uniform sampler2D depthtex0;
 uniform vec2 viewSize;
 
-noperspective in vec2 texcoord;
+vec2 texcoord = gl_FragCoord.xy / viewSize;
 
 #include "../../lib/debug.glsl"
 #include "../../lib/utility.glsl"

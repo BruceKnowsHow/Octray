@@ -1,27 +1,4 @@
 /***********************************************************************/
-#if defined vsh
-
-uniform vec2 viewSize;
-
-noperspective out vec2 texcoord;
-
-void main() {
-	texcoord    = gl_Vertex.xy;
-	gl_Position = vec4(gl_Vertex.xy * 2.0 - 1.0, 0.0, 1.0);
-	
-	vec2 vertexScale = vec2(0.25 + 1/viewSize.x * 2.0, 0.375 + 1/viewSize.y * 4.0);
-	
-	gl_Position.xy = ((gl_Position.xy * 0.5 + 0.5) * vertexScale) * 2.0 - 1.0; // Crop the vertex to only cover the areas that are being used
-	
-	texcoord *= vertexScale; // Compensate for the vertex adjustment to make this a true "crop" rather than a "downscale"
-}
-
-#endif
-/***********************************************************************/
-
-
-
-/***********************************************************************/
 #if defined fsh
 
 #include "../../lib/debug.glsl"
@@ -32,7 +9,7 @@ void main() {
 uniform sampler2D COMPOSITE0_COLOR_OUT;
 uniform vec2 viewSize;
 
-noperspective in vec2 texcoord;
+vec2 texcoord = gl_FragCoord.xy / viewSize;
 
 const bool colortex5MipmapEnabled = true;
 
@@ -99,6 +76,8 @@ vec3 ComputeBloom() {
 #include "../../lib/exit.glsl"
 
 void main() {
+	if (texcoord.x > 0.25 || texcoord.y > 0.375) discard;
+	
 	gl_FragData[0] = vec4(ComputeBloom(), 1.0);
 	
 	exit();

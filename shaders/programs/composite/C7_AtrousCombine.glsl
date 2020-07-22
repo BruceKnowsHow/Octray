@@ -1,21 +1,6 @@
 #define WHITEWORLD Off // [On Off]
 
 /***********************************************************************/
-#if defined vsh
-
-noperspective out vec2 texcoord;
-
-void main() {
-	texcoord    = gl_Vertex.xy;
-	gl_Position = vec4(gl_Vertex.xy * 2.0 - 1.0, 0.0, 1.0);
-}
-
-#endif
-/***********************************************************************/
-
-
-
-/***********************************************************************/
 #if defined fsh
 
 #include "../../lib/debug.glsl"
@@ -25,9 +10,10 @@ void main() {
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex5;
+uniform vec2 viewSize;
 uniform bool accum;
 
-noperspective in vec2 texcoord;
+vec2 texcoord = gl_FragCoord.xy / viewSize;
 
 /* DRAWBUFFERS:5 */
 #if (defined DEBUG) && (DEBUG_PROGRAM == ShaderStage)

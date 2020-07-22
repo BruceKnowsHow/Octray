@@ -4,9 +4,6 @@
 
 #define GSH_MODE GSH_MODE_ACTIVE // [GSH_MODE_ACTIVE GSH_MODE_PASSTHROUGH GSH_MODE_DISABLED]
 
-/***********************************************************************/
-#if defined vsh
-
 uniform sampler2D tex;
 uniform mat4  gbufferModelViewInverse;
 uniform mat4  shadowModelViewInverse;
@@ -14,6 +11,13 @@ uniform vec3  cameraPosition;
 uniform vec3  previousCameraPosition;
 uniform float far;
 uniform int   instanceId;
+
+
+#include "Voxelization.glsl"
+#include "RT_Encoding.glsl"
+
+/***********************************************************************/
+#if defined vsh
 
 attribute vec4 at_tangent;
 attribute vec3 mc_Entity;
@@ -34,9 +38,6 @@ flat out int   blockID;
 #else
 	const int countInstances = 8;
 #endif
-
-#include "Voxelization.glsl"
-#include "RT_Encoding.glsl"
 
 mat3 CalculateTBN() {
 	vec3 tangent  = normalize(mat3(shadowModelViewInverse) * gl_NormalMatrix * at_tangent.xyz);
@@ -112,13 +113,6 @@ layout(triangles) in;
 	layout(triangle_strip, max_vertices = 3) out;
 #endif
 
-uniform sampler2D tex;
-uniform mat4  shadowModelView;
-uniform mat4  shadowProjection;
-uniform mat4  gbufferModelViewInverse;
-uniform vec3  cameraPosition;
-uniform float far;
-
 in      vec4  vColor[];
 flat in vec4  data0[];
 flat in vec4  data1[];
@@ -131,9 +125,6 @@ flat in int   blockID[];
 
 flat out vec4 _data0;
 flat out vec4 _data1;
-
-#include "Voxelization.glsl"
-#include "RT_Encoding.glsl"
 
 void main() {
 	#if (GSH_MODE != GSH_MODE_ACTIVE)

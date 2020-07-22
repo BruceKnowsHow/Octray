@@ -1,16 +1,4 @@
 /***********************************************************************/
-#if defined vsh
-
-void main() {
-	gl_Position = vec4(gl_Vertex.xy * 2.0 - 1.0, 0.0, 1.0);
-}
-
-#endif
-/***********************************************************************/
-
-
-
-/***********************************************************************/
 #if defined fsh
 
 uniform sampler2D colortex2;
@@ -62,9 +50,9 @@ const bool depthtex0MipmapEnabled = true;
 #include "../../lib/Random.glsl"
 #include "../../lib/PBR.glsl"
 #include "../../lib/sky.glsl"
-#include "../../lib/PrecomputeSky.glsl"
 
 // vec2 tc = texcoord - TAAHash()*0;
+vec2 texcoord = gl_FragCoord.xy / viewSize;
 vec2 tc = gl_FragCoord.xy / viewSize;
 
 vec3 GetWorldSpacePosition(vec2 coord, float depth) {

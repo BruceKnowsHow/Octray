@@ -45,7 +45,6 @@ option.SKY_BRIGHTNESS=Sky Brightness
 option.AMBIENT_BRIGHTNESS=Ambient Brightness
 option.VIBRANCE=Vibrance
 
-option.FRAME_ACCUMULATION_COUNTER=Frame Accumulation Counter
 option.SUNLIGHT_RAYS=Sunlight Rays
 option.SPECULAR_RAYS=Specular Rays
 option.SPECULAR_RAYS.comment=Specular reflections aren't really setup yet

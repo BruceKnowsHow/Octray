@@ -64,195 +64,99 @@ float drawChar(float character, vec2 pos, vec2 size, vec2 uv) {
 	return clamp(res,0.0,1.0);
 }
 
-float drawIntCarriage(int val, in vec2 pos, vec2 size, vec2 uv, int places) {
-	// Create a place to store the current values.
-	float res = 0.0,digit = 0.0;
-	// Surely it won't be more than 10 chars long, will it?
-	// (MAX_INT is 10 characters)
+float drawIntCarriage(int val, vec2 pos, vec2 size, vec2 uv, int places) {
+	float res = 0.0;
+	float digit = 0.0;
+	
 	for (int i = 0; i < 10; ++i) {
-		// If we've run out of film, cut!
+		
 		if(val == 0 && i >= places) break;
-		// The current lsd is the difference between the current
-		// value and the value rounded down one place.
+		
 		digit = float( val-(val/10)*10 );
-		// Draw the character. Since there are no overlaps, we don't
-		// need max().
+		
 		res += drawChar(floatToChar(digit),pos,size,uv);
-		// Move the carriage.
+		
 		pos.x -= size.x*1.2;
-		// Truncate away this most recent digit.
 		val /= 10;
 	}
 	
 	return res;
 }
 
-float drawInt( in int val, in vec2 pos, in vec2 size, in vec2 uv )
-{
-    vec2 p = vec2(pos);
-    float s = sign(float(val));
-    val *= int(s);
-    
-    float c = drawIntCarriage(val,p,size,uv,1);
-    return c + drawChar(CH_HYPH,p,size,uv)*max(0.0, -s);
-}
-
-/*
-	Prints a fixed point fractional value. Be even more careful about overflowing.
-*/
-float drawFixed8( in float val, in int places, in vec2 pos, in vec2 size, in vec2 uv )
-{
-    // modf() sure would be nice right about now.
-    vec2 p = vec2(pos);
-    float res = 0.0;
-    
-    // Draw the floating point part.
-    res = drawIntCarriage( int( fract(val)*pow(10.0,float(places)) ), p + vec2(places*size.x - 0.02, 0.0), size, uv, places );
-    // The decimal is tiny, so we back things up a bit before drawing it.
-    p.x -= size.x*2.4;
-    res = max(res, drawChar(CH_FSTP,p,size,uv)); p.x-=size.x*1.2;
-    // And after as well.
-//    p.x += size.x *.1;
-    // Draw the integer part.
-    res = max(res, drawIntCarriage(int(floor(val)),p,size,uv,1));
+float drawIntCarriage2(int val, inout vec2 pos, vec2 size, vec2 uv, int places) {
+	float res = 0.0;
+	float digit = 0.0;
+	
+	for (int i = 0; i < 10; ++i) {
+		
+		if(val == 0 && i >= places) break;
+		
+		digit = float( val-(val/10)*10 );
+		
+		res += drawChar(floatToChar(digit),pos,size,uv);
+		
+		pos.x -= size.x*1.2;
+		
+		val /= 10;
+	}
+	
 	return res;
 }
 
-float drawFixed2( in float val, in int places, in vec2 pos, in vec2 size, in vec2 uv )
-{
-    // modf() sure would be nice right about now.
-    vec2 p = vec2(pos);
-    float res = 0.0;
-    
-    // Draw the floating point part.
-//    res = drawIntCarriage( int( fract(val)*pow(10.0,float(places)) ), p, size, uv, places );
-    // The decimal is tiny, so we back things up a bit before drawing it.
-    p.x -= size.x*2.4;
-//    res = max(res, drawChar(CH_FSTP,p,size,uv)); p.x-=size.x*1.2;
-    // And after as well.
-//    p.x += size.x *.1;
-    // Draw the integer part.
-    res = max(res, drawIntCarriage(int(floor(val)),p,size,uv,1));
+float drawFixed8(float val, int places, vec2 pos, vec2 size, vec2 uv) {
+	float siggn = sign(val);
+	val = abs(val);
+	
+	vec2 p = vec2(pos);
+	float res = 0.0;
+	
+	
+	res = drawIntCarriage( int( fract(val)*pow(10.0,float(places)) ), p + vec2(places*size.x - 0.02, 0.0), size, uv, places );
+	
+	p.x -= size.x*1.4;
+	res = max(res, drawChar(CH_FSTP,p,size,uv)); p.x-=size.x*1.2;
+	
+	res = max(res, drawIntCarriage2(int(floor(val)),p,size,uv,1));
+	res = max(res, drawChar( CH_HYPH, p, size, uv) * float(siggn < 0.0));
 	return res;
-}
-
-float DrawFrameAccumulation(vec2 uv, float val) {
-    // Set a general character size...
-    vec2 charSize = vec2(.03, .0375) * 0.8;
-    // and a starting position.
-    vec2 charPos = vec2(0.02, 0.955);
-    // Draw some text!
-    float chr = 0.0;
-	chr += drawChar( CH_F, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_R, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_M, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_S, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_BLNK, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_C, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_C, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_U, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_M, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_U, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_L, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_D, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_BLNK, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_LPAR, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_S, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_P, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_P, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_RPAR, charPos, charSize, uv); charPos.x += .035;
-	chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
-	charPos.x += .2;
-	chr += drawFixed2(val, 2, charPos, charSize, uv);
-    return chr;
 }
 
 float DrawDebugValue(vec2 uv) {
-    // Set a general character size...
-    vec2 charSize = vec2(.03, .0375) * 0.8;
-    // and a starting position.
-    vec2 charPos = vec2(0.015, 0.96);
-    // Draw some text!
-    float chr = 0.0;
-    
-    // chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
-    // chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
-    // chr += drawChar( CH_B, charPos, charSize, uv); charPos.x += .035;
-    // chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
-    
-    
-    vec2 chartemp = charPos;
-    
+	vec2 charSize = vec2(.03, .0375) * 0.8;
+	vec2 charPos = vec2(0.015, 0.96);
+	
+	float chr = 0.0;
+	
+	vec2 chartemp = charPos;
+	
 #if (defined DEBUG) && (-10 < DEBUG_PROGRAM) && (DEBUG_PROGRAM < 50)
-    vec3 val = texelFetch(colortex7, ivec2(viewSize/2.0), 0).rgb;
+	vec3 val = texelFetch(colortex7, ivec2(viewSize/2.0), 0).rgb;
 #else
-    vec3 val = vec3(0.0);
+	vec3 val = vec3(0.0);
 #endif
+	val *= -110.0;
+	chr += drawChar( CH_R, charPos, charSize, uv); charPos.x += .035;
+	chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
+	charPos.x += 0.17;
+	chr += drawFixed8(val.r, 4, charPos, charSize, uv);
 	
-	vec3 siggn = sign(val);
-	val = abs(val);
 	
-    chr += drawChar( CH_R, charPos, charSize, uv); charPos.x += .035;
-    chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
-    charPos.x += 0.17;
-    chr += drawFixed8(val.r, 8, charPos, charSize, uv);
-    if (siggn.x < 0.0) {
-	    charPos.x += .25;
-	    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_V, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
-	}
-    
-    
-    chartemp += vec2(0.0, -charSize.y * 1.5);
-    charPos = chartemp;
-    chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
-    chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
-    charPos.x += 0.17;
-    chr += drawFixed8(val.g, 8, charPos, charSize, uv);
-    if (siggn.y < 0.0) {
-	    charPos.x += .25;
-	    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_V, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
-	}
-    
-    
-    chartemp += vec2(0.0, -charSize.y * 1.5);
-    charPos = chartemp;
-    chr += drawChar( CH_B, charPos, charSize, uv); charPos.x += .035;
-    chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
-    charPos.x += 0.17;
-    chr += drawFixed8(val.b, 8, charPos, charSize, uv);
-    if (siggn.z < 0.0) {
-	    charPos.x += .25;
-	    chr += drawChar( CH_N, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_A, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_T, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_I, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_V, charPos, charSize, uv); charPos.x += .035;
-		chr += drawChar( CH_E, charPos, charSize, uv); charPos.x += .035;
-	}
-    
-    return chr;
+	chartemp += vec2(0.0, -charSize.y * 1.5);
+	charPos = chartemp;
+	chr += drawChar( CH_G, charPos, charSize, uv); charPos.x += .035;
+	chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
+	charPos.x += 0.17;
+	chr += drawFixed8(val.g, 4, charPos, charSize, uv);
+	
+	
+	chartemp += vec2(0.0, -charSize.y * 1.5);
+	charPos = chartemp;
+	chr += drawChar( CH_B, charPos, charSize, uv); charPos.x += .035;
+	chr += drawChar( CH_COLN, charPos, charSize, uv); charPos.x += .035;
+	charPos.x += 0.17;
+	chr += drawFixed8(val.b, 4, charPos, charSize, uv);
+	
+	return chr;
 }
 
 #endif
