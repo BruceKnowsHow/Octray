@@ -30,9 +30,150 @@ const bool colortex5MipmapEnabled = true;
 #include "../../lib/debug.glsl"
 #include "../../lib/Tonemap.glsl"
 #include "../../lib/exit.glsl"
-#include "../../lib/Text.glsl"
 
 
+/***********************************************************************/
+/* Text Rendering */
+const int
+	_A    = 0x64bd29, _B    = 0x749d27, _C    = 0xe0842e, _D    = 0x74a527,
+	_E    = 0xf09c2f, _F    = 0xf09c21, _G    = 0xe0b526, _H    = 0x94bd29,
+	_I    = 0xf2108f, _J    = 0x842526, _K    = 0x9284a9, _L    = 0x10842f,
+	_M    = 0x97a529, _N    = 0x95b529, _O    = 0x64a526, _P    = 0x74a4e1,
+	_Q    = 0x64acaa, _R    = 0x749ca9, _S    = 0xe09907, _T    = 0xf21084,
+	_U    = 0x94a526, _V    = 0x94a544, _W    = 0x94a5e9, _X    = 0x949929,
+	_Y    = 0x94b90e, _Z    = 0xf4106f, _0    = 0x65b526, _1    = 0x431084,
+	_2    = 0x64904f, _3    = 0x649126, _4    = 0x94bd08, _5    = 0xf09907,
+	_6    = 0x609d26, _7    = 0xf41041, _8    = 0x649926, _9    = 0x64b904,
+	_APST = 0x631000, _PI   = 0x07a949, _UNDS = 0x00000f, _HYPH = 0x001800,
+	_TILD = 0x051400, _PLUS = 0x011c40, _EQUL = 0x0781e0, _SLSH = 0x041041,
+	_EXCL = 0x318c03, _QUES = 0x649004, _COMM = 0x000062, _FSTP = 0x000002,
+	_QUOT = 0x528000, _BLNK = 0x000000, _COLN = 0x000802, _LPAR = 0x410844,
+	_RPAR = 0x221082;
+
+const ivec2 MAP_SIZE = ivec2(5, 5);
+
+int GetBit(int bitMap, int index) {
+	return (bitMap >> index) & 1;
+}
+
+float DrawChar(int charBitMap, inout vec2 anchor, vec2 charSize, vec2 uv) {
+	uv = (uv - anchor) / charSize;
+	
+	anchor.x += charSize.x;
+	
+	if (!all(lessThan(abs(uv - vec2(0.5)), vec2(0.5))))
+		return 0.0;
+	
+	uv *= MAP_SIZE;
+	
+	int index = int(uv.x) % MAP_SIZE.x + int(uv.y)*MAP_SIZE.x;
+	
+	return GetBit(charBitMap, index);
+}
+
+const int STRING_LENGTH = 8;
+int[STRING_LENGTH] drawString;
+
+float DrawString(inout vec2 anchor, vec2 charSize, int stringLength, vec2 uv) {
+	uv = (uv - anchor) / charSize;
+	
+	anchor.x += charSize.x * stringLength;
+	
+	if (!all(lessThan(abs(uv / vec2(stringLength, 1.0) - vec2(0.5)), vec2(0.5))))
+		return 0.0;
+	
+	int charBitMap = drawString[int(uv.x)];
+	
+	uv *= MAP_SIZE;
+	
+	int index = int(uv.x) % MAP_SIZE.x + int(uv.y)*MAP_SIZE.x;
+	
+	return GetBit(charBitMap, index);
+}
+
+#define log10(x) (log2(x) / log2(10.0))
+
+float DrawInt(int val, inout vec2 anchor, vec2 charSize, vec2 uv) {
+	if (val == 0) return DrawChar(_0, anchor, charSize, uv);
+	
+	const int _DIGITS[10] = int[10](_0,_1,_2,_3,_4,_5,_6,_7,_8,_9);
+	
+	bool isNegative = val < 0.0;
+	
+	if (isNegative) drawString[0] = _HYPH;
+	
+	val = abs(val);
+	
+	int posPlaces = int(ceil(log10(abs(val) + 0.001)));
+	int strIndex = posPlaces - int(!isNegative);
+	
+	while (val > 0) {
+		drawString[strIndex--] = _DIGITS[val % 10];
+		val /= 10;
+	}
+	
+	return DrawString(anchor, charSize, posPlaces + int(isNegative), texcoord);
+}
+
+float DrawFloat(float val, inout vec2 anchor, vec2 charSize, int negPlaces, vec2 uv) {
+	int whole = int(val);
+	int part  = int(fract(abs(val)) * pow(10, negPlaces));
+	
+	int posPlaces = max(int(ceil(log10(abs(val)))), 1);
+	
+	anchor.x -= charSize.x * (posPlaces + int(val < 0) + 0.25);
+	float ret = 0.0;
+	ret += DrawInt(whole, anchor, charSize, uv);
+	ret += DrawChar(_FSTP, anchor, charSize, texcoord);
+	anchor.x -= charSize.x * 0.3;
+	ret += DrawInt(part, anchor, charSize, uv);
+	
+	return ret;
+}
+
+void DrawDebugText() {
+	#if (defined DEBUG) && (defined DRAW_DEBUG_VALUE) && (DEBUG_PROGRAM != 50)
+		vec2 charSize = vec2(0.03) * viewSize.yy / viewSize;
+		vec2 texPos = vec2(charSize.x / 5.0, 1.0 - charSize.y * 1.2);
+		
+		if (hideGUI != 0
+		 || texcoord.x > charSize.x * 12.0
+		 || texcoord.y < 1 - charSize.y * 4.5)
+		{ return; }
+		
+		vec3 color = vec3(0.0);
+		
+		vec3 val = texelFetch(colortex7, ivec2(viewSize/2.0), 0).rgb;
+		
+		drawString = int[STRING_LENGTH](_R,_COLN, 0,0,0,0,0,0);
+		color += DrawString(texPos, charSize, 2, texcoord);
+		texPos.x += charSize.x * 5.0;
+		color += DrawFloat(val.r, texPos, charSize, 4, texcoord);
+		
+		texPos.x = charSize.x / 5.0, 1.0;
+		texPos.y -= charSize.y * 1.4;
+		
+		drawString = int[STRING_LENGTH](_G,_COLN, 0,0,0,0,0,0);
+		color += DrawString(texPos, charSize, 2, texcoord);
+		texPos.x += charSize.x * 5.0;
+		color += DrawFloat(val.g, texPos, charSize, 4, texcoord);
+		
+		texPos.x = charSize.x / 5.0, 1.0;
+		texPos.y -= charSize.y * 1.4;
+		
+		drawString = int[STRING_LENGTH](_B,_COLN, 0,0,0,0,0,0);
+		color += DrawString(texPos, charSize, 2, texcoord);
+		texPos.x += charSize.x * 5.0;
+		color += DrawFloat(val.b, texPos, charSize, 4, texcoord);
+		
+		gl_FragColor.rgb = color;
+	#endif
+}
+/***********************************************************************/
+
+
+/***********************************************************************/
+/* Bloom */
 vec4 cubic(float x) {
 	float x2 = x * x;
 	float x3 = x2 * x;
@@ -86,6 +227,9 @@ vec3 GetBloomTile(sampler2D tex, const int scale, vec2 offset) {
 #define BLOOM_CURVE 1.0
 
 vec3 GetBloom(sampler2D tex, vec3 color) {
+	#ifndef BLOOM
+		return color;
+	#endif
 	vec3 bloom[8];
 	
 	// These arguments should be identical to those in composite2.fsh
@@ -104,15 +248,13 @@ vec3 GetBloom(sampler2D tex, vec3 color) {
 	
 	bloom[0] /= 7.0;
 	
-	// return color + bloom[0];
-	
 	return mix(color, min(pow(bloom[0], vec3(BLOOM_CURVE)), bloom[0]), BLOOM_AMOUNT);
 }
-#ifndef BLOOM
-	#define GetBloom(tex, color) (color)
-#endif
+/***********************************************************************/
 
 
+/***********************************************************************/
+/* Motion Blur */
 #define MOTION_BLUR
 #define MOTION_BLUR_INTENSITY 1.0
 #define MAX_MOTION_BLUR_AMOUNT 1.0
@@ -122,6 +264,10 @@ vec3 GetBloom(sampler2D tex, vec3 color) {
 #define CONSTANT_MOTION_BLUR_SAMPLE_COUNT 2
 
 vec3 MotionBlur(vec3 color) {
+	#ifndef MOTION_BLUR
+		return color;
+	#endif
+	
 	float depth = texture(depthtex0, texcoord).x;
 	
 	vec4 pene;
@@ -158,9 +304,7 @@ vec3 MotionBlur(vec3 color) {
 	
 	return color / max(sampleCount + 1.0, 1.0);
 }
-#ifndef MOTION_BLUR
-	#define MotionBlur(color) (color)
-#endif
+/***********************************************************************/
 
 
 #define AUTO_EXPOSURE On // [On Off]
@@ -173,6 +317,7 @@ void main() {
 	vec3 avgCol = textureLod(colortex5, vec2(0.5), 16).rgb / textureLod(colortex5, vec2(0.5), 16).a;
 	float expo = 1.0 / dot(avgCol, vec3(0.2125, 0.7154, 0.0721));
 	expo = 1.0;
+	
 	if (AUTO_EXPOSURE) {
 		expo = pow(1.0 / dot(avgCol, vec3(3.0)), 0.7);
 	}
@@ -188,20 +333,7 @@ void main() {
 	
 	exit();
 	
-	#if (defined DEBUG) && (defined DRAW_DEBUG_VALUE) && (DEBUG_PROGRAM != 50)
-		if (hideGUI == 0) {
-			vec2 textcoord = texcoord ;
-			textcoord.x *= viewSize.x / viewSize.y;
-			textcoord = textcoord ;
-			vec2 fix = viewSize.yy / viewSize;
-			
-			vec3 whiteText = vec3(DrawDebugValue(textcoord));
-			
-			float centerDist = sqrt(dot((texcoord - vec2(0.5))/fix, (texcoord - vec2(0.5))/fix));
-			if (texcoord.x < 0.21 && texcoord.y > 0.85) gl_FragColor.rgb *= 0.0;
-			gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), whiteText);
-		}
-	#endif
+	DrawDebugText();
 }
 
 #endif

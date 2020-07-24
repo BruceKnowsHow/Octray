@@ -180,7 +180,8 @@ void DEBUG_DIFFUSE_SHOW(vec3 color) {
 
 #if (DEBUG_PRESET == VM_WPOS)
 void DEBUG_WPOS_SHOW(vec3 vPos) {
-	show(vPos);
+	show(vPos / 60.0);
+	showval(vPos);
 }
 #else
 	#define DEBUG_WPOS_SHOW(x)
