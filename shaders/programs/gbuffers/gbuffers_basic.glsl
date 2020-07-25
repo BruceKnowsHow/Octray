@@ -3,8 +3,6 @@
 
 out vec3 vColor;
 
-#include "../../lib/debug.glsl"
-
 void main() {
 	vColor = gl_Color.rgb;
 	
@@ -20,8 +18,6 @@ void main() {
 #if defined fsh
 
 in vec3 vColor;
-
-#include "../../lib/debug.glsl"
 
 void main() {
 	discard;

@@ -28,8 +28,9 @@ const bool colortex4MipmapEnabled = true;
 const bool colortex5MipmapEnabled = true;
 
 #include "../../lib/debug.glsl"
-#include "../../lib/Tonemap.glsl"
 #include "../../lib/exit.glsl"
+#include "../../lib/Tonemap.glsl"
+#include "../../lib/Utility.glsl"
 
 
 /***********************************************************************/
@@ -142,29 +143,35 @@ void DrawDebugText() {
 		{ return; }
 		
 		vec3 color = vec3(0.0);
+		float text = 0.0;
 		
 		vec3 val = texelFetch(colortex7, ivec2(viewSize/2.0), 0).rgb;
 		
 		drawString = int[STRING_LENGTH](_R,_COLN, 0,0,0,0,0,0);
-		color += DrawString(texPos, charSize, 2, texcoord);
+		text += DrawString(texPos, charSize, 2, texcoord);
 		texPos.x += charSize.x * 5.0;
-		color += DrawFloat(val.r, texPos, charSize, 4, texcoord);
+		text += DrawFloat(val.r, texPos, charSize, 4, texcoord);
+		color += text * vec3(1.0, 0.0, 0.0) * sqrt(clamp(abs(val.r), 0.2, 1.0));
 		
 		texPos.x = charSize.x / 5.0, 1.0;
 		texPos.y -= charSize.y * 1.4;
 		
+		text = 0.0;
 		drawString = int[STRING_LENGTH](_G,_COLN, 0,0,0,0,0,0);
-		color += DrawString(texPos, charSize, 2, texcoord);
+		text += DrawString(texPos, charSize, 2, texcoord);
 		texPos.x += charSize.x * 5.0;
-		color += DrawFloat(val.g, texPos, charSize, 4, texcoord);
+		text += DrawFloat(val.g, texPos, charSize, 4, texcoord);
+		color += text * vec3(0.0, 1.0, 0.0) * sqrt(clamp(abs(val.g), 0.2, 1.0));
 		
 		texPos.x = charSize.x / 5.0, 1.0;
 		texPos.y -= charSize.y * 1.4;
 		
+		text = 0.0;
 		drawString = int[STRING_LENGTH](_B,_COLN, 0,0,0,0,0,0);
-		color += DrawString(texPos, charSize, 2, texcoord);
+		text += DrawString(texPos, charSize, 2, texcoord);
 		texPos.x += charSize.x * 5.0;
-		color += DrawFloat(val.b, texPos, charSize, 4, texcoord);
+		text += DrawFloat(val.b, texPos, charSize, 4, texcoord);
+		color += text * vec3(0.0, 0.8, 1.0)* sqrt(clamp(abs(val.b), 0.2, 1.0));
 		
 		gl_FragColor.rgb = color;
 	#endif

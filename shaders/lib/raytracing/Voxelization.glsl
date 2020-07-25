@@ -2,7 +2,7 @@
 #define VOXELIZATION_GLSL
 
 
-#include "/block.properties"
+#include "/BlockMappings.glsl"
 
 #define VOXELIZATION_DISTANCE 1 // [0 1 2]
 

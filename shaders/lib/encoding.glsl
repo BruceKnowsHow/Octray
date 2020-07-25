@@ -41,7 +41,6 @@ float EncodeTBNU(mat3 tbnMatrix) {
 	normal.x += 1.0; // Range [0.0, 2.0]
 	normal.xy = round(normal.xy * 1024.0); // Range vec2([0.0, 2048.0], [0.0, 1024.0])
 	normal.y = min(normal.y, 1023.0); // Range [0.0, 1024.0)
-	// normal.y = mod(normal.y, 1024.0); // Range [0.0, 1024.0)
 	
 	uvec3 enc;
 	enc.xy = uvec2(normal.xy);
@@ -54,7 +53,6 @@ float EncodeTBNU(mat3 tbnMatrix) {
 	angle += 1.0;
 	angle = round(angle * 1024.0);
 	angle = min(angle, 2047.0);
-	// angle = mod(angle, 2048.0);
 	
 	enc.z = uint(angle) << 21;
 	
@@ -97,8 +95,6 @@ float EncodeNormalU(vec3 normal) {
 	normal.xy = vec2(atan(normal.x, normal.z), acos(normal.y)) / PI; // Range vec2([-1.0, 1.0], [0.0, 1.0])
 	normal.x  = normal.x + 1.0; // Range [0.0, 2.0]
 	normal.xy = round(normal.xy * 1024.0); // Range vec2([0.0, 2048.0], [0.0, 1024.0])
-//	normal.y = min(normal.y, 1023.0); // Range [0.0, 1024.0)
-//	normal.y = mod(normal.y, 1024.0); // Range [0.0, 1024.0)
 	
 	uvec2 enc = uvec2(normal.xy);
 	enc.x =  enc.x & 2047; // Wrap around the value 2048
@@ -148,48 +144,5 @@ vec4 unpack4x8(float e) {
 	uvec4 u = uvec4(floatBitsToUint(e)) >> uvec4(0, 8, 16, 24);
 	return vec4(u % 256) / 255.0;
 }
-
-
-
-struct Mask {
-	bool isWater;
-	bool isVoxelized;
-	bool isTranslucent;
-	bool isEntity;
-};
-
-/*
-float EncodeMaterialIDs(vec4 flags) {
-	uvec4 u = uvec4(round(clamp(flags, 0.0, 1.0))) << uvec4(0, 1, 2, 3);
-	return float(u.r + u.g + u.b + u.a) / 16.0;
-}
-
-vec4 DecodeMaterialIDs(float e) {
-	uvec4 u = e * 16.0;
-	return floor(mod(flags, 2.0));
-}
-
-float GetMaterialMask(float mask, float materialID) {
-	return float(abs(materialID - mask) < 0.1);
-}
-
-Mask CalculateMasks(float materialIDs) {
-	Mask mask;
-	
-	mask.materialIDs = materialIDs;
-	mask.matIDs      = materialIDs;
-	
-	DecodeMaterialIDs(mask.matIDs, mask.bits);
-	
-	mask.translucent = GetMaterialMask(2, mask.matIDs);
-	mask.emissive    = GetMaterialMask(3, mask.matIDs);
-	mask.hand        = GetMaterialMask(5, mask.matIDs);
-	
-	mask.transparent = mask.bits.x;
-	mask.water       = mask.bits.y;
-	
-	return mask;
-}
-*/
 
 #endif

@@ -56,12 +56,11 @@ void main() {
 	position.xyz = Deform(position.xyz);
 	
 	discardflag = 0.0;
-#if UNHANDLED_BLOCKS >= 2
-	discardflag += float(!isVoxelized(blockID));
-#endif
-	discardflag += float(blockID == 0);
+	#if UNHANDLED_BLOCKS >= 2
+		// discardflag += float(!isVoxelized(blockID));
+	#endif
+	// discardflag += float(isEntity(blockID));
 	discardflag += float(OutOfVoxelBounds(mix(WorldToVoxelSpace(wPosition - tbnMatrix[2]), vec3(1), vec3(0,1,0))));
-
 	if (discardflag > 0.0) { gl_Position = vec4(-1.0); return; }
 	
 	
@@ -96,7 +95,7 @@ flat in int   blockID;
 
 #include "../../lib/debug.glsl"
 #include "../../lib/encoding.glsl"
-#include "../../block.properties"
+#include "/BlockMappings.glsl"
 
 /* DRAWBUFFERS:01 */
 #if (defined DEBUG) && (DEBUG_PROGRAM == ShaderStage)

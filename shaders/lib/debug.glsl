@@ -7,15 +7,7 @@
 #define DEBUG_BRIGHTNESS 1.0 // [1/65536.0 1/32768.0 1/16384.0 1/8192.0 1/4096.0 1/2048.0 1/1024.0 1/512.0 1/256.0 1/128.0 1/64.0 1/32.0 1/16.0 1/8.0 1/4.0 1/2.0 1.0 2.0 4.0 8.0 16.0 32.0 64.0 128.0 256.0 512.0 1024.0 2048.0 4096.0 8192.0 16384.0 32768.0 65536.0]
 #define DRAW_DEBUG_VALUE
 
-// #if false && (ShaderStage < 0) && (defined vsh)
-	// out vec3 vDebug;
-	// #define Debug vDebug
-// #elif false && (ShaderStage < 0) && (defined fsh)
-	// in vec3 vDebug;
-	// vec3 Debug = vDebug;
-// #else
-	vec3 Debug = vec3(0.0);
-// #endif
+vec3 Debug = vec3(0.0);
 
 // Write the direct variable onto the screen
 void show( bool x) { Debug = vec3(float(x)); }

@@ -46,7 +46,7 @@ const bool depthtex0MipmapEnabled = true;
 #include "../../lib/debug.glsl"
 #include "../../lib/utility.glsl"
 #include "../../lib/encoding.glsl"
-#include "../../lib/settings/buffers.glsl"
+#include "../../lib/buffers.glsl"
 #include "../../lib/Random.glsl"
 #include "../../lib/PBR.glsl"
 #include "../../lib/sky.glsl"
@@ -119,22 +119,6 @@ bool ConstructTransparentRays(inout RayStruct curr, SurfaceStruct surface) {
 	curr.vPos -= surface.tbn[2] * exp2(-12);
 	
 	through.info = PackRayInfo(GetRayDepth(curr.info) + 1, GetRayType(curr.info));
-	
-	// if (!isLeavesType(surface.blockID) && !isGlassType(surface.blockID) ) return false;
-	
-	/*
-	vec3 plane;
-	vec3 pos = StepThroughVoxel(through.vPos, through.wDir, plane);
-	
-	mat3 tbn = GenerateTBN(plane);
-	
-	vec2 coord = ((fract(pos) * 2.0 ) * mat2x3(tbn) - vec3(1)*mat2x3(tbn)) * 0.5 + 0.5;
-	vec2 tCoord = surface.cornerTexCoord + coord.xy * surface.spriteSize / atlasSize;
-	ivec2 iCoord = ivec2(tCoord * atlasSize);
-	vec4 albedo = texelFetch(VOXEL_ALBEDO_TEX, iCoord, 0);
-	
-	through.absorb *= (1 - albedo.a);
-	*/
 	
 	through.absorb *= (1 - surface.albedo.a);
 	curr.absorb *= surface.albedo.a;

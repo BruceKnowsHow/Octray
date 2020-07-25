@@ -4,8 +4,6 @@
 #define PI 3.14159
 #define TIME 0.0
 
-#define textureRaw(samplr, coord) texelFetch(samplr, ivec2((coord) * viewSize), 0)
-
 // http://www.neilmendoza.com/glsl-rotation-about-an-arbitrary-axis/
 mat3 rotate(vec3 axis, float angle) {
     axis = normalize(axis);
