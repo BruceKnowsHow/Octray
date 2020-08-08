@@ -19,9 +19,4 @@ As of writing, Octray should be compatible with:
 - Nvidia, AMD and Intel hardware
 - Every version of Minecraft from 1.8 through 1.16
 
-#### AMD / Intel fix for Minecraft 1.15 and 1.16
-Due to a current bug in Minecraft/Optifine 1.15 & 1.16, AMD and Intel users must do the following to disable geometry shaders, which are not functioning:
-1. Unzip the shaderpack. It does not need to be zipped to be loaded by Minecraft.
-2. Navigate to `shaders/world0/` and delete the file named "shadow.gsh"
-4. If you plan to play in the Nether or the End, do the same in `shaders/world-1/` and `shaders/world1/`
-5. In the Octray shader settings menu, set the option `Debug->Secret Stuff->Geometry Shader: Disabled`
+Always make sure you are using the most recent version of [Optifine](https://optifine.net/downloads).
