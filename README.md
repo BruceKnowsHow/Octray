@@ -16,6 +16,7 @@ If you have never installed a shaderpack before, there are lots of videos on You
 
 ## Compatibility
 As of writing, Octray should be compatible with:
+- Windows
 - Nvidia, AMD and Intel hardware
 - Every version of Minecraft from 1.8 through 1.16
 
