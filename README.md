@@ -1,5 +1,5 @@
 ## Octray
-![Image](https://cdn.discordapp.com/attachments/254127148913262593/730198439706755153/wide.jpg)
+![Image1](https://cdn.discordapp.com/attachments/254127148913262593/730198439706755153/wide.jpg)
 
 Octray is an experimental raytraced shaderpack for Minecraft/Optifine.
 
@@ -21,3 +21,7 @@ As of writing, Octray should be compatible with:
 - Every version of Minecraft from 1.8 through 1.16
 
 Always make sure you are using the most recent version of [Optifine](https://optifine.net/downloads).
+
+## Screenshots
+
+![Image2](https://cdn.discordapp.com/attachments/565026552207900702/765664535414964274/Octray.png)
