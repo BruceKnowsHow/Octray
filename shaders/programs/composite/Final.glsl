@@ -30,7 +30,7 @@ const bool colortex5MipmapEnabled = true;
 #include "../../lib/debug.glsl"
 #include "../../lib/exit.glsl"
 #include "../../lib/Tonemap.glsl"
-#include "../../lib/Utility.glsl"
+#include "../../lib/utility.glsl"
 
 
 /***********************************************************************/
