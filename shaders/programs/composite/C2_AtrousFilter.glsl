@@ -44,7 +44,7 @@ vec2 texcoord = gl_FragCoord.xy / viewSize;
 #include "../../lib/debug.glsl"
 #include "../../lib/utility.glsl"
 #include "../../lib/encoding.glsl"
-#include "../../lib/random.glsl"
+#include "../../lib/Random.glsl"
 
 
 vec2 Reproject() {
